@@ -1,3 +1,4 @@
+
 import Image from "next/image";
 import { PlusCircle } from "lucide-react";
 import { mockStories, getCurrentUser } from "@/lib/data";
@@ -19,42 +20,44 @@ export function StoriesCarousel() {
       <CarouselContent>
         <CarouselItem className="basis-1/4 md:basis-1/5 lg:basis-1/6">
             <div className="p-1">
-              <Card className="relative aspect-[9/16] w-full overflow-hidden rounded-lg group flex flex-col items-center justify-center bg-muted/50 hover:bg-muted/80 transition-colors">
-                <Link href="/home/stories/create" className="flex flex-col items-center justify-center gap-2 text-center w-full h-full">
-                    <div className="w-16 h-16 rounded-full bg-background flex items-center justify-center border-2 border-dashed">
-                        <PlusCircle className="h-8 w-8 text-muted-foreground" />
+              <Link href="/home/stories/create" className="block">
+                <Card className="relative aspect-[9/16] w-full overflow-hidden rounded-lg group flex flex-col items-center justify-end bg-background hover:bg-muted/80 transition-colors">
+                    <Image src={currentUser.avatarUrl} alt="Add story" fill className="object-cover"/>
+                    <div className="absolute inset-0 bg-black/30"></div>
+                    <div className="relative z-10 p-2 w-full text-center bg-background/80 backdrop-blur-sm">
+                         <p className="text-xs font-semibold text-foreground truncate">إضافة قصة</p>
                     </div>
-                    <p className="text-xs font-semibold text-muted-foreground mt-1">إضافة قصة</p>
-                </Link>
-                <div className="absolute bottom-2 right-2 flex items-center gap-2">
-                  <Avatar className="h-8 w-8 border-2 border-primary">
-                    <AvatarImage src={currentUser.avatarUrl} />
-                    <AvatarFallback>{currentUser.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                </div>
-              </Card>
+                     <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center border-2 border-background">
+                            <PlusCircle className="h-6 w-6 text-primary-foreground" />
+                        </div>
+                    </div>
+                </Card>
+              </Link>
             </div>
           </CarouselItem>
         {mockStories.map((story) => (
           <CarouselItem key={story.id} className="basis-1/4 md:basis-1/5 lg:basis-1/6">
             <div className="p-1">
-              <Card className="relative aspect-[9/16] w-full overflow-hidden rounded-lg group">
-                <Image
-                  src={story.imageUrl}
-                  alt={story.user.name}
-                  fill
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  data-ai-hint="story photo"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                <div className="absolute bottom-2 right-2 flex items-center gap-2">
-                  <Avatar className="h-8 w-8 border-2 border-primary">
-                    <AvatarImage src={story.user.avatarUrl} />
-                    <AvatarFallback>{story.user.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <p className="text-xs font-semibold text-white hidden md:block">{story.user.name}</p>
-                </div>
-              </Card>
+              <Link href={`/home/stories/${story.id}`}>
+                <Card className="relative aspect-[9/16] w-full overflow-hidden rounded-lg group">
+                  <Image
+                    src={story.imageUrl}
+                    alt={story.user.name}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    data-ai-hint="story photo"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                  <div className="absolute bottom-2 right-2 flex items-center gap-2">
+                    <Avatar className="h-8 w-8 border-2 border-primary">
+                      <AvatarImage src={story.user.avatarUrl} />
+                      <AvatarFallback>{story.user.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  </div>
+                   <p className="absolute bottom-3 left-3 text-xs font-semibold text-white drop-shadow-md">{story.user.name}</p>
+                </Card>
+              </Link>
             </div>
           </CarouselItem>
         ))}
@@ -62,3 +65,4 @@ export function StoriesCarousel() {
     </Carousel>
   );
 }
+
