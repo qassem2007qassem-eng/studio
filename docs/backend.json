@@ -1,0 +1,515 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Syrian Student Hub application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "username": {
+          "type": "string",
+          "description": "The user's username."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "profilePictureUrl": {
+          "type": "string",
+          "description": "URL of the user's profile picture.",
+          "format": "uri"
+        },
+        "coverPhotoUrl": {
+          "type": "string",
+          "description": "URL of the user's cover photo.",
+          "format": "uri"
+        },
+        "bio": {
+          "type": "string",
+          "description": "A short biography of the user."
+        },
+        "privacySettings": {
+          "type": "string",
+          "description": "User's privacy settings (e.g., public, private)."
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email"
+      ]
+    },
+    "Post": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Post",
+      "type": "object",
+      "description": "Represents a post shared by a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Post entity."
+        },
+        "authorId": {
+          "type": "string",
+          "description": "Reference to the User who created the post. (Relationship: User 1:N Post)"
+        },
+        "content": {
+          "type": "string",
+          "description": "The text content of the post."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the image attached to the post (if any).",
+          "format": "uri"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the post was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the post was last updated.",
+          "format": "date-time"
+        },
+        "likeIds": {
+          "type": "array",
+          "description": "References to Likes. (Relationship: Post 1:N Like)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "authorId",
+        "content",
+        "createdAt"
+      ]
+    },
+    "Comment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Comment",
+      "type": "object",
+      "description": "Represents a comment on a post.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Comment entity."
+        },
+        "postId": {
+          "type": "string",
+          "description": "Reference to the Post this comment belongs to. (Relationship: Post 1:N Comment)"
+        },
+        "authorId": {
+          "type": "string",
+          "description": "Reference to the User who wrote the comment. (Relationship: User 1:N Comment)"
+        },
+        "content": {
+          "type": "string",
+          "description": "The text content of the comment."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the comment was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the comment was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "postId",
+        "authorId",
+        "content",
+        "createdAt"
+      ]
+    },
+    "Follow": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Follow",
+      "type": "object",
+      "description": "Represents a follower-followee relationship between users.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Follow entity."
+        },
+        "followerId": {
+          "type": "string",
+          "description": "Reference to the User who is following. (Relationship: User 1:N Follow (as follower))"
+        },
+        "followeeId": {
+          "type": "string",
+          "description": "Reference to the User being followed. (Relationship: User 1:N Follow (as followee))"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the follow relationship started.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "followerId",
+        "followeeId",
+        "createdAt"
+      ]
+    },
+    "Notification": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Notification",
+      "type": "object",
+      "description": "Represents a notification for a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Notification entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who receives the notification. (Relationship: User 1:N Notification)"
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of notification (e.g., like, comment, follow)."
+        },
+        "content": {
+          "type": "string",
+          "description": "Content of the notification message."
+        },
+        "relatedEntityId": {
+          "type": "string",
+          "description": "Reference to the related entity (e.g., Post, Comment)."
+        },
+        "isRead": {
+          "type": "boolean",
+          "description": "Indicates whether the notification has been read."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the notification was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "type",
+        "content",
+        "isRead",
+        "createdAt"
+      ]
+    },
+    "Report": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Report",
+      "type": "object",
+      "description": "Represents a report of inappropriate content.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Report entity."
+        },
+        "reporterId": {
+          "type": "string",
+          "description": "Reference to the User who submitted the report. (Relationship: User 1:N Report (as reporter))"
+        },
+        "reportedEntityId": {
+          "type": "string",
+          "description": "Reference to the entity being reported (e.g., Post, User)."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Reason for the report."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the report was created.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the report (e.g., pending, resolved)."
+        }
+      },
+      "required": [
+        "id",
+        "reporterId",
+        "reportedEntityId",
+        "reason",
+        "createdAt",
+        "status"
+      ]
+    },
+    "Story": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Story",
+      "type": "object",
+      "description": "Represents a temporary user story.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Story entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who created the story. (Relationship: User 1:N Story)"
+        },
+        "contentUrl": {
+          "type": "string",
+          "description": "URL of the story content (image or video).",
+          "format": "uri"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the story was created.",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the story expires.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "contentUrl",
+        "createdAt",
+        "expiresAt"
+      ]
+    },
+    "Like": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Like",
+      "type": "object",
+      "description": "Represents a like on a post.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Like entity."
+        },
+        "postId": {
+          "type": "string",
+          "description": "Reference to the Post that was liked. (Relationship: Post 1:N Like)"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who liked the post. (Relationship: User 1:N Like)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the like was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "postId",
+        "userId",
+        "createdAt"
+      ]
+    },
+    "Summary": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Summary",
+      "type": "object",
+      "description": "Represents a summary of an educational resource generated by AI.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Summary entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who requested the summary. (Relationship: User 1:N Summary)"
+        },
+        "url": {
+          "type": "string",
+          "description": "URL of the educational resource.",
+          "format": "uri"
+        },
+        "content": {
+          "type": "string",
+          "description": "The summarized content of the resource."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when the summary was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "url",
+        "content",
+        "createdAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. Path-based ownership enforced via the `userId` parameter.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/posts/{postId}",
+        "definition": {
+          "entityName": "Post",
+          "schema": {
+            "$ref": "#/backend/entities/Post"
+          },
+          "description": "Stores all posts, with `authorId` referencing the user who created the post. Supports listing all posts.",
+          "params": [
+            {
+              "name": "postId",
+              "description": "The unique identifier of the post."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/posts/{postId}/comments/{commentId}",
+        "definition": {
+          "entityName": "Comment",
+          "schema": {
+            "$ref": "#/backend/entities/Comment"
+          },
+          "description": "Stores comments for a specific post. Path enforces that comments belong to a post.",
+          "params": [
+            {
+              "name": "postId",
+              "description": "The unique identifier of the post."
+            },
+            {
+              "name": "commentId",
+              "description": "The unique identifier of the comment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/follows/{followId}",
+        "definition": {
+          "entityName": "Follow",
+          "schema": {
+            "$ref": "#/backend/entities/Follow"
+          },
+          "description": "Stores follow relationships between users.",
+          "params": [
+            {
+              "name": "followId",
+              "description": "The unique identifier of the follow relationship."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/notifications/{notificationId}",
+        "definition": {
+          "entityName": "Notification",
+          "schema": {
+            "$ref": "#/backend/entities/Notification"
+          },
+          "description": "Stores notifications for a specific user. Path enforces that notifications belong to a user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "notificationId",
+              "description": "The unique identifier of the notification."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/reports/{reportId}",
+        "definition": {
+          "entityName": "Report",
+          "schema": {
+            "$ref": "#/backend/entities/Report"
+          },
+          "description": "Stores reports of inappropriate content.",
+          "params": [
+            {
+              "name": "reportId",
+              "description": "The unique identifier of the report."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/stories/{storyId}",
+        "definition": {
+          "entityName": "Story",
+          "schema": {
+            "$ref": "#/backend/entities/Story"
+          },
+          "description": "Stores stories for a specific user. Path enforces that stories belong to a user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "storyId",
+              "description": "The unique identifier of the story."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/summaries/{summaryId}",
+        "definition": {
+          "entityName": "Summary",
+          "schema": {
+            "$ref": "#/backend/entities/Summary"
+          },
+          "description": "Stores summaries generated by a specific user. Path enforces that summaries belong to a user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            },
+            {
+              "name": "summaryId",
+              "description": "The unique identifier of the summary."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support the Syrian Student Hub application, emphasizing secure data access and efficient querying. It leverages path-based ownership for user-specific data and membership maps for collaborative entities to ensure authorization independence and simplify security rules. The design explicitly avoids hierarchical authorization dependencies by denormalizing authorization-relevant data, enabling atomic operations and improving debuggability. Segregation of data into collections with homogeneous security postures simplifies security rules and enhances maintainability.\n\nSpecifically:\n\n*   **Users Collection:** Stores user profiles with standard profile information.\n*   **Posts Collection:** Stores all the posts, with the authorId and denormalized data such as `likeIds` for efficient data retrieval.  It supports listing all posts. The `authorId` links the post to a specific user.\n*   **Comments Subcollection:** Located under each post, this stores comments related to that specific post.  It ensures that comments are always associated with their parent post and facilitates easy retrieval of comments for a given post.\n*   **Follows Collection:** Manages follower-followee relationships.\n*   **Notifications Subcollection:** Located under each user, stores notifications related to that specific user.\n*   **Reports Collection:** Stores reports of inappropriate content.\n*   **Stories Subcollection:** Located under each user, this stores temporary stories created by the user.\n*   **Summaries Subcollection:** Located under each user, this stores summaries generated by users.\n\nThis structure achieves Authorization Independence by denormalizing the `authorId` for posts and `userId` for comments and summaries. This eliminates the need for `get()` calls in security rules to verify ownership. It supports QAPs by segregating data into collections with consistent security requirements (e.g., all documents in `/users/{userId}/notifications` are owned by `{userId}`).  The use of path-based ownership (`/users/{userId}/posts/{postId}`) and existence-based global roles simplifies rule creation and maintenance."
+  }
+}
