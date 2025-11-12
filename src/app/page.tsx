@@ -1,40 +1,96 @@
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Logo } from '@/components/logo';
 
-export default function LoginPage() {
+"use client";
+
+import { useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+
+const onboardingSteps = [
+  {
+    image: "https://picsum.photos/seed/1/600/400",
+    imageHint: "community connection",
+    title: "مرحباً بك في مجمع الطلاب السوري",
+    description:
+      "منصة اجتماعية وتعليمية مخصصة للطلاب السوريين للتواصل، مشاركة المعرفة، والحصول على الدعم.",
+  },
+  {
+    image: "https://picsum.photos/seed/2/600/400",
+    imageHint: "ai features",
+    title: "ميزات ذكاء اصطناعي مبتكرة",
+    description:
+      "استفد من أدوات الذكاء الاصطناعي لتلخيص الموارد التعليمية، والحصول على المساعدة في دراستك، والمزيد.",
+  },
+];
+
+export default function OnboardingPage() {
+  const [step, setStep] = useState(0);
+  const isLastStep = step === onboardingSteps.length - 1;
+
+  const handleNext = () => {
+    if (!isLastStep) {
+      setStep(step + 1);
+    }
+  };
+
+  const handlePrev = () => {
+    if (step > 0) {
+      setStep(step - 1);
+    }
+  };
+
+  const currentStep = onboardingSteps[step];
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-      <Card className="mx-auto w-full max-w-sm">
-        <CardHeader className="text-center">
-          <Logo className="mx-auto mb-4" />
-          <CardTitle className="text-2xl font-headline">تسجيل الدخول</CardTitle>
-          <CardDescription>أدخل اسم المستخدم وكلمة المرور للوصول إلى حسابك</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="username">اسم المستخدم</Label>
-              <Input id="username" type="text" placeholder="ahmad.k" required />
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">كلمة المرور</Label>
-              </div>
-              <Input id="password" type="password" required />
-            </div>
-            <Button type="submit" className="w-full" asChild>
-              <Link href="/home">تسجيل الدخول</Link>
-            </Button>
+      <Card className="mx-auto w-full max-w-md overflow-hidden">
+        <div className="relative h-64 w-full">
+          <Image
+            src={currentStep.image}
+            alt={currentStep.title}
+            data-ai-hint={currentStep.imageHint}
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+        <CardContent className="p-8 text-center">
+          <h2 className="mb-2 text-2xl font-bold font-headline">
+            {currentStep.title}
+          </h2>
+          <p className="text-muted-foreground">{currentStep.description}</p>
+
+          <div className="mt-8 flex items-center justify-center space-x-2">
+            {onboardingSteps.map((_, index) => (
+              <div
+                key={index}
+                className={`h-2 w-2 rounded-full ${
+                  step === index ? "bg-primary" : "bg-muted"
+                }`}
+              />
+            ))}
           </div>
-          <div className="mt-4 text-center text-sm">
-            ليس لديك حساب؟{' '}
-            <Link href="/register" className="underline">
-              إنشاء حساب
-            </Link>
+
+          <div className="mt-8 grid grid-cols-2 gap-4">
+            {step > 0 ? (
+                <Button variant="outline" onClick={handlePrev}>
+                    <ArrowLeft className="me-2" />
+                    السابق
+                </Button>
+            ) : <div />}
+
+            {isLastStep ? (
+              <Button asChild className="col-start-2">
+                <Link href="/login">ابدأ الآن</Link>
+              </Button>
+            ) : (
+              <Button onClick={handleNext} className={step === 0 ? "col-span-2" : ""}>
+                التالي
+                <ArrowRight className="ms-2" />
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
