@@ -148,8 +148,8 @@ service cloud.firestore {
       allow get: if false;
       allow list: if false;
       allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
+      update: if false;
+      delete: if false;
     }
 
     /**
@@ -184,3 +184,5 @@ service cloud.firestore {
   }
 }
 // Updated to trigger Firestore database creation.
+
+    
