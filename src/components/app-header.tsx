@@ -1,14 +1,14 @@
 
+'use client';
+
 import Link from 'next/link';
 import {
   Bell,
   Home,
-  MessageSquareText,
-  Search,
-  Users,
   LogOut,
   User,
   Settings,
+  Search,
 } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -24,14 +24,23 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Logo } from '@/components/logo';
 import { ThemeToggle } from './theme-toggle';
+import { useUser, useAuth } from '@/firebase';
+import { Skeleton } from './ui/skeleton';
+import { useRouter } from 'next/navigation';
 
 export function AppHeader() {
-  const user = {
-      name: "آلاء محمد",
-      username: "alaa.m",
-      avatarUrl: "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxzdHVkZW50JTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYyOTA4ODYzfDA&ixlib=rb-4.1.0&q=80&w=1080",
-  };
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
   const mockNotifications: any[] = [];
+
+  const handleLogout = () => {
+    auth.signOut();
+    router.push('/login');
+  };
+  
+  const username = user?.email?.split('@')[0];
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -78,66 +87,57 @@ export function AppHeader() {
             <PopoverContent className="w-80" align="end">
               <div className="space-y-4">
                 <h4 className="font-medium leading-none">الإشعارات</h4>
-                <div className="space-y-2">
-                  {mockNotifications.map((notif) => (
-                    <div key={notif.id} className="grid grid-cols-[auto_1fr_auto] items-start gap-3">
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={notif.user.avatarUrl} alt={notif.user.name} />
-                        <AvatarFallback>{notif.user.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="text-sm">
-                        <p>
-                          <strong>{notif.user.name}</strong>{' '}
-                          {notif.action === 'liked' ? 'أعجب بمنشورك:' : notif.action === 'commented' ? 'علّق على منشورك:' : 'بدأ بمتابعتك.'}
-                          {notif.postContent && <span className="text-muted-foreground"> "{notif.postContent}"</span>}
-                        </p>
-                      </div>
-                       <div className="text-xs text-muted-foreground">{notif.createdAt}</div>
-                    </div>
-                  ))}
+                <div className="text-sm text-center text-muted-foreground p-4">
+                  لا توجد إشعارات جديدة بعد.
                 </div>
               </div>
             </PopoverContent>
           </Popover>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={user.avatarUrl} alt={user.name} />
-                  <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user.name}</p>
-                  <p className="text-xs leading-none text-muted-foreground">@{user.username}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href={`/home/profile/${user.username}`}>
-                  <User className="ms-2 h-4 w-4" />
-                  <span>الملف الشخصي</span>
-                </Link>
-              </DropdownMenuItem>
-               <DropdownMenuItem asChild>
-                <Link href="/home/settings">
-                  <Settings className="ms-2 h-4 w-4" />
-                  <span>الإعدادات</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/login">
-                  <LogOut className="ms-2 h-4 w-4" />
-                  <span>تسجيل الخروج</span>
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {isUserLoading ? (
+            <Skeleton className="h-9 w-9 rounded-full" />
+          ) : user ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
+                    <AvatarFallback>{user.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user.displayName}</p>
+                    <p className="text-xs leading-none text-muted-foreground">@{username}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href={`/home/profile/${username}`}>
+                    <User className="ms-2 h-4 w-4" />
+                    <span>الملف الشخصي</span>
+                  </Link>
+                </DropdownMenuItem>
+                 <DropdownMenuItem asChild>
+                  <Link href="/home/settings">
+                    <Settings className="ms-2 h-4 w-4" />
+                    <span>الإعدادات</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
+                    <LogOut className="ms-2 h-4 w-4" />
+                    <span>تسجيل الخروج</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+             <Button asChild>
+                <Link href="/login">تسجيل الدخول</Link>
+             </Button>
+          )}
         </div>
       </div>
     </header>

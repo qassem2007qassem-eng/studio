@@ -1,16 +1,22 @@
 
+'use client';
+
 import Image from "next/image";
 import { PlusCircle } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Link from "next/link";
+import { useUser } from "@/firebase";
 
 export function StoriesCarousel() {
-    const currentUser = {
-        avatarUrl: "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxzdHVkZW50JTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYyOTA4ODYzfDA&ixlib=rb-4.1.0&q=80&w=1080",
-    };
+    const { user } = useUser();
     const mockStories: any[] = [];
+  
+  if (!user) {
+    return null;
+  }
+
   return (
     <Carousel
       opts={{
@@ -24,7 +30,11 @@ export function StoriesCarousel() {
             <div className="p-1">
               <Link href="/home/stories/create" className="block">
                 <Card className="relative aspect-[9/16] w-full overflow-hidden rounded-lg group flex flex-col items-center justify-end bg-background hover:bg-muted/80 transition-colors">
-                    <Image src={currentUser.avatarUrl} alt="Add story" fill className="object-cover"/>
+                    {user.photoURL ? (
+                      <Image src={user.photoURL} alt="Add story" fill className="object-cover"/>
+                    ) : (
+                      <div className="w-full h-full bg-muted"></div>
+                    )}
                     <div className="absolute inset-0 bg-black/30"></div>
                     <div className="relative z-10 p-2 w-full text-center bg-background/80 backdrop-blur-sm">
                          <p className="text-xs font-semibold text-foreground truncate">إضافة قصة</p>
