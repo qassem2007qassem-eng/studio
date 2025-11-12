@@ -38,10 +38,11 @@ export function AppHeader() {
         <Logo />
         <div className="hidden flex-1 justify-center md:flex">
           <div className="relative w-full max-w-md">
+            <Link href="/home/search" className="absolute inset-0 z-10" tabIndex={-1}>
+              <span className="sr-only">انتقل إلى البحث</span>
+            </Link>
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="بحث..." className="ps-10" asChild>
-                <Link href="/home/search" />
-            </Input>
+            <Input placeholder="بحث..." className="ps-10" />
           </div>
         </div>
         <div className="flex flex-1 items-center justify-end gap-2">
