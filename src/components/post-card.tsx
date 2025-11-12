@@ -4,7 +4,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, MessageCircle, MoreHorizontal, Share2, Flag } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 import { type Post, type Comment } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,34 +27,46 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
+import { useFirebase, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
+import { arrayRemove, arrayUnion, collection, doc, increment, orderBy, query } from "firebase/firestore";
 
 
 interface PostCardProps {
   post: Post;
 }
 
-const CommentsDialog = ({ post, comments, setComments }: { post: Post, comments: Comment[], setComments: React.Dispatch<React.SetStateAction<Comment[]>> }) => {
+const CommentsDialog = ({ post }: { post: Post }) => {
+    const { firestore } = useFirebase();
+    const { user } = useUser();
     const [newComment, setNewComment] = useState("");
-    const currentUser = {
-        name: "آلاء محمد",
-        username: "alaa.m",
-        avatarUrl: "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxzdHVkZW50JTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYyOTA4ODYzfDA&ixlib=rb-4.1.0&q=80&w=1080",
-    };
+
+    const commentsCollection = useMemoFirebase(() => {
+        if (!post) return null;
+        return collection(firestore, 'posts', post.id, 'comments');
+    }, [firestore, post]);
+
+    const commentsQuery = useMemoFirebase(() => {
+        if (!commentsCollection) return null;
+        return query(commentsCollection, orderBy('createdAt', 'desc'));
+    }, [commentsCollection]);
+
+    const { data: comments, isLoading } = useCollection<Comment>(commentsQuery);
 
     const handleAddComment = (e: React.FormEvent) => {
         e.preventDefault();
-        if (newComment.trim()) {
-            const addedComment: Comment = {
-                id: `comment-${Date.now()}`,
+        if (newComment.trim() && user && commentsCollection) {
+            const commentData = {
                 author: {
-                    name: currentUser.name,
-                    username: currentUser.username,
-                    avatarUrl: currentUser.avatarUrl,
+                    name: user.displayName || 'مستخدم',
+                    username: user.email?.split('@')[0] || 'user',
+                    avatarUrl: user.photoURL || `https://i.pravatar.cc/150?u=${user.uid}`,
                 },
                 content: newComment.trim(),
-                createdAt: "الآن",
+                createdAt: new Date().toISOString(),
+                authorId: user.uid,
+                postId: post.id,
             };
-            setComments(prev => [addedComment, ...prev]);
+            addDocumentNonBlocking(commentsCollection, commentData);
             setNewComment("");
         }
     };
@@ -67,7 +79,8 @@ const CommentsDialog = ({ post, comments, setComments }: { post: Post, comments:
       <div className="space-y-4 py-4">
         <ScrollArea className="h-72 w-full pr-4">
             <div className="space-y-4">
-                {comments.length > 0 ? comments.map(comment => (
+                {isLoading && <p>تحميل التعليقات...</p>}
+                {comments && comments.length > 0 ? comments.map(comment => (
                     <div key={comment.id} className="flex items-start gap-3">
                         <Avatar className="h-8 w-8">
                             <AvatarImage src={comment.author.avatarUrl} alt={comment.author.name} />
@@ -80,11 +93,11 @@ const CommentsDialog = ({ post, comments, setComments }: { post: Post, comments:
                                 </Link>
                                 <p className="text-sm">{comment.content}</p>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">{comment.createdAt}</p>
+                            <p className="text-xs text-muted-foreground mt-1">{new Date(comment.createdAt).toLocaleString()}</p>
                         </div>
                     </div>
                 )) : (
-                    <p className="text-center text-muted-foreground">لا توجد تعليقات بعد. كن أول من يعلق!</p>
+                    !isLoading && <p className="text-center text-muted-foreground">لا توجد تعليقات بعد. كن أول من يعلق!</p>
                 )}
             </div>
         </ScrollArea>
@@ -94,8 +107,9 @@ const CommentsDialog = ({ post, comments, setComments }: { post: Post, comments:
                 placeholder="اكتب تعليقاً..."
                 value={newComment}
                 onChange={e => setNewComment(e.target.value)}
+                disabled={!user}
             />
-            <Button type="submit">نشر</Button>
+            <Button type="submit" disabled={!user || !newComment.trim()}>نشر</Button>
         </form>
       </div>
     </DialogContent>
@@ -103,14 +117,33 @@ const CommentsDialog = ({ post, comments, setComments }: { post: Post, comments:
 }
 
 export function PostCard({ post }: PostCardProps) {
-  const [isLiked, setIsLiked] = useState(post.isLiked);
-  const [likeCount, setLikeCount] = useState(post.likeCount);
-  const [comments, setComments] = useState(post.comments);
+  const { user } = useUser();
+  const { firestore } = useFirebase();
+  
+  const [isLiked, setIsLiked] = useState(user && post.likeIds?.includes(user.uid));
+  const [likeCount, setLikeCount] = useState(post.likeIds?.length || 0);
+
+  useEffect(() => {
+    setIsLiked(user && post.likeIds?.includes(user.uid));
+    setLikeCount(post.likeIds?.length || 0);
+  }, [post, user]);
+
+  const postRef = useMemo(() => doc(firestore, 'posts', post.id), [firestore, post.id]);
 
   const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
+    if (!user || !postRef) return;
+
+    const newIsLiked = !isLiked;
+    setIsLiked(newIsLiked);
+    setLikeCount(prev => newIsLiked ? prev + 1 : prev - 1);
+
+    updateDocumentNonBlocking(postRef, {
+        likeIds: newIsLiked ? arrayUnion(user.uid) : arrayRemove(user.uid)
+    });
   };
+
+  const commentsCount = useCollection(useMemoFirebase(() => collection(firestore, 'posts', post.id, 'comments'), [firestore, post.id]));
+  const commentCount = commentsCount.data?.length ?? 0;
 
   return (
     <Dialog>
@@ -125,7 +158,7 @@ export function PostCard({ post }: PostCardProps) {
                 <Link href={`/home/profile/${post.author.username}`} className="font-semibold hover:underline">
                 {post.author.name}
                 </Link>
-                <p className="text-xs text-muted-foreground">@{post.author.username} · {post.createdAt}</p>
+                <p className="text-xs text-muted-foreground">@{post.author.username} · {post.createdAt ? new Date(post.createdAt).toLocaleString() : ''}</p>
             </div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -159,11 +192,11 @@ export function PostCard({ post }: PostCardProps) {
         <CardFooter className="flex flex-col items-start gap-4 p-4 pt-0">
             <div className="flex w-full items-center justify-between text-sm text-muted-foreground">
             <p>{likeCount} إعجاب</p>
-            <p>{comments.length} تعليق</p>
+            <p>{commentCount} تعليق</p>
             </div>
             <Separator />
             <div className="grid w-full grid-cols-3 gap-2">
-            <Button variant="ghost" className="gap-2" onClick={handleLike}>
+            <Button variant="ghost" className="gap-2" onClick={handleLike} disabled={!user}>
                 <Heart className={cn("h-5 w-5", isLiked && "fill-red-500 text-red-500")} />
                 <span>أعجبني</span>
             </Button>
@@ -180,7 +213,7 @@ export function PostCard({ post }: PostCardProps) {
             </div>
         </CardFooter>
         </Card>
-        <CommentsDialog post={post} comments={comments} setComments={setComments} />
+        <CommentsDialog post={post} />
     </Dialog>
   );
 }

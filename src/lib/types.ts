@@ -1,44 +1,56 @@
+
 export interface User {
   id: string;
-  name: string;
   username: string;
-  avatarUrl: string;
-  coverUrl: string;
-  bio: string;
-  postCount: number;
-  followerCount: number;
-  followingCount: number;
+  email: string;
+  profilePictureUrl?: string;
+  coverPhotoUrl?: string;
+  bio?: string;
+  privacySettings?: string;
 }
 
 export interface Comment {
   id: string;
-  author: Pick<User, 'name' | 'username' | 'avatarUrl'>;
+  authorId: string;
+  postId: string;
+  author: {
+      name: string;
+      username: string;
+      avatarUrl?: string;
+  };
   content: string;
   createdAt: string;
 }
 
 export interface Post {
   id: string;
-  author: Pick<User, 'name' | 'username' | 'avatarUrl'>;
+  authorId: string;
+  author: {
+      name: string;
+      username: string;
+      avatarUrl?: string;
+  };
   content: string;
   imageUrl?: string;
   createdAt: string;
-  likeCount: number;
-  commentCount: number;
-  shareCount: number;
-  comments: Comment[];
-  isLiked: boolean;
+  likeIds?: string[];
 }
 
 export interface Story {
   id: string;
-  user: Pick<User, 'name' | 'avatarUrl'>;
-  imageUrl: string;
+  userId: string;
+  user: {
+      name: string;
+      avatarUrl?: string;
+  };
+  contentUrl: string;
+  createdAt: string;
+  expiresAt: string;
 }
 
 export interface AppNotification {
   id: string;
-  user: Pick<User, 'name' | 'avatarUrl'>;
+  user: Pick<User, 'username' | 'profilePictureUrl'> & { name: string };
   action: 'liked' | 'commented' | 'followed';
   postContent?: string;
   createdAt: string;
