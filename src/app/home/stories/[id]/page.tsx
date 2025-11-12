@@ -14,8 +14,9 @@ const STORY_DURATION = 10000; // 10 seconds per story
 
 export default function StoryPage({ params }: { params: { id: string } }) {
     const router = useRouter();
+    const { id } = params;
 
-    const initialStoryIndex = useMemo(() => mockStories.findIndex(s => s.id === params.id), [params.id]);
+    const initialStoryIndex = useMemo(() => mockStories.findIndex(s => s.id === id), [id]);
 
     const [currentStoryIndex, setCurrentStoryIndex] = useState(initialStoryIndex);
     const [progress, setProgress] = useState(0);
@@ -71,8 +72,10 @@ export default function StoryPage({ params }: { params: { id: string } }) {
         // This can be a loading state or a not found component
         // For now, redirecting to home if the initial story is not found.
         useEffect(() => {
-            router.push('/home');
-        }, [router]);
+            if(initialStoryIndex === -1) {
+                router.push('/home');
+            }
+        }, [router, initialStoryIndex]);
         return null;
     }
 
@@ -144,3 +147,5 @@ export default function StoryPage({ params }: { params: { id: string } }) {
         </div>
     );
 }
+
+    
