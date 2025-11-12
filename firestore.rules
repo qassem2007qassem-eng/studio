@@ -3,11 +3,11 @@
  *
  * Core Philosophy:
  * This ruleset enforces a strict user-ownership model for personal data (profiles, notifications, stories, summaries)
- * while allowing public read access to posts. Write access to posts is restricted to the owner of the post.
+ * while allowing public read access to posts. Write access to posts is restricted to the owner of the post, except for likes.
  *
  * Data Structure:
  * - /users/{userId}: Stores user profiles, accessible only by the user themselves.
- * - /posts/{postId}: Stores posts, publicly readable, but writable only by the author.
+ * - /posts/{postId}: Stores posts, publicly readable, but writable only by the author. Liking is allowed by any authenticated user.
  * - /posts/{postId}/comments/{commentId}: Stores comments, writable only by the author and requires the authorId in the request to match the user id.
  * - /follows/{followId}: Stores follow relationships. Anyone can create a follow relationship.
  * - /users/{userId}/notifications/{notificationId}: Stores notifications, accessible only by the user.
@@ -17,7 +17,8 @@
  *
  * Key Security Decisions:
  * - Users can only read and write their own profile data.
- * - Posts are publicly readable, but only the author can modify or delete them.
+ * - Posts are publicly readable, but only the author can modify or delete them, except for likes.
+ * - Any authenticated user can like or unlike a post.
  * - User listing is not allowed.
  *
  * Denormalization for Authorization:
@@ -75,15 +76,19 @@ service cloud.firestore {
      * @path /posts/{postId}
      * @allow (get, list) Anyone can read all posts.
      * @allow (create) Signed-in user creating a post with a matching authorId.
-     * @allow (update, delete) Signed-in user who is the author of the post.
+     * @allow (update) Signed-in user who is the author of the post OR any signed-in user liking/unliking the post.
+     * @allow (delete) Signed-in user who is the author of the post.
      * @deny (create) User not signed in, or authorId does not match.
-     * @deny (update, delete) User not signed in, or not the author of the post.
-     * @principle Allows public read, enforces owner-only writes based on the authorId field.
+     * @deny (update, delete) User not signed in, or not the author of the post for most fields.
+     * @principle Allows public read, enforces owner-only writes based on the authorId field, but allows likes from anyone.
      */
     match /posts/{postId} {
       allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.authorId == request.auth.uid;
+      allow update: if isSignedIn() && (
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeIds'])) ||
+        (resource.data.authorId == request.auth.uid)
+      );
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
     }
 
