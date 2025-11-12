@@ -9,6 +9,7 @@ import {
   LogOut,
   User,
   PlusCircle,
+  Settings,
 } from 'lucide-react';
 
 import { getCurrentUser, mockNotifications } from '@/lib/data';
