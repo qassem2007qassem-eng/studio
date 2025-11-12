@@ -8,10 +8,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import { useState } from 'react';
-import { useAuth, initiateEmailSignIn } from '@/firebase';
+import { useAuth } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -21,31 +22,30 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    // Convert username to email format for Firebase Auth
     const email = `${username.toLowerCase()}@syrianstudenthub.com`;
     
-    // We are not awaiting this, the onAuthStateChanged listener will redirect
-    initiateEmailSignIn(auth, email, password);
-
-    // Temp logic to handle UI until listener is robust
-    setTimeout(() => {
-        // This is a crude check. In a real app, you'd rely on onAuthStateChanged
-        // to redirect or show an error based on the actual auth result.
-        if (auth.currentUser) {
-            router.push('/home');
-        } else {
-            setIsLoading(false);
-            toast({
-                title: "خطأ في تسجيل الدخول",
-                description: "اسم المستخدم أو كلمة المرور غير صحيحة.",
-                variant: "destructive",
-            });
-        }
-    }, 2000); // Simulate network delay
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged will handle the redirect to /home
+      // but we can push here for faster navigation
+      router.push('/home');
+    } catch (error: any) {
+      console.error(error);
+      let description = "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.";
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+          description = 'اسم المستخدم أو كلمة المرور غير صحيحة.';
+      }
+      toast({
+          title: "خطأ في تسجيل الدخول",
+          description: description,
+          variant: "destructive",
+      });
+      setIsLoading(false);
+    }
   };
 
   return (
