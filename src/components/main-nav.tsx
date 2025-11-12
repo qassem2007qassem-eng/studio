@@ -18,9 +18,9 @@ export function MainNav() {
   return (
     <Card className="p-4">
       <nav className="flex flex-col gap-2">
-        {navLinks.map((link) => (
+        {navLinks.map((link, index) => (
           <Link
-            key={link.href}
+            key={link.href === "#" ? link.label : link.href}
             href={link.href}
             className={cn(
               buttonVariants({ variant: "ghost" }),
