@@ -27,6 +27,10 @@ export default function ProfilePage({ params }: { params: { username: string } }
   useEffect(() => {
     const fetchUser = async () => {
       setIsLoading(true);
+      if (!username) {
+        setIsLoading(false);
+        return;
+      };
       const usersRef = collection(firestore, 'users');
       const q = query(usersRef, where("username", "==", username), limit(1));
       const querySnapshot = await getDocs(q);
