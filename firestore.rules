@@ -1,3 +1,4 @@
+
 /**
  * @fileoverview Firestore Security Rules for the Syrian Student Hub application.
  *
@@ -9,10 +10,10 @@
  * - /users/{userId}: Stores user profiles, accessible only by the user themselves.
  * - /posts/{postId}: Stores posts, publicly readable, but writable only by the author. Liking is allowed by any authenticated user.
  * - /posts/{postId}/comments/{commentId}: Stores comments, writable only by the author and requires the authorId in the request to match the user id.
+ * - /stories/{storyId}: Stores stories. Publicly readable, but only the author can create, update, or delete.
  * - /follows/{followId}: Stores follow relationships. Anyone can create a follow relationship.
  * - /users/{userId}/notifications/{notificationId}: Stores notifications, accessible only by the user.
  * - /reports/{reportId}: Stores reports of inappropriate content.
- * - /users/{userId}/stories/{storyId}: Stores stories, accessible only by the user.
  * - /users/{userId}/summaries/{summaryId}: Stores summaries, accessible only by the user.
  *
  * Key Security Decisions:
@@ -153,18 +154,18 @@ service cloud.firestore {
     }
 
     /**
-     * @description Enforces user-ownership for stories.
-     * @path /users/{userId}/stories/{storyId}
-     * @allow (get, list, create, update, delete) Signed-in user whose UID matches the userId in the path.
-     * @deny (get, list, create, update, delete) User not signed in, or UID does not match userId in the path.
-     * @principle Enforces document ownership for all operations.
+     * @description Stories are publicly readable. Write access is restricted to the story's author.
+     * Stories expire after 24 hours (enforced by client-side query).
+     * @path /stories/{storyId}
+     * @allow (get, list) Anyone can read stories.
+     * @allow (create) Signed-in user creating a story with their own userId.
+     * @allow (update, delete) Signed-in user who is the author of the story.
      */
-    match /users/{userId}/stories/{storyId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+    match /stories/{storyId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     /**

@@ -7,11 +7,28 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Link from "next/link";
-import { useUser } from "@/firebase";
+import { useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy, where, Timestamp } from "firebase/firestore";
+import { useFirebase } from "@/firebase/provider";
+import { type Story } from "@/lib/types";
 
 export function StoriesCarousel() {
     const { user } = useUser();
-    const mockStories: any[] = [];
+    const { firestore } = useFirebase();
+
+    const storiesCollection = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, 'stories');
+    }, [firestore]);
+
+    const storiesQuery = useMemoFirebase(() => {
+        if (!storiesCollection) return null;
+        const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
+        return query(storiesCollection, where("createdAt", ">=", twentyFourHoursAgo), orderBy("createdAt", "desc"));
+    }, [storiesCollection]);
+
+    const { data: stories, isLoading } = useCollection<Story>(storiesQuery);
+
   
   if (!user) {
     return null;
@@ -48,13 +65,13 @@ export function StoriesCarousel() {
               </Link>
             </div>
           </CarouselItem>
-        {mockStories.map((story) => (
+        {stories?.map((story) => (
           <CarouselItem key={story.id} className="basis-1/4 md:basis-1/5 lg:basis-1/6">
             <div className="p-1">
               <Link href={`/home/stories/${story.id}`}>
                 <Card className="relative aspect-[9/16] w-full overflow-hidden rounded-lg group">
                   <Image
-                    src={story.imageUrl}
+                    src={story.contentUrl}
                     alt={story.user.name}
                     fill
                     className="object-cover transition-transform duration-300 group-hover:scale-105"

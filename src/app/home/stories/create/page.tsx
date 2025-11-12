@@ -9,6 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { ImageIcon, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
+import { useFirebase, useUser, addDocumentNonBlocking } from "@/firebase";
+import { collection, serverTimestamp } from "firebase/firestore";
+import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
+import { useRouter } from "next/navigation";
 
 export default function CreateStoryPage() {
     const [storyImage, setStoryImage] = useState<string | null>(null);
@@ -16,6 +20,10 @@ export default function CreateStoryPage() {
     const [isLoading, setIsLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
+    const router = useRouter();
+
+    const { firestore } = useFirebase();
+    const { user } = useUser();
 
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -29,33 +37,64 @@ export default function CreateStoryPage() {
     };
 
     const handleCreateStory = async () => {
-        if (!storyImage) {
+        if (!storyImage || !user) {
             toast({
                 title: "خطأ",
-                description: "الرجاء اختيار صورة لقصتك أولاً.",
+                description: "الرجاء اختيار صورة وتسجيل الدخول أولاً.",
                 variant: "destructive",
             });
             return;
         }
 
         setIsLoading(true);
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setIsLoading(false);
-        toast({
-            title: "نجاح",
-            description: "تم إنشاء قصتك بنجاح!",
-        });
-        // Here you would typically redirect or clear the form
-        setStoryImage(null);
-        setStoryText("");
+        try {
+            const storage = getStorage();
+            const storyRef = ref(storage, `stories/${user.uid}/${Date.now()}`);
+            const snapshot = await uploadString(storyRef, storyImage, 'data_url');
+            const downloadURL = await getDownloadURL(snapshot.ref);
+
+            const storiesCollection = collection(firestore, 'stories');
+            
+            const storyData = {
+                userId: user.uid,
+                user: {
+                    name: user.displayName || 'مستخدم',
+                    username: user.email?.split('@')[0] || 'user',
+                    avatarUrl: user.photoURL || '',
+                },
+                contentUrl: downloadURL,
+                caption: storyText,
+                createdAt: serverTimestamp(),
+                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+                viewers: [],
+            };
+            
+            await addDocumentNonBlocking(storiesCollection, storyData);
+            
+            toast({
+                title: "نجاح",
+                description: "تم نشر قصتك بنجاح!",
+            });
+            
+            router.push('/home');
+
+        } catch (error) {
+            console.error("Error creating story: ", error);
+            toast({
+                title: "خطأ",
+                description: "لم نتمكن من نشر قصتك. حاول مرة أخرى.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
         <Card className="max-w-md mx-auto">
             <CardHeader>
                 <CardTitle>إنشاء قصة جديدة</CardTitle>
-                <CardDescription>ستختفي قصتك بعد 24 ساعة. اكتب نصاً فوق الصورة.</CardDescription>
+                <CardDescription>ستختفي قصتك بعد 24 ساعة. يمكنك إضافة نص فوق الصورة.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div 
@@ -97,4 +136,3 @@ export default function CreateStoryPage() {
         </Card>
     );
 }
-

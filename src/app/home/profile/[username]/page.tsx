@@ -16,9 +16,11 @@ import { collection, query, where, getFirestore, getDocs, limit } from "firebase
 import { useEffect, useState } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useParams } from 'next/navigation';
 
-export default function ProfilePage({ params }: { params: { username: string } }) {
-  const { username } = params;
+export default function ProfilePage() {
+  const params = useParams();
+  const username = typeof params.username === 'string' ? params.username : '';
   const { user: currentUser } = useUser();
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);

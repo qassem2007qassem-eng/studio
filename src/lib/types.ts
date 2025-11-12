@@ -1,4 +1,6 @@
 
+import { Timestamp } from "firebase/firestore";
+
 export interface User {
   id: string;
   username: string;
@@ -47,11 +49,14 @@ export interface Story {
   userId: string;
   user: {
       name: string;
+      username: string;
       avatarUrl?: string;
   };
   contentUrl: string;
-  createdAt: string;
-  expiresAt: string;
+  caption?: string;
+  createdAt: Timestamp;
+  expiresAt: Timestamp;
+  viewers: string[];
 }
 
 export interface AppNotification {

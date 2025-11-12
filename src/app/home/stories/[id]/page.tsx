@@ -3,109 +3,130 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useDoc, useCollection, useMemoFirebase, useFirebase } from "@/firebase";
+import { doc, collection, query, where, Timestamp, orderBy } from "firebase/firestore";
+import { type Story, type User } from "@/lib/types";
 
 const STORY_DURATION = 10000; // 10 seconds per story
 
-export default function StoryPage({ params }: { params: { id: string } }) {
+export default function StoryPage() {
     const router = useRouter();
-    const { id } = params;
-    const mockStories: any[] = [];
+    const params = useParams();
+    const storyId = typeof params.id === 'string' ? params.id : '';
 
-    const initialStoryIndex = useMemo(() => mockStories.findIndex(s => s.id === id), [id, mockStories]);
+    const { firestore } = useFirebase();
+
+    // Fetch all active stories to create a playlist
+    const storiesCollection = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, 'stories');
+    }, [firestore]);
+
+    const storiesQuery = useMemoFirebase(() => {
+        if (!storiesCollection) return null;
+        const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
+        return query(storiesCollection, where("createdAt", ">=", twentyFourHoursAgo), orderBy("createdAt", "desc"));
+    }, [storiesCollection]);
+
+    const { data: storyPlaylist, isLoading: playlistLoading } = useCollection<Story>(storiesQuery);
+
+    const initialStoryIndex = useMemo(() => {
+        if (!storyPlaylist) return -1;
+        return storyPlaylist.findIndex(s => s.id === storyId)
+    }, [storyId, storyPlaylist]);
 
     const [currentStoryIndex, setCurrentStoryIndex] = useState(initialStoryIndex);
     const [progress, setProgress] = useState(0);
 
+     // Set the initial index once the playlist is loaded
+    useEffect(() => {
+        if (initialStoryIndex !== -1 && currentStoryIndex === -1) {
+            setCurrentStoryIndex(initialStoryIndex);
+        }
+    }, [initialStoryIndex, currentStoryIndex]);
+
     // This effect handles the timer and auto-advancing stories
     useEffect(() => {
-        // If the story can't be found, go back home
-        if (initialStoryIndex === -1) {
-            router.push('/home');
+        if (currentStoryIndex === -1 || !storyPlaylist) {
+            if(!playlistLoading) router.push('/home');
             return;
         }
         
-        // Reset progress when story changes
         setProgress(0);
         
-        // Set up an interval to update the progress bar every 100ms
         const progressInterval = setInterval(() => {
             setProgress(prev => prev + (100 / (STORY_DURATION / 100)));
         }, 100);
 
-        // Set up a timeout to switch to the next story
         const storyTimeout = setTimeout(() => {
             handleNextStory();
         }, STORY_DURATION);
 
-        // Cleanup function to clear intervals and timeouts
         return () => {
             clearInterval(progressInterval);
             clearTimeout(storyTimeout);
         };
-    }, [currentStoryIndex, initialStoryIndex, router]); // Rerun effect when story index changes
+    }, [currentStoryIndex, storyPlaylist, playlistLoading, router]);
 
     const handleNextStory = () => {
-        if (currentStoryIndex < mockStories.length - 1) {
-            setCurrentStoryIndex(prev => prev + 1);
+        if (storyPlaylist && currentStoryIndex < storyPlaylist.length - 1) {
+            const nextStoryId = storyPlaylist[currentStoryIndex + 1].id;
+            router.push(`/home/stories/${nextStoryId}`);
         } else {
             router.push('/home'); // Go home after the last story
         }
     };
 
     const handlePrevStory = () => {
-        if (currentStoryIndex > 0) {
-            setCurrentStoryIndex(prev => prev - 1);
+        if (storyPlaylist && currentStoryIndex > 0) {
+            const prevStoryId = storyPlaylist[currentStoryIndex - 1].id;
+            router.push(`/home/stories/${prevStoryId}`);
         }
     };
-
-    // Get the current story object, or null if not found
-    const story = currentStoryIndex !== -1 ? mockStories[currentStoryIndex] : null;
-    const user = story?.user;
     
-    // If story or user don't exist (e.g., invalid ID), show a not found message
+    if (playlistLoading || currentStoryIndex === -1) {
+        return <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center text-white">Loading...</div>;
+    }
+    
+    const story = storyPlaylist?.[currentStoryIndex];
+    const user = story?.user;
+
     if (!story || !user) {
-        // This can be a loading state or a not found component
-        // For now, redirecting to home if the initial story is not found.
-        useEffect(() => {
-            if(initialStoryIndex === -1) {
-                router.push('/home');
-            }
-        }, [router, initialStoryIndex]);
+        // This can happen briefly while redirecting
         return null;
     }
 
+    const storyDate = story.createdAt as unknown as Timestamp;
+
+
     return (
         <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={(e) => {
-             // Close if clicking on the background
             if (e.target === e.currentTarget) {
                 router.push('/home');
             }
         }}>
-            {/* Previous story button */}
             <Button variant="ghost" size="icon" className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 z-20" onClick={handlePrevStory} disabled={currentStoryIndex === 0}>
                 <ChevronLeft className="h-8 w-8" />
             </Button>
             
             <div className="relative aspect-[9/16] w-full max-w-md h-full max-h-[90vh] rounded-2xl overflow-hidden bg-muted">
                 <Image
-                    src={story.imageUrl}
+                    src={story.contentUrl}
                     alt={`Story by ${story.user.name}`}
                     fill
                     className="object-cover"
                     priority
-                    key={story.id} // Add key to force re-render on image change
+                    key={story.id}
                 />
 
-                {/* Header */}
                 <div className="absolute top-0 left-0 right-0 p-4 z-10 bg-gradient-to-b from-black/50 to-transparent">
-                    {/* Progress Bars */}
                     <div className="flex gap-1 mb-2">
-                        {mockStories.map((s, index) => (
+                        {storyPlaylist.map((s, index) => (
                             <div key={s.id} className="flex-1 h-1 bg-white/30 rounded-full overflow-hidden">
                                 <div 
                                     className="h-1 bg-white"
@@ -128,7 +149,7 @@ export default function StoryPage({ params }: { params: { id: string } }) {
                             <Link href={`/home/profile/${user.username}`} className="font-bold text-white text-sm hover:underline">
                                 {story.user.name}
                             </Link>
-                            <p className="text-xs text-gray-300">منذ 4 ساعات</p>
+                            <p className="text-xs text-gray-300">{storyDate?.toDate().toLocaleString()}</p>
                          </div>
                        </div>
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" asChild>
@@ -140,7 +161,6 @@ export default function StoryPage({ params }: { params: { id: string } }) {
                 </div>
             </div>
 
-            {/* Next story button */}
              <Button variant="ghost" size="icon" className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 z-20" onClick={handleNextStory}>
                 <ChevronRight className="h-8 w-8" />
             </Button>
