@@ -3,7 +3,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const findImage = (id: string) => PlaceHolderImages.find(img => img.id === id)?.imageUrl || '';
 
-const mockUsers: User[] = [
+export const mockUsers: User[] = [
   {
     id: 'user-1',
     name: 'آلاء محمد',
@@ -51,22 +51,22 @@ const mockUsers: User[] = [
 ];
 
 export const mockStories: Story[] = [
-  { id: 'story-1', user: mockUsers[0], imageUrl: findImage('story-1') },
-  { id: 'story-2', user: mockUsers[1], imageUrl: findImage('story-2') },
-  { id: 'story-3', user: mockUsers[2], imageUrl: findImage('story-3') },
-  { id: 'story-4', user: mockUsers[3], imageUrl: findImage('story-4') },
-  { id: 'story-5', user: mockUsers[0], imageUrl: findImage('story-1') },
+  { id: 'story-1', user: { name: mockUsers[0].name, avatarUrl: mockUsers[0].avatarUrl }, imageUrl: findImage('story-1') },
+  { id: 'story-2', user: { name: mockUsers[1].name, avatarUrl: mockUsers[1].avatarUrl }, imageUrl: findImage('story-2') },
+  { id: 'story-3', user: { name: mockUsers[2].name, avatarUrl: mockUsers[2].avatarUrl }, imageUrl: findImage('story-3') },
+  { id: 'story-4', user: { name: mockUsers[3].name, avatarUrl: mockUsers[3].avatarUrl }, imageUrl: findImage('story-4') },
+  { id: 'story-5', user: { name: mockUsers[0].name, avatarUrl: mockUsers[0].avatarUrl }, imageUrl: findImage('story-1') },
 ];
 
 const mockComments: Comment[] = [
-  { id: 'comment-1', author: mockUsers[1], content: 'مقال رائع ومفيد جداً، شكراً لمشاركته!', createdAt: 'منذ ساعتين' },
-  { id: 'comment-2', author: mockUsers[2], content: 'بالتوفيق في دراستك!', createdAt: 'منذ ٣ ساعات' },
+  { id: 'comment-1', author: { name: mockUsers[1].name, username: mockUsers[1].username, avatarUrl: mockUsers[1].avatarUrl }, content: 'مقال رائع ومفيد جداً، شكراً لمشاركته!', createdAt: 'منذ ساعتين' },
+  { id: 'comment-2', author: { name: mockUsers[2].name, username: mockUsers[2].username, avatarUrl: mockUsers[2].avatarUrl }, content: 'بالتوفيق في دراستك!', createdAt: 'منذ ٣ ساعات' },
 ];
 
 export const mockPosts: Post[] = [
   {
     id: 'post-1',
-    author: mockUsers[0],
+    author: { name: mockUsers[0].name, username: mockUsers[0].username, avatarUrl: mockUsers[0].avatarUrl },
     content: 'قمت اليوم بتلخيص الفصل الخامس من مادة الشبكات العصبونية. من يرغب بالملخص يمكنه التواصل معي. #هندسة_معلوماتية #ذكاء_اصطناعي',
     imageUrl: findImage('post-image-1'),
     createdAt: 'منذ ساعة',
@@ -78,7 +78,7 @@ export const mockPosts: Post[] = [
   },
   {
     id: 'post-2',
-    author: mockUsers[1],
+    author: { name: mockUsers[1].name, username: mockUsers[1].username, avatarUrl: mockUsers[1].avatarUrl },
     content: 'نصيحة لطلاب السنة الأولى في كلية الطب: لا تؤجلوا دراسة علم التشريح أبداً! ابدأوا من اليوم الأول. #طب_بشري #نصائح_دراسية',
     createdAt: 'منذ ٥ ساعات',
     likeCount: 230,
@@ -89,7 +89,7 @@ export const mockPosts: Post[] = [
   },
     {
     id: 'post-3',
-    author: mockUsers[2],
+    author: { name: mockUsers[2].name, username: mockUsers[2].username, avatarUrl: mockUsers[2].avatarUrl },
     content: 'لوحتي الجديدة "أمل". استلهمتها من شروق الشمس فوق قاسيون. ما رأيكم؟ #فن #رسم',
     imageUrl: findImage('post-image-2'),
     createdAt: 'بالأمس',
@@ -101,7 +101,7 @@ export const mockPosts: Post[] = [
   },
   {
     id: 'post-4',
-    author: mockUsers[0],
+    author: { name: mockUsers[0].name, username: mockUsers[0].username, avatarUrl: mockUsers[0].avatarUrl },
     content: 'أبحث عن شريك لمشروع تخرج في مجال معالجة اللغات الطبيعية (NLP). يفضل أن يكون لديه خبرة في Python و TensorFlow. #مشروع_تخرج #NLP',
     createdAt: 'منذ يومين',
     likeCount: 95,
@@ -113,10 +113,10 @@ export const mockPosts: Post[] = [
 ];
 
 export const mockNotifications: AppNotification[] = [
-    { id: 'notif-1', user: mockUsers[1], action: 'liked', postContent: 'قمت اليوم بتلخيص الفصل الخامس...', createdAt: 'منذ ٥ دقائق'},
-    { id: 'notif-2', user: mockUsers[2], action: 'commented', postContent: 'قمت اليوم بتلخيص الفصل الخامس...', createdAt: 'منذ ١٠ دقائق'},
-    { id: 'notif-3', user: mockUsers[3], action: 'followed', createdAt: 'منذ ساعة'},
-    { id: 'notif-4', user: mockUsers[0], action: 'liked', postContent: 'نصيحة لطلاب السنة الأولى...', createdAt: 'منذ ٣ ساعات'},
+    { id: 'notif-1', user: { name: mockUsers[1].name, avatarUrl: mockUsers[1].avatarUrl }, action: 'liked', postContent: 'قمت اليوم بتلخيص الفصل الخامس...', createdAt: 'منذ ٥ دقائق'},
+    { id: 'notif-2', user: { name: mockUsers[2].name, avatarUrl: mockUsers[2].avatarUrl }, action: 'commented', postContent: 'قمت اليوم بتلخيص الفصل الخامس...', createdAt: 'منذ ١٠ دقائق'},
+    { id: 'notif-3', user: { name: mockUsers[3].name, avatarUrl: mockUsers[3].avatarUrl }, action: 'followed', createdAt: 'منذ ساعة'},
+    { id: 'notif-4', user: { name: mockUsers[0].name, avatarUrl: mockUsers[0].avatarUrl }, action: 'liked', postContent: 'نصيحة لطلاب السنة الأولى...', createdAt: 'منذ ٣ ساعات'},
 ];
 
 export const mockUsersToFollow = [mockUsers[2], mockUsers[3]];
