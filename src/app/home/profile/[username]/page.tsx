@@ -17,6 +17,7 @@ import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProfilePage({ params }: { params: { username: string } }) {
+  const { username } = params;
   const { user: currentUser } = useUser();
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,7 +28,7 @@ export default function ProfilePage({ params }: { params: { username: string } }
     const fetchUser = async () => {
       setIsLoading(true);
       const usersRef = collection(firestore, 'users');
-      const q = query(usersRef, where("username", "==", params.username), limit(1));
+      const q = query(usersRef, where("username", "==", username), limit(1));
       const querySnapshot = await getDocs(q);
       
       if (!querySnapshot.empty) {
@@ -40,8 +41,10 @@ export default function ProfilePage({ params }: { params: { username: string } }
       setIsLoading(false);
     };
 
-    fetchUser();
-  }, [params.username, firestore]);
+    if (username) {
+        fetchUser();
+    }
+  }, [username, firestore]);
 
   const postsCollection = useMemoFirebase(() => {
     if (!profileUser) return null;
@@ -168,5 +171,3 @@ export default function ProfilePage({ params }: { params: { username: string } }
     </div>
   );
 }
-
-    
