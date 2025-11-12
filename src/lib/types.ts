@@ -3,10 +3,16 @@ export interface User {
   id: string;
   username: string;
   email: string;
-  profilePictureUrl?: string;
-  coverPhotoUrl?: string;
+  name: string;
+  avatarUrl: string;
+  coverUrl: string;
   bio?: string;
-  privacySettings?: string;
+  dob?: string;
+  gender?: string;
+  createdAt: string;
+  postCount?: number;
+  followerCount?: number;
+  followingCount?: number;
 }
 
 export interface Comment {
@@ -50,8 +56,10 @@ export interface Story {
 
 export interface AppNotification {
   id: string;
-  user: Pick<User, 'username' | 'profilePictureUrl'> & { name: string };
+  user: Pick<User, 'username' | 'avatarUrl'> & { name: string };
   action: 'liked' | 'commented' | 'followed';
   postContent?: string;
   createdAt: string;
 }
+
+    

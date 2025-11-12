@@ -1,11 +1,30 @@
+
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function RightSidebar() {
+    // These will be implemented later with real data
     const mockTrends: any[] = [];
     const mockUsersToFollow: any[] = [];
+
+    if (mockTrends.length === 0 && mockUsersToFollow.length === 0) {
+        return (
+            <div className="sticky top-24 space-y-6">
+                <Card>
+                     <CardHeader>
+                        <CardTitle>ميزات قادمة</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-sm text-muted-foreground">
+                            سيتم قريباً عرض الترندات والمستخدمين المقترحين للمتابعة هنا.
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
 
   return (
     <div className="sticky top-24 space-y-6">
@@ -49,3 +68,5 @@ export function RightSidebar() {
     </div>
   );
 }
+
+    

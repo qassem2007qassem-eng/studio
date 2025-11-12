@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon, Loader2 } from 'lucide-react';
+import { CalendarIcon, Loader2, UserCircle2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,8 @@ import { doc } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 
 export default function RegisterPage() {
     const [step, setStep] = useState(1);
@@ -29,7 +31,8 @@ export default function RegisterPage() {
         dob: undefined as Date | undefined,
         gender: '',
         username: '',
-        password: ''
+        password: '',
+        avatar: null as string | null
     });
 
     const auth = useAuth();
@@ -45,34 +48,54 @@ export default function RegisterPage() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                setFormData(prev => ({ ...prev, avatar: event.target?.result as string }));
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
     const handleCreateAccount = async () => {
         setIsLoading(true);
-        // Create a fake email from username for Firebase Auth
         const email = `${formData.username.toLowerCase()}@syrianstudenthub.com`;
         
         try {
             const userCredential = await createUserWithEmailAndPassword(auth, email, formData.password);
             const user = userCredential.user;
+            
+            let photoURL = `https://i.pravatar.cc/150?u=${user.uid}`;
 
-            // Update user profile
+            if (formData.avatar) {
+                const storage = getStorage();
+                const avatarRef = ref(storage, `avatars/${user.uid}`);
+                const snapshot = await uploadString(avatarRef, formData.avatar, 'data_url');
+                photoURL = await getDownloadURL(snapshot.ref);
+            }
+
             await updateProfile(user, {
                 displayName: formData.fullName,
-                // You can generate a default photoURL here
+                photoURL: photoURL
             });
             
-            // Save user data to Firestore
             const userDocRef = doc(firestore, "users", user.uid);
             const userData = {
                 id: user.uid,
-                username: formData.username,
+                username: formData.username.toLowerCase(),
                 email: user.email,
-                fullName: formData.fullName,
+                name: formData.fullName,
                 dob: formData.dob ? format(formData.dob, 'yyyy-MM-dd') : null,
                 gender: formData.gender,
                 createdAt: new Date().toISOString(),
                 bio: "",
-                profilePictureUrl: `https://i.pravatar.cc/150?u=${user.uid}`,
-                coverPhotoUrl: `https://picsum.photos/seed/${user.uid}/1080/400`,
+                avatarUrl: photoURL,
+                coverUrl: `https://picsum.photos/seed/${user.uid}/1080/400`,
+                postCount: 0,
+                followerCount: 0,
+                followingCount: 0,
             };
 
             setDocumentNonBlocking(userDocRef, userData, { merge: true });
@@ -158,13 +181,31 @@ export default function RegisterPage() {
                     </div>
                 );
             case 4:
+                 return (
+                    <div className="space-y-4 text-center">
+                        <div className="mx-auto w-32 h-32">
+                        <Avatar className="w-full h-full">
+                            <AvatarImage src={formData.avatar || undefined} />
+                            <AvatarFallback>
+                                <UserCircle2 className="w-20 h-20 text-muted-foreground" />
+                            </AvatarFallback>
+                        </Avatar>
+                        </div>
+                        
+                        <Label htmlFor="avatar-upload" className={cn(buttonVariants({variant: 'outline'}), "cursor-pointer")}>
+                            اختر صورة
+                        </Label>
+                        <Input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                    </div>
+                );
+            case 5:
                 return (
                     <div className="grid gap-2">
                         <Label htmlFor="username">اسم المستخدم</Label>
                         <Input id="username" name="username" placeholder="مثال: ahmad.k" required value={formData.username} onChange={handleChange} />
                     </div>
                 );
-            case 5:
+            case 6:
                 return (
                     <div className="grid gap-2">
                         <Label htmlFor="password">كلمة المرور</Label>
@@ -181,8 +222,9 @@ export default function RegisterPage() {
             case 1: return "ما هو اسمك الكامل؟";
             case 2: return "متى تاريخ ميلادك؟";
             case 3: return "ما هو جنسك؟";
-            case 4: return "اختر اسم مستخدم";
-            case 5: return "اختر كلمة مرور قوية";
+            case 4: return "اختر صورة ملفك الشخصي";
+            case 5: return "اختر اسم مستخدم";
+            case 6: return "اختر كلمة مرور قوية";
             default: return "إنشاء حساب جديد";
         }
     };
@@ -192,10 +234,13 @@ export default function RegisterPage() {
             case 1: return !formData.fullName;
             case 2: return !formData.dob;
             case 3: return !formData.gender;
-            case 4: return !formData.username;
+            case 4: return false; // Can skip
+            case 5: return !formData.username;
             default: return false;
         }
     }
+    
+    const isFinalStep = step === 6;
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
@@ -204,7 +249,7 @@ export default function RegisterPage() {
                     <Logo className="mx-auto mb-4" />
                     <CardTitle className="text-2xl font-headline">{getStepTitle()}</CardTitle>
                     <CardDescription>
-                        {step < 5 ? `الخطوة ${step} من 5` : 'الخطوة الأخيرة!'}
+                        {step < 6 ? `الخطوة ${step} من 6` : 'الخطوة الأخيرة!'}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -213,9 +258,13 @@ export default function RegisterPage() {
                         <div className="grid grid-cols-2 gap-4 mt-4">
                             {step > 1 && <Button variant="outline" onClick={handlePrev}>السابق</Button>}
                             
-                            {step < 5 && <Button onClick={handleNext} disabled={isNextDisabled()} className={step === 1 ? "col-span-2" : ""}>التالي</Button>}
+                            {step < 6 && (
+                                <Button onClick={handleNext} disabled={isNextDisabled()} className={cn(step === 1 ? "col-span-2" : "", step === 4 ? "col-span-2" : "")}>
+                                    {step === 4 && !formData.avatar ? "تخطى" : "التالي"}
+                                </Button>
+                            )}
                             
-                            {step === 5 && (
+                            {step === 6 && (
                                 <Button onClick={handleCreateAccount} disabled={isLoading || !formData.password} className="col-span-2">
                                      {isLoading ? <Loader2 className="animate-spin" /> : "إنشاء حساب"}
                                 </Button>
@@ -233,3 +282,5 @@ export default function RegisterPage() {
         </div>
     );
 }
+
+    
