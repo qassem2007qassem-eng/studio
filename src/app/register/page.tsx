@@ -5,38 +5,37 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 
-export default function LoginPage() {
+export default function RegisterPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
       <Card className="mx-auto w-full max-w-sm">
         <CardHeader className="text-center">
           <Logo className="mx-auto mb-4" />
-          <CardTitle className="text-2xl font-headline">تسجيل الدخول</CardTitle>
-          <CardDescription>أدخل بريدك الإلكتروني وكلمة المرور للوصول إلى حسابك</CardDescription>
+          <CardTitle className="text-2xl font-headline">إنشاء حساب جديد</CardTitle>
+          <CardDescription>أدخل معلوماتك لإنشاء حساب في بكالوريتي</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="full-name">الاسم الكامل</Label>
+              <Input id="full-name" placeholder="مثال: أحمد الصالح" required />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="email">البريد الإلكتروني</Label>
               <Input id="email" type="email" placeholder="m@example.com" required />
             </div>
             <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">كلمة المرور</Label>
-                <Link href="#" className="ms-auto inline-block text-sm underline">
-                  هل نسيت كلمة المرور؟
-                </Link>
-              </div>
+              <Label htmlFor="password">كلمة المرور</Label>
               <Input id="password" type="password" required />
             </div>
             <Button type="submit" className="w-full" asChild>
-              <Link href="/home">تسجيل الدخول</Link>
+                <Link href="/home">إنشاء حساب</Link>
             </Button>
           </div>
           <div className="mt-4 text-center text-sm">
-            ليس لديك حساب؟{' '}
-            <Link href="/register" className="underline">
-              إنشاء حساب
+            لديك حساب بالفعل؟{' '}
+            <Link href="/" className="underline">
+              تسجيل الدخول
             </Link>
           </div>
         </CardContent>

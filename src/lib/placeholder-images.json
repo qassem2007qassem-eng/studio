@@ -1,3 +1,88 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "profile-1",
+      "description": "Profile picture of a female student",
+      "imageUrl": "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxzdHVkZW50JTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYyOTA4ODYzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "student portrait"
+    },
+    {
+      "id": "profile-2",
+      "description": "Profile picture of a male student",
+      "imageUrl": "https://images.unsplash.com/photo-1752920299211-28be8c9b0121?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzdHVkZW50JTIwbGlicmFyeXxlbnwwfHx8fDE3NjI4NjE0NzR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "student library"
+    },
+    {
+      "id": "profile-3",
+      "description": "Profile picture of a person studying",
+      "imageUrl": "https://images.unsplash.com/photo-1680534240478-08c865dc608f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBzdHVkeWluZ3xlbnwwfHx8fDE3NjI5NTg3ODh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person studying"
+    },
+    {
+      "id": "profile-4",
+      "description": "Profile picture of a smiling student",
+      "imageUrl": "https://images.unsplash.com/photo-1631131428332-fa2ae83a84be?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxzbWlsaW5nJTIwc3R1ZGVudHxlbnwwfHx8fDE3NjI5NTg3ODh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "smiling student"
+    },
+    {
+      "id": "profile-5",
+      "description": "Avatar of a user",
+      "imageUrl": "https://images.unsplash.com/photo-1701615004837-40d8573b6652?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHx1c2VyJTIwYXZhdGFyfGVufDB8fHx8MTc2Mjg1NjY2OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "user avatar"
+    },
+    {
+      "id": "cover-1",
+      "description": "University campus cover photo",
+      "imageUrl": "https://images.unsplash.com/flagged/photo-1554473675-d0904f3cbf38?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHx1bml2ZXJzaXR5JTIwY2FtcHVzfGVufDB8fHx8MTc2Mjg5OTM2MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "university campus"
+    },
+    {
+      "id": "cover-2",
+      "description": "Library interior cover photo",
+      "imageUrl": "https://images.unsplash.com/photo-1627340066235-b2a57095e22d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxsaWJyYXJ5JTIwaW50ZXJpb3J8ZW58MHx8fHwxNzYyODcwNTc4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "library interior"
+    },
+    {
+      "id": "post-image-1",
+      "description": "Students collaborating on a project",
+      "imageUrl": "https://images.unsplash.com/photo-1681487097558-8856c9212cb0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxzdHVkZW50cyUyMGNvbGxhYm9yYXRpbmd8ZW58MHx8fHwxNzYyOTU2Nzk0fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "students collaborating"
+    },
+    {
+      "id": "post-image-2",
+      "description": "A stack of textbooks",
+      "imageUrl": "https://images.unsplash.com/photo-1732304722020-be33345c00c3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8dGV4dGJvb2tzJTIwc3RhY2t8ZW58MHx8fHwxNzYyOTU4Nzg4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "textbooks stack"
+    },
+    {
+      "id": "post-image-3",
+      "description": "A person writing in a notebook",
+      "imageUrl": "https://images.unsplash.com/photo-1594997652537-2e2dce4ebf28?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHx3cml0aW5nJTIwbm90ZWJvb2t8ZW58MHx8fHwxNzYyOTA5ODg1fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "writing notebook"
+    },
+    {
+      "id": "story-1",
+      "description": "A student holding a coffee cup",
+      "imageUrl": "https://images.unsplash.com/photo-1631539338594-9c5f759baf0b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8c3R1ZGVudCUyMGNvZmZlZXxlbnwwfHx8fDE3NjI5NTg3ODh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "student coffee"
+    },
+    {
+      "id": "story-2",
+      "description": "A beautiful sunset over a city",
+      "imageUrl": "https://images.unsplash.com/photo-1605798968238-629c139c4671?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxzdW5zZXQlMjBjaXR5fGVufDB8fHx8MTc2Mjg4MjY1Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "sunset city"
+    },
+    {
+      "id": "story-3",
+      "description": "A lecture hall",
+      "imageUrl": "https://images.unsplash.com/photo-1544531585-f14f463149ec?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxsZWN0dXJlJTIwaGFsbHxlbnwwfHx8fDE3NjI5MzU5Nzh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "lecture hall"
+    },
+    {
+      "id": "story-4",
+      "description": "A close-up of a laptop with code",
+      "imageUrl": "https://images.unsplash.com/photo-1628258334105-2a0b3d6efee1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8bGFwdG9wJTIwY29kZXxlbnwwfHx8fDE3NjI5MTcxNDV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "laptop code"
+    }
+  ]
 }
