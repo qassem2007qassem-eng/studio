@@ -1,14 +1,16 @@
 
 import Image from "next/image";
 import { PlusCircle } from "lucide-react";
-import { mockStories, getCurrentUser } from "@/lib/data";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Link from "next/link";
 
 export function StoriesCarousel() {
-    const currentUser = getCurrentUser();
+    const currentUser = {
+        avatarUrl: "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxzdHVkZW50JTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYyOTA4ODYzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+    };
+    const mockStories: any[] = [];
   return (
     <Carousel
       opts={{
@@ -65,4 +67,3 @@ export function StoriesCarousel() {
     </Carousel>
   );
 }
-

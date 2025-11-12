@@ -9,7 +9,6 @@ export function MainNav() {
   const navLinks = [
     { href: "/home/stories/create", label: "إنشاء قصة", icon: PlusCircle },
     { href: "/home/summarize", label: "ملخص الموارد", icon: BookText },
-    { href: "/home/settings", label: "الإعدادات", icon: Settings },
   ];
 
   return (
@@ -17,7 +16,7 @@ export function MainNav() {
       <nav className="flex flex-col gap-2">
         {navLinks.map((link) => (
           <Link
-            key={link.href}
+            key={link.label}
             href={link.href}
             className={cn(
               buttonVariants({ variant: "ghost" }),

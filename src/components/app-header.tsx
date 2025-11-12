@@ -8,11 +8,9 @@ import {
   Users,
   LogOut,
   User,
-  PlusCircle,
   Settings,
 } from 'lucide-react';
 
-import { getCurrentUser, mockNotifications } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -23,24 +21,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Separator } from '@/components/ui/separator';
 import { Logo } from '@/components/logo';
 import { ThemeToggle } from './theme-toggle';
 
 export function AppHeader() {
-  const user = getCurrentUser();
+  const user = {
+      name: "آلاء محمد",
+      username: "alaa.m",
+      avatarUrl: "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxzdHVkZW50JTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYyOTA4ODYzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+  };
+  const mockNotifications: any[] = [];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
         <div className="flex items-center gap-2">
             <Logo />
-             <div className="relative hidden md:block">
+             <Link href="/home/search" className="relative hidden md:block">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="بحث..." className="ps-10" />
-            </div>
+                <Button variant="outline" className="ps-10 w-full justify-start text-muted-foreground font-normal">بحث...</Button>
+            </Link>
         </div>
 
         <nav className="flex-1 justify-center hidden md:flex">
@@ -49,12 +50,6 @@ export function AppHeader() {
                     <Link href="/home">
                         <Home className="h-6 w-6" />
                         <span className="sr-only">الصفحة الرئيسية</span>
-                    </Link>
-                </Button>
-                <Button variant="ghost" size="icon" className="h-12 w-24 rounded-lg" asChild>
-                    <Link href="/home/friends">
-                        <Users className="h-6 w-6" />
-                        <span className="sr-only">طلبات الصداقة</span>
                     </Link>
                 </Button>
             </div>

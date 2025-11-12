@@ -8,20 +8,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getCurrentUser } from "@/lib/data";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 
 export default function SettingsPage() {
-    const currentUser = getCurrentUser();
     const { toast } = useToast();
 
-    const [name, setName] = useState(currentUser.name);
-    const [username, setUsername] = useState(currentUser.username);
-    const [bio, setBio] = useState(currentUser.bio);
-    const [avatarUrl, setAvatarUrl] = useState(currentUser.avatarUrl);
-    const [coverUrl, setCoverUrl] = useState(currentUser.coverUrl);
+    const [name, setName] = useState("آلاء محمد");
+    const [username, setUsername] = useState("alaa.m");
+    const [bio, setBio] = useState("طالبة هندسة معلوماتية في جامعة دمشق. مهتمة بتطوير الويب والذكاء الاصطناعي. #مبرمجة_المستقبل");
+    const [avatarUrl, setAvatarUrl] = useState("https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxzdHVkZW50JTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYyOTA4ODYzfDA&ixlib=rb-4.1.0&q=80&w=1080");
+    const [coverUrl, setCoverUrl] = useState("https://images.unsplash.com/flagged/photo-1554473675-d0904f3cbf38?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHx1bml2ZXJzaXR5JTIwY2FtcHVzfGVufDB8fHx8MTc2Mjg5OTM2MHww&ixlib=rb-4.1.0&q=80&w=1080");
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSaveChanges = async () => {
@@ -108,4 +106,3 @@ export default function SettingsPage() {
         </Card>
     );
 }
-

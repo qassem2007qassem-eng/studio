@@ -2,9 +2,11 @@ import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockTrends, mockUsersToFollow } from "@/lib/data";
 
 export function RightSidebar() {
+    const mockTrends: any[] = [];
+    const mockUsersToFollow: any[] = [];
+
   return (
     <div className="sticky top-24 space-y-6">
       <Card>

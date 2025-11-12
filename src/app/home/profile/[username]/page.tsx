@@ -1,7 +1,7 @@
 
+
 import Image from "next/image";
 import Link from "next/link";
-import { mockPosts, getUser, getCurrentUser } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,9 +11,18 @@ import { Settings } from "lucide-react";
 import { CreatePostForm } from "@/components/create-post-form";
 
 export default function ProfilePage({ params }: { params: { username: string } }) {
-  const user = getUser(params.username);
-  const currentUser = getCurrentUser();
-  const userPosts = mockPosts.filter(p => p.author.username === user.username);
+  const user = {
+      name: "آلاء محمد",
+      username: "alaa.m",
+      avatarUrl: "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxzdHVkZW50JTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYyOTA4ODYzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      coverUrl: "https://images.unsplash.com/flagged/photo-1554473675-d0904f3cbf38?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHx1bml2ZXJzaXR5JTIwY2FtcHVzfGVufDB8fHx8MTc2Mjg5OTM2MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      bio: "طالبة هندسة معلوماتية في جامعة دمشق. مهتمة بتطوير الويب والذكاء الاصطناعي. #مبرمجة_المستقبل",
+      followingCount: 320,
+      followerCount: 5800,
+      postCount: 125,
+  };
+  const currentUser = user;
+  const userPosts: any[] = [];
   const isCurrentUserProfile = user.username === currentUser.username;
 
   return (

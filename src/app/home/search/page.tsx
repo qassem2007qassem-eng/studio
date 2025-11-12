@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { mockPosts, mockUsersToFollow } from '@/lib/data';
 import { PostCard } from '@/components/post-card';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -14,8 +13,8 @@ import { Button } from '@/components/ui/button';
 export default function SearchPage() {
     const [searchTerm, setSearchTerm] = useState('');
 
-    const filteredPosts = mockPosts.filter(p => p.content.includes(searchTerm));
-    const filteredUsers = mockUsersToFollow.filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.username.toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredPosts: any[] = [];
+    const filteredUsers: any[] = [];
 
     return (
         <div className="space-y-6">
@@ -49,7 +48,7 @@ export default function SearchPage() {
                      {filteredUsers.length > 0 ? (
                         <Card>
                             <CardContent className="p-4 space-y-4">
-                                {filteredUsers.map((user) => (
+                                {filteredUsers.map((user: any) => (
                                     <div key={user.id} className="flex items-center gap-3">
                                     <Avatar>
                                         <AvatarImage src={user.avatarUrl} alt={user.name} />

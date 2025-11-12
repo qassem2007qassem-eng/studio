@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
-import { getCurrentUser } from "@/lib/data";
 
 
 interface PostCardProps {
@@ -36,7 +35,11 @@ interface PostCardProps {
 
 const CommentsDialog = ({ post, comments, setComments }: { post: Post, comments: Comment[], setComments: React.Dispatch<React.SetStateAction<Comment[]>> }) => {
     const [newComment, setNewComment] = useState("");
-    const currentUser = getCurrentUser();
+    const currentUser = {
+        name: "آلاء محمد",
+        username: "alaa.m",
+        avatarUrl: "https://images.unsplash.com/photo-1522529599102-193c0d76b5b6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxzdHVkZW50JTIwcG9ydHJhaXR8ZW58MHx8fHwxNzYyOTA4ODYzfDA&ixlib=rb-4.1.0&q=80&w=1080",
+    };
 
     const handleAddComment = (e: React.FormEvent) => {
         e.preventDefault();

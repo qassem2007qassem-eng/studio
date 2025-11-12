@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
-import { mockStories } from "@/lib/data";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,8 +14,9 @@ const STORY_DURATION = 10000; // 10 seconds per story
 export default function StoryPage({ params }: { params: { id: string } }) {
     const router = useRouter();
     const { id } = params;
+    const mockStories: any[] = [];
 
-    const initialStoryIndex = useMemo(() => mockStories.findIndex(s => s.id === id), [id]);
+    const initialStoryIndex = useMemo(() => mockStories.findIndex(s => s.id === id), [id, mockStories]);
 
     const [currentStoryIndex, setCurrentStoryIndex] = useState(initialStoryIndex);
     const [progress, setProgress] = useState(0);
@@ -147,5 +147,3 @@ export default function StoryPage({ params }: { params: { id: string } }) {
         </div>
     );
 }
-
-    

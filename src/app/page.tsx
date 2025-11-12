@@ -23,9 +23,6 @@ export default function LoginPage() {
             <div className="grid gap-2">
               <div className="flex items-center">
                 <Label htmlFor="password">كلمة المرور</Label>
-                <Link href="#" className="ms-auto inline-block text-sm underline">
-                  هل نسيت كلمة المرور؟
-                </Link>
               </div>
               <Input id="password" type="password" required />
             </div>

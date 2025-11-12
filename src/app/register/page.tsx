@@ -21,8 +21,8 @@ export default function RegisterPage() {
               <Input id="full-name" placeholder="مثال: أحمد الصالح" required />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">البريد الإلكتروني</Label>
-              <Input id="email" type="email" placeholder="m@example.com" required />
+              <Label htmlFor="username">اسم المستخدم</Label>
+              <Input id="username" placeholder="مثال: ahmad.k" required />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="password">كلمة المرور</Label>
