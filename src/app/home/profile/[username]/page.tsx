@@ -1,10 +1,12 @@
 import Image from "next/image";
+import Link from "next/link";
 import { mockPosts, getUser } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
+import { Settings } from "lucide-react";
 
 export default function ProfilePage({ params }: { params: { username: string } }) {
   const user = getUser(params.username);
@@ -28,7 +30,12 @@ export default function ProfilePage({ params }: { params: { username: string } }
               <AvatarImage src={user.avatarUrl} alt={user.name} />
               <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <Button variant="outline">Edit Profile</Button>
+            <Button variant="outline" asChild>
+                <Link href="/home/settings">
+                    <Settings className="h-4 w-4 me-2" />
+                    تعديل الملف الشخصي
+                </Link>
+            </Button>
           </div>
           <div className="mt-4 space-y-1">
             <h1 className="text-2xl font-bold font-headline">{user.name}</h1>

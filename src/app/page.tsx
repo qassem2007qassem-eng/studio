@@ -12,13 +12,13 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <Logo className="mx-auto mb-4" />
           <CardTitle className="text-2xl font-headline">تسجيل الدخول</CardTitle>
-          <CardDescription>أدخل بريدك الإلكتروني وكلمة المرور للوصول إلى حسابك</CardDescription>
+          <CardDescription>أدخل اسم المستخدم وكلمة المرور للوصول إلى حسابك</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">البريد الإلكتروني</Label>
-              <Input id="email" type="email" placeholder="m@example.com" required />
+              <Label htmlFor="username">اسم المستخدم</Label>
+              <Input id="username" type="text" placeholder="ahmad.k" required />
             </div>
             <div className="grid gap-2">
               <div className="flex items-center">
