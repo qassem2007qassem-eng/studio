@@ -1,18 +1,14 @@
 
 import Link from "next/link";
-import { Home, User, BookText, Settings, Search } from "lucide-react";
-import { getCurrentUser } from "@/lib/data";
+import { PlusCircle, BookText, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card } from "./ui/card";
 
 export function MainNav() {
-  const user = getCurrentUser();
   const navLinks = [
-    { href: "/home", label: "الصفحة الرئيسية", icon: Home },
-    { href: `/home/profile/${user.username}`, label: "الملف الشخصي", icon: User },
+    { href: "/home/stories/create", label: "إنشاء قصة", icon: PlusCircle },
     { href: "/home/summarize", label: "ملخص الموارد", icon: BookText },
-    { href: "/home/search", label: "بحث", icon: Search },
     { href: "/home/settings", label: "الإعدادات", icon: Settings },
   ];
 

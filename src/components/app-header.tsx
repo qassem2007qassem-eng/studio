@@ -35,21 +35,36 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
-        <Logo />
-        <div className="hidden flex-1 justify-center md:flex">
-          <div className="relative w-full max-w-md">
-            <Link href="/home/search" className="absolute inset-0 z-10" tabIndex={-1}>
-              <span className="sr-only">انتقل إلى البحث</span>
-            </Link>
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="بحث..." className="ps-10" />
-          </div>
+        <div className="flex items-center gap-2">
+            <Logo />
+             <div className="relative hidden md:block">
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="بحث..." className="ps-10" />
+            </div>
         </div>
+
+        <nav className="flex-1 justify-center hidden md:flex">
+            <div className="flex items-center gap-4">
+                 <Button variant="ghost" size="icon" className="h-12 w-24 rounded-lg" asChild>
+                    <Link href="/home">
+                        <Home className="h-6 w-6" />
+                        <span className="sr-only">الصفحة الرئيسية</span>
+                    </Link>
+                </Button>
+                <Button variant="ghost" size="icon" className="h-12 w-24 rounded-lg" asChild>
+                    <Link href="/home/friends">
+                        <Users className="h-6 w-6" />
+                        <span className="sr-only">طلبات الصداقة</span>
+                    </Link>
+                </Button>
+            </div>
+        </nav>
+        
         <div className="flex flex-1 items-center justify-end gap-2">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/home/stories/create">
-              <PlusCircle className="h-5 w-5" />
-              <span className="sr-only">إنشاء قصة</span>
+           <Button variant="ghost" size="icon" className="md:hidden" asChild>
+            <Link href="/home/search">
+              <Search className="h-5 w-5" />
+              <span className="sr-only">بحث</span>
             </Link>
           </Button>
           <ThemeToggle />
