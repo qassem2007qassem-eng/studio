@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import {
   Bell,
@@ -7,6 +8,7 @@ import {
   Users,
   LogOut,
   User,
+  PlusCircle,
 } from 'lucide-react';
 
 import { getCurrentUser, mockNotifications } from '@/lib/data';
@@ -36,18 +38,28 @@ export function AppHeader() {
         <div className="hidden flex-1 justify-center md:flex">
           <div className="relative w-full max-w-md">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="بحث..." className="ps-10" />
+            <Input placeholder="بحث..." className="ps-10" asChild>
+                <Link href="/home/search" />
+            </Input>
           </div>
         </div>
         <div className="flex flex-1 items-center justify-end gap-2">
+          <Button variant="ghost" size="icon" asChild>
+            <Link href="/home/stories/create">
+              <PlusCircle className="h-5 w-5" />
+              <span className="sr-only">إنشاء قصة</span>
+            </Link>
+          </Button>
           <ThemeToggle />
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="icon" className="relative">
                 <Bell className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
-                  {mockNotifications.length}
-                </span>
+                {mockNotifications.length > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
+                    {mockNotifications.length}
+                    </span>
+                )}
                 <span className="sr-only">Notifications</span>
               </Button>
             </PopoverTrigger>
@@ -99,10 +111,10 @@ export function AppHeader() {
                   <span>الملف الشخصي</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/home">
-                  <Home className="ms-2 h-4 w-4" />
-                  <span>الصفحة الرئيسية</span>
+               <DropdownMenuItem asChild>
+                <Link href="/home/settings">
+                  <Settings className="ms-2 h-4 w-4" />
+                  <span>الإعدادات</span>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
