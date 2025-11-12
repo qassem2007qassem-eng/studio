@@ -178,3 +178,4 @@ service cloud.firestore {
     }
   }
 }
+// Updated to trigger Firestore database creation.
