@@ -68,21 +68,12 @@ const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Da
 };
 
 const CommentsDialog = ({ post }: { post: Post }) => {
-    const { firestore } = initializeFirebase();
     const { user } = useUser();
     const [newComment, setNewComment] = useState("");
-    const [userData, setUserData] = useState<UserType | null>(null);
+    const [isPosting, setIsPosting] = useState(false);
 
-    useEffect(() => {
-        if(user && !userData) {
-            getCurrentUserProfile().then(profile => {
-                if(profile) {
-                    setUserData(profile as UserType);
-                }
-            })
-        }
-    }, [user, userData]);
 
+    const { firestore } = initializeFirebase();
     const commentsCollection = useMemoFirebase(() => {
         if (!post || !firestore) return null;
         return collection(firestore, 'posts', post.id, 'comments');
@@ -97,20 +88,23 @@ const CommentsDialog = ({ post }: { post: Post }) => {
 
     const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (newComment.trim() && user && commentsCollection && userData) {
+        const profile = await getCurrentUserProfile();
+        if (newComment.trim() && user && commentsCollection && profile) {
+             setIsPosting(true);
              const commentData = {
                 authorId: user.uid,
                 postId: post.id,
                 author: {
-                    name: userData.name,
-                    username: userData.username.toLowerCase(),
-                    avatarUrl: userData.avatarUrl,
+                    name: profile.name,
+                    username: profile.username.toLowerCase(),
+                    avatarUrl: profile.avatarUrl,
                 },
                 content: newComment.trim(),
                 createdAt: serverTimestamp(),
             };
             await addDoc(commentsCollection, commentData);
             setNewComment("");
+            setIsPosting(false);
         }
     };
 
@@ -153,9 +147,9 @@ const CommentsDialog = ({ post }: { post: Post }) => {
                 placeholder="اكتب تعليقاً..."
                 value={newComment}
                 onChange={e => setNewComment(e.target.value)}
-                disabled={!user || !userData}
+                disabled={!user || isPosting}
             />
-            <Button type="submit" disabled={!user || !newComment.trim() || !userData}>نشر</Button>
+            <Button type="submit" disabled={!user || !newComment.trim() || isPosting}>نشر</Button>
         </form>
       </div>
     </DialogContent>
@@ -296,5 +290,3 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
-
-    

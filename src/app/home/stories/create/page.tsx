@@ -20,23 +20,11 @@ import { getCurrentUserProfile } from "@/services/user-service";
 export default function CreateStoryPage() {
     const [storyImage, setStoryImage] = useState<string | null>(null);
     const [storyText, setStoryText] = useState("");
-    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { toast } = useToast();
     const router = useRouter();
-
     const { user } = useUser();
-    const [userData, setUserData] = useState<UserType | null>(null);
-
-    useEffect(() => {
-        if (user) {
-             getCurrentUserProfile().then(profile => {
-                if (profile) {
-                    setUserData(profile as UserType);
-                }
-            });
-        }
-    }, [user]);
 
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -50,8 +38,8 @@ export default function CreateStoryPage() {
     };
 
     const handleCreateStory = async () => {
-        const { firestore, storage } = initializeFirebase();
-        if (!storyImage || !user || !userData) {
+        const profile = await getCurrentUserProfile();
+        if (!storyImage || !user || !profile) {
             toast({
                 title: "خطأ",
                 description: "الرجاء اختيار صورة وتسجيل الدخول أولاً.",
@@ -60,8 +48,9 @@ export default function CreateStoryPage() {
             return;
         }
 
-        setIsLoading(true);
+        setIsSaving(true);
         try {
+            const { firestore, storage } = initializeFirebase();
             const storyRef = ref(storage, `stories/${user.uid}/${Date.now()}`);
             const snapshot = await uploadString(storyRef, storyImage, 'data_url');
             const downloadURL = await getDownloadURL(snapshot.ref);
@@ -71,9 +60,9 @@ export default function CreateStoryPage() {
             const storyData = {
                 userId: user.uid,
                 user: {
-                    name: userData.name,
-                    username: userData.username,
-                    avatarUrl: userData.avatarUrl,
+                    name: profile.name,
+                    username: profile.username,
+                    avatarUrl: profile.avatarUrl,
                 },
                 contentUrl: downloadURL,
                 caption: storyText,
@@ -99,7 +88,7 @@ export default function CreateStoryPage() {
                 variant: "destructive",
             });
         } finally {
-            setIsLoading(false);
+            setIsSaving(false);
         }
     };
 
@@ -142,8 +131,8 @@ export default function CreateStoryPage() {
                 />
             </CardContent>
             <CardFooter>
-                <Button onClick={handleCreateStory} disabled={isLoading || !storyImage}>
-                    {isLoading ? <Loader2 className="animate-spin" /> : "نشر القصة"}
+                <Button onClick={handleCreateStory} disabled={isSaving || !storyImage}>
+                    {isSaving ? <Loader2 className="animate-spin" /> : "نشر القصة"}
                 </Button>
             </CardFooter>
         </Card>

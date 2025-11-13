@@ -38,7 +38,7 @@ export function BottomNavBar() {
     { href: '/home/friends', icon: Users, label: 'الأصدقاء' },
     { href: '/home/create-post', icon: PlusCircle, label: 'إنشاء', isSpecial: true },
     { href: `/home/profile/${username}`, icon: User, label: 'حسابي', requiresAuth: true },
-    { href: '/home/settings', icon: Settings, label: 'الإعدادات', requiresAuth: true },
+    { href: '/home/settings', icon: Settings, label: 'الإعدادات' },
   ];
 
   if (isUserLoading) {
@@ -90,7 +90,7 @@ export function BottomNavBar() {
                 className={cn(
                   'flex flex-col items-center justify-center text-center gap-1 transition-colors duration-200',
                   isActive ? 'text-primary' : 'text-muted-foreground hover:text-primary',
-                  item.requiresAuth && !user && 'pointer-events-none opacity-50'
+                  item.href === '/home/settings' && !user ? 'pointer-events-none opacity-50' : ''
                 )}
               >
                 <item.icon className="h-6 w-6" />
@@ -103,5 +103,3 @@ export function BottomNavBar() {
     </nav>
   );
 }
-
-    

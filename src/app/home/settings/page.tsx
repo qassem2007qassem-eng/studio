@@ -57,11 +57,11 @@ export default function SettingsPage() {
     }, [user, isUserLoading]);
 
     const handleSaveChanges = async () => {
-        const { auth, storage } = initializeFirebase();
         if (!user || !userData) return;
 
         setIsSaving(true);
         try {
+            const { auth, storage } = initializeFirebase();
             let newAvatarUrl = userData.avatarUrl;
             if (avatarUrl && avatarUrl !== userData.avatarUrl && avatarUrl.startsWith('data:image')) {
                 const avatarRef = ref(storage, `avatars/${user.uid}`);

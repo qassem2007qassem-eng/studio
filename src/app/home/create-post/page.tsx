@@ -28,7 +28,7 @@ export default function CreatePostPage() {
   const [userData, setUserData] = useState<UserType | null>(null);
   const [content, setContent] = useState('');
   const [postImages, setPostImages] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,7 +67,6 @@ export default function CreatePostPage() {
 
 
   const handleCreatePost = async () => {
-    const { firestore, storage } = initializeFirebase();
     if (!content.trim() && postImages.length === 0) {
       toast({
         title: 'خطأ',
@@ -76,7 +75,8 @@ export default function CreatePostPage() {
       });
       return;
     }
-    if (!user || !userData) {
+    const profile = await getCurrentUserProfile();
+    if (!user || !profile) {
        toast({
         title: 'خطأ',
         description: 'الرجاء تسجيل الدخول أولاً.',
@@ -84,17 +84,17 @@ export default function CreatePostPage() {
       });
       return;
     }
-    setIsLoading(true);
+    setIsSaving(true);
 
     try {
+      const { firestore, storage } = initializeFirebase();
+      
       const imageUrls: string[] = [];
-      if (postImages.length > 0) {
-        for (const image of postImages) {
-           const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
-           const snapshot = await uploadString(imageRef, image, 'data_url');
-           const downloadURL = await getDownloadURL(snapshot.ref);
-           imageUrls.push(downloadURL);
-        }
+      for (const image of postImages) {
+         const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
+         const snapshot = await uploadString(imageRef, image, 'data_url');
+         const downloadURL = await getDownloadURL(snapshot.ref);
+         imageUrls.push(downloadURL);
       }
 
       const postsCollection = collection(firestore, 'posts');
@@ -102,9 +102,9 @@ export default function CreatePostPage() {
       const postData = {
         authorId: user.uid,
         author: {
-          name: userData.name,
-          username: userData.username.toLowerCase(),
-          avatarUrl: userData.avatarUrl,
+          name: profile.name,
+          username: profile.username.toLowerCase(),
+          avatarUrl: profile.avatarUrl,
         },
         content: content.trim(),
         imageUrls: imageUrls,
@@ -130,7 +130,7 @@ export default function CreatePostPage() {
         variant: 'destructive',
       });
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -161,8 +161,8 @@ export default function CreatePostPage() {
                     <X className="h-5 w-5" />
                 </Button>
                 <h1 className="text-lg font-semibold">إنشاء منشور</h1>
-                <Button onClick={handleCreatePost} disabled={isLoading || (!content.trim() && postImages.length === 0)}>
-                    {isLoading ? <Loader2 className="animate-spin" /> : 'نشر'}
+                <Button onClick={handleCreatePost} disabled={isSaving || (!content.trim() && postImages.length === 0)}>
+                    {isSaving ? <Loader2 className="animate-spin" /> : 'نشر'}
                 </Button>
             </header>
             <main className="flex-1 p-4 space-y-4 overflow-y-auto">
@@ -181,7 +181,7 @@ export default function CreatePostPage() {
                     className="w-full h-36 bg-transparent border-none focus-visible:ring-0 text-xl"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isSaving}
                     autoFocus
                 />
                 {postImages.length > 0 && (
