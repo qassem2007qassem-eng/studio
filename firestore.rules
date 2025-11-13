@@ -154,11 +154,7 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if false;
     }
-
-    /**
-     * @description Stories are readable by any authenticated user.
-     * This rule allows both `get` (single document) and `list` (collection query) operations.
-     */
+    
     match /stories/{storyId} {
       allow read: if true;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
@@ -182,5 +178,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
