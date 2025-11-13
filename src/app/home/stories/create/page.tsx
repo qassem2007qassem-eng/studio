@@ -15,6 +15,8 @@ import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage"
 import { useRouter } from "next/navigation";
 import { type User as UserType } from "@/lib/types";
 import { getCurrentUserProfile } from "@/services/user-service";
+import { initializeFirebase } from '@/firebase';
+
 
 export default function CreateStoryPage() {
     const [storyImage, setStoryImage] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export default function CreateStoryPage() {
     const { toast } = useToast();
     const router = useRouter();
 
-    const { firestore } = useFirebase();
+    const { firestore } = initializeFirebase();
     const { user } = useUser();
     const [userData, setUserData] = useState<UserType | null>(null);
 
@@ -82,14 +84,14 @@ export default function CreateStoryPage() {
                 viewers: [],
             };
             
-            await addDoc(storiesCollection, storyData);
+            const docRef = await addDoc(storiesCollection, storyData);
             
             toast({
                 title: "نجاح",
                 description: "تم نشر قصتك بنجاح!",
             });
             
-            router.push('/home');
+            router.push(`/home/stories/${docRef.id}`);
 
         } catch (error) {
             console.error("Error creating story: ", error);

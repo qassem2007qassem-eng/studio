@@ -21,17 +21,18 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { useFirebase, useUser } from '@/firebase';
+import { useUser } from '@/firebase';
 import { collection, serverTimestamp, addDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { type User as UserType } from '@/lib/types';
 import { getCurrentUserProfile } from '@/services/user-service';
+import { initializeFirebase } from '@/firebase';
 
 
 export default function CreatePostPage() {
-  const { firestore } = useFirebase();
-  const { user } = useUser();
+  const { firestore } = initializeFirebase();
+  const { user, isUserLoading } = useUser();
   const [userData, setUserData] = useState<UserType | null>(null);
   const [content, setContent] = useState('');
   const [postImage, setPostImage] = useState<string | null>(null);
@@ -115,6 +116,14 @@ export default function CreatePostPage() {
       setIsLoading(false);
     }
   };
+
+  if (isUserLoading) {
+      return (
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+      );
+  }
 
   if (!user || !userData) {
     return (

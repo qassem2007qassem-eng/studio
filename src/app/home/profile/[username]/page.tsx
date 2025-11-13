@@ -26,25 +26,6 @@ import { useParams } from 'next/navigation';
 import { getUserByUsername, followUser, unfollowUser, checkIfFollowing } from "@/services/user-service";
 import { formatDistanceToNow } from "@/lib/utils";
 
-const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Date | null => {
-    if (!timestamp) return null;
-    if (timestamp instanceof Timestamp) {
-        return timestamp.toDate();
-    }
-    if (timestamp instanceof Date) {
-        return timestamp;
-    }
-    try {
-        const date = new Date(timestamp);
-        if (isNaN(date.getTime())) {
-            return null;
-        }
-        return date;
-    } catch (e) {
-        return null;
-    }
-};
-
 export default function ProfilePage() {
   const params = useParams();
   const { firestore } = useFirebase();
@@ -77,7 +58,7 @@ export default function ProfilePage() {
       if (!usernameFromUrl || !firestore) return;
 
       setIsProfileUserLoading(true);
-      setProfileUser(null); // Reset previous user data
+      setProfileUser(null);
       
       const user = await getUserByUsername(usernameFromUrl);
       setProfileUser(user);
@@ -136,7 +117,6 @@ export default function ProfilePage() {
       }
     };
     
-    // Run this effect only when profileUser is loaded and canViewContent status is determined
     if (profileUser && !isProfileUserLoading && !isFollowStatusLoading) {
         fetchPosts();
     }
@@ -155,7 +135,6 @@ export default function ProfilePage() {
           await followUser(profileUser.id);
           setIsFollowing(true);
       }
-       // Re-fetch user to update follower count
        const updatedUser = await getUserByUsername(usernameFromUrl);
        setProfileUser(updatedUser);
     } catch (e) {

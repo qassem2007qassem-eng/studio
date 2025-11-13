@@ -42,6 +42,7 @@ import {
 } from "firebase/firestore";
 import { getCurrentUserProfile } from "@/services/user-service";
 import { Skeleton } from "./ui/skeleton";
+import { initializeFirebase } from '@/firebase';
 
 interface PostCardProps {
   post: Post;
@@ -67,7 +68,7 @@ const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Da
 };
 
 const CommentsDialog = ({ post }: { post: Post }) => {
-    const { firestore } = useFirebase();
+    const { firestore } = initializeFirebase();
     const { user } = useUser();
     const [newComment, setNewComment] = useState("");
     const [userData, setUserData] = useState<UserType | null>(null);
@@ -197,7 +198,7 @@ export function PostCard({ post }: PostCardProps) {
 
   const commentsCollectionQuery = useMemoFirebase(() => {
     if (!firestore || !post.id) return null;
-    return collection(firestore, 'posts', post.id, 'comments')
+    return query(collection(firestore, 'posts', post.id, 'comments'))
   }, [firestore, post.id]);
 
   const { data: comments } = useCollection(commentsCollectionQuery);
