@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -88,7 +87,7 @@ export default function FriendsPage() {
   };
 
   const handleFollowToggle = async (targetUserId: string) => {
-    if (!currentUser || !currentUserProfile) return;
+    if (!currentUser) return;
     
     const isCurrentlyFollowing = !!isFollowingMap[targetUserId];
     
@@ -101,12 +100,14 @@ export default function FriendsPage() {
       } else {
         await followUser(targetUserId);
       }
-      // Re-fetch current user profile to get updated following list
-      const profile = await getCurrentUserProfile();
-      setCurrentUserProfile(profile);
+      // Re-fetch current user profile with forceRefresh to get updated following list
+      const freshProfile = await getCurrentUserProfile({ forceRefresh: true });
+      setCurrentUserProfile(freshProfile);
 
       // Re-build the following map with the fresh profile data
-      setIsFollowingMap(buildFollowingMap(profile, users));
+      if (freshProfile) {
+        setIsFollowingMap(buildFollowingMap(freshProfile, users));
+      }
 
     } catch (error) {
       console.error("Failed to toggle follow", error);

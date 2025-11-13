@@ -1,4 +1,3 @@
-
 'use client'
 
 import Image from "next/image";
@@ -18,11 +17,11 @@ import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Loader2, Lock } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser, useFirebase } from "@/firebase";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams, useRouter } from 'next/navigation';
-import { getUserByUsername, followUser, unfollowUser, checkIfFollowing } from "@/services/user-service";
+import { getUserByUsername, followUser, unfollowUser, checkIfFollowing, getCurrentUserProfile } from "@/services/user-service";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ProfilePage() {
@@ -70,22 +69,24 @@ export default function ProfilePage() {
     fetchProfileData();
   }, [usernameFromUrl, firestore]);
 
+  const checkFollow = useCallback(async () => {
+      if (!currentUser || !profileUser || isCurrentUserProfile) {
+          setIsFollowStatusLoading(false);
+          return;
+      }
+      setIsFollowStatusLoading(true);
+      // Force refresh to get the latest following list
+      const followingStatus = await checkIfFollowing(profileUser.id, { forceRefresh: true });
+      setIsFollowing(followingStatus);
+      setIsFollowStatusLoading(false);
+  }, [currentUser, profileUser, isCurrentUserProfile]);
+
   // Effect for checking follow status, depends on profileUser
   useEffect(() => {
-    const checkFollow = async () => {
-        if (!currentUser || !profileUser || isCurrentUserProfile) {
-            setIsFollowStatusLoading(false);
-            return;
-        }
-        setIsFollowStatusLoading(true);
-        const followingStatus = await checkIfFollowing(profileUser.id);
-        setIsFollowing(followingStatus);
-        setIsFollowStatusLoading(false);
-    };
     if (profileUser && !isCurrentUserLoading) {
         checkFollow();
     }
-  }, [currentUser, profileUser, isCurrentUserProfile, isCurrentUserLoading]);
+  }, [profileUser, isCurrentUserLoading, checkFollow]);
 
 
   const canViewContent = useMemo(() => {
@@ -156,6 +157,9 @@ export default function ProfilePage() {
        // Re-fetch profile user to get updated follower count
        const updatedUser = await getUserByUsername(usernameFromUrl);
        setProfileUser(updatedUser);
+       // This ensures the current user's profile is also up-to-date for subsequent actions
+       await getCurrentUserProfile({ forceRefresh: true }); 
+
     } catch (e) {
       console.error("Error toggling follow:", e);
       toast({ title: "حدث خطأ", description: "لم نتمكن من إتمام العملية. حاول مرة أخرى.", variant: "destructive" });

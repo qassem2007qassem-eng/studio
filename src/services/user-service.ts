@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -20,7 +19,9 @@ import {
   arrayRemove,
   orderBy,
   limit,
-  startAfter
+  startAfter,
+  getDocFromCache,
+  getDocFromServer
 } from 'firebase/firestore';
 
 import { initializeFirebase } from '@/firebase';
@@ -28,6 +29,51 @@ import { type User } from '@/lib/types';
 
 // Initialize firebase services
 const { auth, firestore } = initializeFirebase();
+
+
+let currentUserProfileCache: User | null = null;
+let cacheTimestamp: number | null = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+type GetProfileOptions = {
+  forceRefresh?: boolean;
+};
+
+// ✅ جلب بيانات المستخدم الحالي
+const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<User | null> => {
+  const user = auth.currentUser;
+  if (!user) {
+    console.log("No user logged in");
+    currentUserProfileCache = null;
+    return null;
+  }
+
+  const now = Date.now();
+  if (!options.forceRefresh && currentUserProfileCache && cacheTimestamp && (now - cacheTimestamp < CACHE_DURATION)) {
+    return currentUserProfileCache;
+  }
+
+  try {
+    const docRef = doc(firestore, "users", user.uid);
+    const docSnap = await getDocFromServer(docRef); // Always fetch from server for refresh
+    
+    if (docSnap.exists()) {
+      currentUserProfileCache = { id: docSnap.id, ...docSnap.data() } as User;
+      cacheTimestamp = now;
+      return currentUserProfileCache;
+    } else {
+      console.log("User profile not found!");
+      currentUserProfileCache = null;
+      return null;
+    }
+  } catch (error) {
+    console.error("Error getting user profile:", error);
+    // On error, clear cache to force a retry next time
+    currentUserProfileCache = null; 
+    return null;
+  }
+};
+
 
 // ✅ إنشاء ملف تعريف مستخدم جديد
 const createUserProfile = async (user, username, fullName, avatarUrl) => {
@@ -49,30 +95,6 @@ const createUserProfile = async (user, username, fullName, avatarUrl) => {
     console.log("User profile created successfully!");
   } catch (error) {
     console.error("Error creating user profile:", error);
-  }
-};
-
-// ✅ جلب بيانات المستخدم الحالي
-const getCurrentUserProfile = async (): Promise<User | null> => {
-  const user = auth.currentUser;
-  if (!user) {
-    console.log("No user logged in");
-    return null;
-  }
-
-  try {
-    const docRef = doc(firestore, "users", user.uid);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() } as User;
-    } else {
-      console.log("User profile not found!");
-      return null;
-    }
-  } catch (error) {
-    console.error("Error getting user profile:", error);
-    return null;
   }
 };
 
@@ -143,6 +165,8 @@ const followUser = async (targetUserId: string): Promise<void> => {
     });
 
     await batch.commit();
+    // Invalidate local cache after following
+    await getCurrentUserProfile({ forceRefresh: true });
 };
 
 
@@ -170,16 +194,18 @@ const unfollowUser = async (targetUserId: string): Promise<void> => {
     });
 
     await batch.commit();
+    // Invalidate local cache after unfollowing
+    await getCurrentUserProfile({ forceRefresh: true });
 };
 
 
 // ✅ التحقق إذا كان يتابع مستخدم
-const checkIfFollowing = async (targetUserId) => {
+const checkIfFollowing = async (targetUserId: string, options: GetProfileOptions = {}): Promise<boolean> => {
   const currentUser = auth.currentUser;
   if (!currentUser) return false;
 
   try {
-    const userDoc = await getCurrentUserProfile();
+    const userDoc = await getCurrentUserProfile(options); // Pass options to force refresh if needed
     return (userDoc?.following || []).includes(targetUserId);
   } catch (error) {
     console.error("Error checking follow status:", error);
@@ -196,6 +222,8 @@ const updateProfile = async (updates) => {
     const userRef = doc(firestore, "users", user.uid);
     await updateDoc(userRef, updates);
     console.log("Profile updated successfully!");
+    // Invalidate cache after profile update
+    await getCurrentUserProfile({ forceRefresh: true });
   } catch (error) {
     console.error("Error updating profile:", error);
     throw error; // Re-throw the error to be handled by the caller
