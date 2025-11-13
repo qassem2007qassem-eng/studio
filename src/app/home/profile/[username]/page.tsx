@@ -7,7 +7,6 @@ import {
   collection, 
   query, 
   where, 
-  orderBy,
   getDocs,
   Timestamp
 } from 'firebase/firestore';
@@ -105,9 +104,17 @@ export default function ProfilePage() {
 
       setPostsLoading(true);
       try {
-          const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id), orderBy("createdAt", "desc"));
+          const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id));
           const snapshot = await getDocs(postsQuery);
           const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+          
+          // Sort posts on the client-side
+          posts.sort((a, b) => {
+            const dateA = a.createdAt?.toDate()?.getTime() || 0;
+            const dateB = b.createdAt?.toDate()?.getTime() || 0;
+            return dateB - dateA;
+          });
+
           setUserPosts(posts);
       } catch (e) {
           console.error("Error fetching posts:", e);
@@ -282,3 +289,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+

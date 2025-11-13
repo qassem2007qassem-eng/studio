@@ -66,3 +66,4 @@ export interface AppNotification {
   postContent?: string;
   createdAt: string;
 }
+
