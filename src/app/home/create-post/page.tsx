@@ -177,7 +177,7 @@ export default function CreatePostPage() {
             </main>
             <footer className="p-4 border-t mt-auto">
                  <div className="grid grid-cols-3 gap-2">
-                    <Button variant="ghost" className="gap-2 text-muted-foreground" onClick={() => fileInputRef.current?.click()} disabled={isLoading}>
+                    <Button variant="ghost" className="gap-2 text-muted-foreground" onClick={() => fileInputRef.current?.click()}>
                         <ImageIcon className="h-5 w-5 text-red-500"/>
                         <span>صورة/فيديو</span>
                     </Button>
