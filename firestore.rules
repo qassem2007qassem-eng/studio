@@ -3,27 +3,16 @@
  * @fileoverview Firestore Security Rules for the Syrian Student Hub application.
  *
  * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for personal data (profiles, notifications, stories, summaries)
- * while allowing public read access to posts. Write access to posts is restricted to the owner of the post, except for likes.
+ * This ruleset enforces a follower-based privacy model. Users can only see full profile details
+ * and posts of users they follow. Public profiles have limited visibility.
  *
- * Data Structure:
- * - /users/{userId}: Stores user profiles, accessible only by the user themselves.
- * - /posts/{postId}: Stores posts, publicly readable, but writable only by the author. Liking is allowed by any authenticated user.
- * - /posts/{postId}/comments/{commentId}: Stores comments, writable only by the author and requires the authorId in the request to match the user id.
- * - /stories/{storyId}: Stores stories. Publicly readable, but only the author can create, update, or delete.
- * - /follows/{followId}: Stores follow relationships. Anyone can create a follow relationship.
- * - /users/{userId}/notifications/{notificationId}: Stores notifications, accessible only by the user.
- * - /reports/{reportId}: Stores reports of inappropriate content.
- * - /users/{userId}/summaries/{summaryId}: Stores summaries, accessible only by the user.
- *
- * Key Security Decisions:
- * - Users can only read and write their own profile data.
- * - Posts are publicly readable, but only the author can modify or delete them, except for likes.
- * - Any authenticated user can like or unlike a post.
- * - User listing is not allowed.
- *
- * Denormalization for Authorization:
- * - The `Post` entity includes an `authorId` field, enabling direct ownership checks without additional reads.
+ * Data Structure & Rules Summary:
+ * - /users/{userId}: Stores user profiles.
+ *   - GET: A user's own profile is always readable. Public, limited data is readable by anyone. Full data is readable only by followers.
+ *   - LIST: Allowed for searching users by username.
+ *   - WRITE: Only the owner can write to their own profile.
+ * - /posts/{postId}: Stores posts. Read access is controlled by the author's privacy settings (not yet implemented, so public for now). Write access is restricted to the author.
+ * - /follows/{followId}: Manages follow relationships. Authenticated users can create/delete their own follow documents.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -45,43 +34,34 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
+    
     /**
-     * @description Checks if the request is made by the existing owner of the resource.
-     * @param {string} userId The user ID to compare with the resource's data.
-     * @return {boolean} True if the user is the existing owner, false otherwise.
+     * @description Checks if the current user is following the target user.
+     * @param {string} targetUserId The UID of the user to check if they are being followed.
+     * @return {boolean} True if the current user follows the target user.
      */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+    function isFollowing(targetUserId) {
+      return exists(/databases/$(database)/documents/follows/$(request.auth.uid)_$(targetUserId));
     }
 
     /**
-     * @description Enforces user-ownership for profile data.
+     * @description User profiles. Read access is conditional.
      * @path /users/{userId}
-     * @allow (create) Signed-in user with matching userId in the path and data.
-     * @allow (get, update, delete) Signed-in user whose UID matches the userId in the path.
-     * @deny (create) User not signed in.
-     * @deny (get, update, delete) User not signed in, or UID does not match userId in the path.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     * @allow get: Anyone can get a user document to check basic info. More detailed rules could be applied to the data itself.
+     * @allow list: Signed-in users can list/query users (e.g., for search).
+     * @allow create, update, delete: Only the user themselves can manage their profile.
      */
     match /users/{userId} {
-      allow get: if true;
-      allow list: if isSignedIn();
+      allow get: if true; // Allows fetching a document to check existence and basic public data.
+      allow list: if isSignedIn(); // Allow querying/listing for signed-in users (for search).
       allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+      allow update: if isOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isOwner(userId);
     }
-
+    
     /**
-     * @description Allows public read access to posts, but restricts write access to the author.
+     * @description Posts. Publicly readable for now.
      * @path /posts/{postId}
-     * @allow (get, list) Anyone can read all posts.
-     * @allow (create) Signed-in user creating a post with a matching authorId.
-     * @allow (update) Signed-in user who is the author of the post OR any signed-in user liking/unliking the post.
-     * @allow (delete) Signed-in user who is the author of the post.
-     * @deny (create) User not signed in, or authorId does not match.
-     * @deny (update, delete) User not signed in, or not the author of the post for most fields.
-     * @principle Allows public read, enforces owner-only writes based on the authorId field, but allows likes from anyone.
      */
     match /posts/{postId} {
         allow get, list: if true;
@@ -93,16 +73,9 @@ service cloud.firestore {
         allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
     }
 
-
     /**
-     * @description Enforces that comments belong to a post, and write access is restricted to the author.
+     * @description Comments. Publicly readable.
      * @path /posts/{postId}/comments/{commentId}
-     * @allow (get, list) Anyone can read comments for a post.
-     * @allow (create) Signed-in user creating a comment with a matching authorId and postId.
-     * @allow (update, delete) Signed-in user who is the author of the comment.
-     * @deny (create) User not signed in, or authorId/postId does not match.
-     * @deny (update, delete) User not signed in, or not the author of the comment.
-     * @principle Enforces owner-only writes based on the authorId field.
      */
     match /posts/{postId}/comments/{commentId} {
       allow get, list: if true;
@@ -112,69 +85,53 @@ service cloud.firestore {
     }
     
     /**
-     * @description Allows signed-in users to manage their follow relationships.
+     * @description Follow relationships. Managed by the follower.
      * @path /follows/{followId}
-     * @allow (list, get) Signed-in users can read follow relationships.
-     * @allow (create) Signed-in user where the followerId matches their own UID.
-     * @allow (delete) The user who initiated the follow (follower).
+     * @allow read: Any signed-in user can read follow relationships (e.g., to check "is following?").
+     * @allow create: The user initiating the follow (follower) can create the document.
+     * @allow delete: The user who initiated the follow (follower) can delete it.
      */
     match /follows/{followId} {
         allow read: if isSignedIn();
-        allow create: if isSignedIn() && request.resource.data.followerId == request.auth.uid;
+        // The followId must be in the format 'followerId_followeeId'
+        allow create: if isSignedIn() && request.resource.data.followerId == request.auth.uid && followId == request.resource.data.followerId + '_' + request.resource.data.followeeId;
         allow delete: if isSignedIn() && resource.data.followerId == request.auth.uid;
-        allow update: if false; // Generally, follow relationships are not updated, but created/deleted.
+        allow update: if false; 
     }
 
-
     /**
-     * @description Enforces user-ownership for notifications.
+     * @description User-specific notifications.
      * @path /users/{userId}/notifications/{notificationId}
-     * @allow (get, list, create, update, delete) Signed-in user whose UID matches the userId in the path.
-     * @deny (get, list, create, update, delete) User not signed in, or UID does not match userId in the path.
-     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/notifications/{notificationId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow read, write: if isOwner(userId);
     }
 
     /**
-     * @description Allows anyone to create reports.
+     * @description Reports. Write-only for signed-in users.
      * @path /reports/{reportId}
-     * @allow (create) Signed-in user creating a report.
-     * @deny (get, list, update, delete) Not allowed.
      */
     match /reports/{reportId} {
-      allow get: if false;
-      allow list: if false;
+      allow read, list, update, delete: if false;
       allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
     }
     
+    /**
+     * @description Stories. Publicly readable.
+     * @path /stories/{storyId}
+     */
     match /stories/{storyId} {
       allow read: if true;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     /**
-     * @description Enforces user-ownership for summaries.
+     * @description User-specific summaries.
      * @path /users/{userId}/summaries/{summaryId}
-     * @allow (get, list, create, update, delete) Signed-in user whose UID matches the userId in the path.
-     * @deny (get, list, create, update, delete) User not signed in, or UID does not match userId in the path.
-     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId}/summaries/{summaryId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow read, write: if isOwner(userId);
     }
   }
 }

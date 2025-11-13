@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, query, where, getDocs, orderBy, startAt, endAt, onSnapshot, doc, writeBatch, serverTimestamp, increment } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, startAt, endAt, onSnapshot, doc, writeBatch, serverTimestamp, increment, deleteDoc } from 'firebase/firestore';
 import { type Post, type User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
@@ -31,25 +31,20 @@ const useDebounce = (value: string, delay: number) => {
 const UserSearchResult = ({ user: profileUser, currentUser, firestore }: { user: User, currentUser: any, firestore: any }) => {
     const [isFollowing, setIsFollowing] = useState(false);
     const [isFollowLoading, setIsFollowLoading] = useState(true);
-    const [followDocId, setFollowDocId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!currentUser || !firestore || currentUser.uid === profileUser.id) {
             setIsFollowLoading(false);
             return;
         }
-        const followsRef = collection(firestore, 'follows');
-        const q = query(followsRef, where('followerId', '==', currentUser.uid), where('followeeId', '==', profileUser.id));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            if (!snapshot.empty) {
-                setIsFollowing(true);
-                setFollowDocId(snapshot.docs[0].id);
-            } else {
-                setIsFollowing(false);
-                setFollowDocId(null);
-            }
+        const followDocId = `${currentUser.uid}_${profileUser.id}`;
+        const followRef = doc(firestore, 'follows', followDocId);
+        
+        const unsubscribe = onSnapshot(followRef, (snapshot) => {
+            setIsFollowing(snapshot.exists());
             setIsFollowLoading(false);
-        });
+        }, () => setIsFollowLoading(false));
+
         return () => unsubscribe();
     }, [currentUser, firestore, profileUser.id]);
     
@@ -60,17 +55,17 @@ const UserSearchResult = ({ user: profileUser, currentUser, firestore }: { user:
         
         const currentUserRef = doc(firestore, 'users', currentUser.uid);
         const profileUserRef = doc(firestore, 'users', profileUser.id);
+        const followDocId = `${currentUser.uid}_${profileUser.id}`;
+        const followRef = doc(firestore, 'follows', followDocId);
+
         const batch = writeBatch(firestore);
     
-        if (isFollowing && followDocId) {
-          const followRef = doc(firestore, 'follows', followDocId);
+        if (isFollowing) {
           batch.delete(followRef);
           batch.update(currentUserRef, { followingCount: increment(-1) });
           batch.update(profileUserRef, { followerCount: increment(-1) });
-    
         } else {
-          const newFollowRef = doc(collection(firestore, 'follows'));
-          batch.set(newFollowRef, {
+          batch.set(followRef, {
             followerId: currentUser.uid,
             followeeId: profileUser.id,
             createdAt: serverTimestamp()
@@ -84,7 +79,7 @@ const UserSearchResult = ({ user: profileUser, currentUser, firestore }: { user:
         } catch(error) {
             console.error("Failed to toggle follow", error);
         } finally {
-            setIsFollowLoading(false);
+            // isFollowing state will be updated by onSnapshot
         }
       };
 
@@ -112,7 +107,7 @@ const UserSearchResult = ({ user: profileUser, currentUser, firestore }: { user:
 
 export default function SearchPage() {
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState("posts");
+    const [activeTab, setActiveTab] = useState("users");
     const [results, setResults] = useState<{ posts: Post[], users: User[] }>({ posts: [], users: [] });
     const [isLoading, setIsLoading] = useState(false);
     const firestore = useFirestore();
@@ -132,21 +127,23 @@ export default function SearchPage() {
                 // Search Users
                 const usersRef = collection(firestore, 'users');
                 const userQuery = query(usersRef,
-                    where('username', '>=', debouncedSearchTerm.toLowerCase()),
-                    where('username', '<=', debouncedSearchTerm.toLowerCase() + '\uf8ff')
+                    orderBy('username'),
+                    startAt(debouncedSearchTerm.toLowerCase()),
+                    endAt(debouncedSearchTerm.toLowerCase() + '\uf8ff')
                 );
                 const userSnapshot = await getDocs(userQuery);
                 const users = userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
 
                 // Search Posts
+                // Simplified query to avoid composite index
                 const postsRef = collection(firestore, 'posts');
                 const postQuery = query(postsRef,
-                    orderBy('content'),
-                    startAt(debouncedSearchTerm),
-                    endAt(debouncedSearchTerm + '\uf8ff')
+                    where('content', '>=', debouncedSearchTerm),
+                    where('content', '<=', debouncedSearchTerm + '\uf8ff')
                 );
                 const postSnapshot = await getDocs(postQuery);
                 const posts = postSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+
 
                 setResults({ users, posts });
 
@@ -176,22 +173,10 @@ export default function SearchPage() {
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="posts">المنشورات</TabsTrigger>
                     <TabsTrigger value="users">المستخدمون</TabsTrigger>
+                    <TabsTrigger value="posts">المنشورات</TabsTrigger>
                 </TabsList>
-                <TabsContent value="posts" className="space-y-6 mt-6">
-                    {isLoading ? <Skeleton className="h-32 w-full" /> :
-                     results.posts.length > 0 ? (
-                        results.posts.map(post => <PostCard key={post.id} post={post} />)
-                    ) : (
-                        <Card>
-                            <CardContent className="p-8 text-center text-muted-foreground">
-                                {debouncedSearchTerm ? 'لا توجد منشورات تطابق بحثك.' : 'ابدا البحث عن منشورات.'}
-                            </CardContent>
-                        </Card>
-                    )}
-                </TabsContent>
-                <TabsContent value="users" className="space-y-4 mt-6">
+                 <TabsContent value="users" className="space-y-4 mt-6">
                      {isLoading ? <Skeleton className="h-32 w-full" /> :
                       results.users.length > 0 ? (
                         <Card>
@@ -205,6 +190,18 @@ export default function SearchPage() {
                         <Card>
                             <CardContent className="p-8 text-center text-muted-foreground">
                                 {debouncedSearchTerm ? 'لا يوجد مستخدمون يطابقون بحثك.' : 'ابدا البحث عن مستخدمين.'}
+                            </CardContent>
+                        </Card>
+                    )}
+                </TabsContent>
+                <TabsContent value="posts" className="space-y-6 mt-6">
+                    {isLoading ? <Skeleton className="h-32 w-full" /> :
+                     results.posts.length > 0 ? (
+                        results.posts.map(post => <PostCard key={post.id} post={post} />)
+                    ) : (
+                        <Card>
+                            <CardContent className="p-8 text-center text-muted-foreground">
+                                {debouncedSearchTerm ? 'لا توجد منشورات تطابق بحثك.' : 'ابدا البحث عن منشورات.'}
                             </CardContent>
                         </Card>
                     )}

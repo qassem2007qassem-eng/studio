@@ -3,41 +3,51 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { onSnapshot } from 'firebase/firestore';
+import { 
+  onSnapshot, 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  limit, 
+  doc, 
+  writeBatch, 
+  serverTimestamp, 
+  increment, 
+  orderBy, 
+  deleteDoc,
+  getDoc
+} from 'firebase/firestore';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
-import { Settings, UserPlus, UserCheck, Loader2 } from "lucide-react";
+import { Settings, UserPlus, UserCheck, Loader2, Lock } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, getDocs, limit, doc, writeBatch, serverTimestamp, increment, orderBy } from "firebase/firestore";
 import { useEffect, useState, useMemo } from "react";
-import { type User, type Post, type Follow } from "@/lib/types";
+import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from 'next/navigation';
 import { useFirestore } from "@/firebase/provider";
 
 export default function ProfilePage() {
   const params = useParams();
+  const firestore = useFirestore();
+  const { user: currentUser } = useUser();
+  
   const usernameFromUrl = useMemo(() => {
     const username = Array.isArray(params.username) ? params.username[0] : params.username;
     return username ? decodeURIComponent(username).toLowerCase() : '';
   }, [params.username]);
-  
-  const { user: currentUser } = useUser();
-  const firestore = useFirestore();
 
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [followDocId, setFollowDocId] = useState<string | null>(null);
-  const [isFollowLoading, setIsFollowLoading] = useState(false);
-  const [followerCount, setFollowerCount] = useState(0);
-  const [followingCount, setFollowingCount] = useState(0);
+  const [isFollowStatusLoading, setIsFollowStatusLoading] = useState(true);
 
-  // Effect to fetch the profile user based on username
+  // Effect to fetch the profile user's data
   useEffect(() => {
     if (!usernameFromUrl || !firestore) {
       setIsUserLoading(false);
@@ -45,109 +55,78 @@ export default function ProfilePage() {
     }
     
     setIsUserLoading(true);
-    setProfileUser(null); 
-
     const usersRef = collection(firestore, 'users');
     const userQuery = query(usersRef, where("username", "==", usernameFromUrl), limit(1));
 
-    getDocs(userQuery).then(querySnapshot => {
+    const unsubscribe = onSnapshot(userQuery, (querySnapshot) => {
       if (!querySnapshot.empty) {
         const userDoc = querySnapshot.docs[0];
-        const userData = userDoc.data() as User;
-        setProfileUser({ ...userData, id: userDoc.id });
-        setFollowerCount(userData.followerCount || 0);
-        setFollowingCount(userData.followingCount || 0);
+        setProfileUser({ id: userDoc.id, ...userDoc.data() } as User);
       } else {
         setProfileUser(null);
       }
-    }).catch((error) => {
-        console.error("Error fetching user:", error);
-        setProfileUser(null);
-    }).finally(() => {
-        setIsUserLoading(false);
+      setIsUserLoading(false);
+    }, (error) => {
+      console.error("Error fetching user:", error);
+      setProfileUser(null);
+      setIsUserLoading(false);
     });
 
+    return () => unsubscribe();
   }, [usernameFromUrl, firestore]);
 
-
-  // Effect to check follow status and listen for follower/following count changes on the profile user
+  // Effect to check follow status
   useEffect(() => {
-      if (!currentUser || !profileUser || !firestore) {
-        setIsFollowing(false);
-        setFollowDocId(null);
+    if (!currentUser || !profileUser || currentUser.uid === profileUser.id) {
+        setIsFollowStatusLoading(false);
         return;
-      };
-      
-      const profileUserRef = doc(firestore, 'users', profileUser.id);
-      const userUnsubscribe = onSnapshot(profileUserRef, (doc) => {
-        if(doc.exists()) {
-          const userData = doc.data() as User;
-          setFollowerCount(userData.followerCount || 0);
-          setFollowingCount(userData.followingCount || 0);
-        }
-      });
-      
-      if (currentUser.uid === profileUser.id) {
-          return () => userUnsubscribe();
-      }
+    }
 
-      setIsFollowLoading(true);
-      const followsRef = collection(firestore, 'follows');
-      const followQuery = query(followsRef, 
-          where("followerId", "==", currentUser.uid), 
-          where("followeeId", "==", profileUser.id), 
-          limit(1)
-      );
+    setIsFollowStatusLoading(true);
+    const followDocId = `${currentUser.uid}_${profileUser.id}`;
+    const followRef = doc(firestore, 'follows', followDocId);
 
-      const followUnsubscribe = onSnapshot(followQuery, (snapshot) => {
-          if (!snapshot.empty) {
-              setIsFollowing(true);
-              setFollowDocId(snapshot.docs[0].id);
-          } else {
-              setIsFollowing(false);
-              setFollowDocId(null);
-          }
-          setIsFollowLoading(false);
-      }, (err) => {
-          console.error("Error checking follow status:", err);
-          setIsFollowLoading(false);
-      });
-      
-      return () => {
-        userUnsubscribe();
-        followUnsubscribe();
-      };
+    const unsubscribe = onSnapshot(followRef, (doc) => {
+        setIsFollowing(doc.exists());
+        setIsFollowStatusLoading(false);
+    }, (error) => {
+        console.error("Error checking follow status:", error);
+        setIsFollowStatusLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [currentUser, profileUser, firestore]);
 
+  const isCurrentUserProfile = currentUser?.uid === profileUser?.id;
+  const canViewContent = isCurrentUserProfile || isFollowing;
+
   const userPostsQuery = useMemoFirebase(() => {
-    if (!firestore || !profileUser) return null;
+    if (!firestore || !profileUser || !canViewContent) return null;
     return query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id), orderBy("createdAt", "desc"));
-  }, [firestore, profileUser]);
+  }, [firestore, profileUser, canViewContent]);
 
   const { data: userPosts, isLoading: postsLoading } = useCollection<Post>(userPostsQuery);
 
-  const isCurrentUserProfile = currentUser?.uid === profileUser?.id;
-
   const handleFollowToggle = async () => {
-    if (!currentUser || !profileUser || isFollowLoading || isCurrentUserProfile || !firestore) return;
+    if (!currentUser || !profileUser || isFollowStatusLoading || isCurrentUserProfile || !firestore) return;
 
-    setIsFollowLoading(true);
+    setIsFollowStatusLoading(true);
     
     const currentUserRef = doc(firestore, 'users', currentUser.uid);
     const profileUserRef = doc(firestore, 'users', profileUser.id);
+    const followDocId = `${currentUser.uid}_${profileUser.id}`;
+    const followRef = doc(firestore, 'follows', followDocId);
+
     const batch = writeBatch(firestore);
 
-    if (isFollowing && followDocId) {
+    if (isFollowing) {
       // --- Unfollow Logic ---
-      const followRef = doc(firestore, 'follows', followDocId);
       batch.delete(followRef);
       batch.update(currentUserRef, { followingCount: increment(-1) });
       batch.update(profileUserRef, { followerCount: increment(-1) });
-
     } else {
       // --- Follow Logic ---
-      const newFollowRef = doc(collection(firestore, 'follows'));
-      batch.set(newFollowRef, {
+      batch.set(followRef, {
         followerId: currentUser.uid,
         followeeId: profileUser.id,
         createdAt: serverTimestamp()
@@ -161,8 +140,7 @@ export default function ProfilePage() {
     } catch(error) {
         console.error("Failed to toggle follow", error);
     } finally {
-        // The onSnapshot listener will update the state, so we don't need to do it here.
-        setIsFollowLoading(false);
+        // onSnapshot will handle the state update
     }
   };
 
@@ -208,6 +186,10 @@ export default function ProfilePage() {
           </Card>
       )
   }
+  
+  const followerCount = profileUser.followerCount || 0;
+  const followingCount = profileUser.followingCount || 0;
+
 
   return (
     <div className="space-y-6">
@@ -237,8 +219,8 @@ export default function ProfilePage() {
                     </Link>
                 </Button>
             ): (
-                <Button onClick={handleFollowToggle} disabled={isFollowLoading} variant={isFollowing ? 'secondary' : 'default'}>
-                    {isFollowLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 
+                <Button onClick={handleFollowToggle} disabled={isFollowStatusLoading} variant={isFollowing ? 'secondary' : 'default'}>
+                    {isFollowStatusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 
                      isFollowing ? <><UserCheck className="h-4 w-4 me-2" /> متابَع</> : <><UserPlus className="h-4 w-4 me-2" /> متابعة</>}
                 </Button> 
             )}
@@ -246,7 +228,11 @@ export default function ProfilePage() {
           <div className="mt-4 space-y-1">
             <h1 className="text-2xl font-bold font-headline">{profileUser.name}</h1>
             <p className="text-sm text-muted-foreground">@{profileUser.username}</p>
-            <p className="pt-2">{profileUser.bio || "لا يوجد نبذة تعريفية."}</p>
+            {canViewContent ? (
+                 <p className="pt-2">{profileUser.bio || "لا يوجد نبذة تعريفية."}</p>
+            ) : (
+                <p className="pt-2 text-muted-foreground italic">تابع هذا المستخدم لعرض نبذته التعريفية.</p>
+            )}
           </div>
           <div className="mt-4 flex gap-6 text-sm text-muted-foreground">
             <div>
@@ -256,7 +242,7 @@ export default function ProfilePage() {
               <span className="font-bold text-foreground">{followerCount}</span> متابَع
             </div>
              <div>
-              <span className="font-bold text-foreground">{userPosts?.length || 0}</span> منشور
+              <span className="font-bold text-foreground">{canViewContent ? (userPosts?.length || 0) : '؟'}</span> منشور
             </div>
           </div>
         </CardContent>
@@ -272,8 +258,17 @@ export default function ProfilePage() {
           <TabsTrigger value="likes" disabled>الإعجابات</TabsTrigger>
         </TabsList>
         <TabsContent value="posts" className="space-y-6 mt-6">
-           {postsLoading ? <Skeleton className="h-40 w-full" /> : 
-           userPosts && userPosts.length > 0 ? (
+           {!canViewContent ? (
+                <Card>
+                    <CardContent className="p-8 text-center text-muted-foreground space-y-2">
+                        <Lock className="h-8 w-8 mx-auto"/>
+                        <h3 className="font-semibold text-lg text-foreground">هذا الحساب خاص</h3>
+                        <p>تابع هذا الحساب لرؤية منشوراته.</p>
+                    </CardContent>
+                </Card>
+           ) : postsLoading ? (
+            <Skeleton className="h-40 w-full" />
+           ) : userPosts && userPosts.length > 0 ? (
             userPosts.map(post => <PostCard key={post.id} post={post} />)
           ) : (
             <Card>
@@ -287,5 +282,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    
