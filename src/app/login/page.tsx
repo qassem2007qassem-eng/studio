@@ -24,7 +24,7 @@ import {
   signInWithPopup,
 } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 const GoogleIcon = (props) => (
   <svg viewBox="0 0 48 48" {...props}>

@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Card,
@@ -26,7 +26,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
 import {
   doc,
@@ -36,10 +36,7 @@ import {
   query,
   where,
   getDocs,
-  getFirestore
 } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
-import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
@@ -50,7 +47,6 @@ function RegisterForm() {
 
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [isVerificationSent, setIsVerificationSent] = useState(false);
   
   const [formData, setFormData] = useState({
     email: '',
@@ -188,7 +184,11 @@ function RegisterForm() {
         following: [],
       });
       
-      setIsVerificationSent(true);
+      toast({
+        title: "تم إرسال رابط التحقق",
+        description: "لقد أرسلنا رابط تحقق إلى بريدك الإلكتروني. الرجاء النقر عليه ثم تسجيل الدخول.",
+      });
+      router.push('/login');
 
     } catch (error: any) {
       setIsLoading(false);
@@ -205,38 +205,8 @@ function RegisterForm() {
         description: description,
         variant: 'destructive',
       });
-    } finally {
-        setIsLoading(false);
     }
   };
-  
-  if (isVerificationSent) {
-    return (
-       <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-            <Card className="mx-auto w-full max-w-sm text-center">
-                 <CardHeader>
-                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
-                        <CheckCircle className="h-10 w-10 text-green-500 dark:text-green-400" />
-                    </div>
-                    <CardTitle className="text-2xl font-headline mt-4">تحقق من بريدك الإلكتروني</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">
-                        لقد أرسلنا رابط تحقق إلى <span className="font-semibold text-foreground">{formData.email}</span>.
-                        <br />
-                        الرجاء التحقق من بريدك الوارد (والبريد المزعج) والنقر على الرابط لتفعيل حسابك.
-                    </p>
-                </CardContent>
-                <CardFooter>
-                    <Button className="w-full" asChild>
-                        <Link href="/login">العودة إلى تسجيل الدخول</Link>
-                    </Button>
-                </CardFooter>
-            </Card>
-        </div>
-    )
-  }
-
 
   const stepsContent = [
     {
