@@ -3,10 +3,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, MessageCircle, MoreHorizontal, Share2, Flag } from "lucide-react";
+import { Heart, MessageCircle, MoreHorizontal, Share2, Flag, Trash2, Edit } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-import { type Post, type Comment, type User as UserType } from "@/lib/types";
+import { type Post, type Comment } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -16,8 +17,19 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
     Dialog,
     DialogContent,
@@ -43,6 +55,9 @@ import {
 import { getCurrentUserProfile } from "@/services/user-service";
 import { Skeleton } from "./ui/skeleton";
 import { initializeFirebase } from '@/firebase';
+import { useToast } from "@/hooks/use-toast";
+import { deletePost } from "@/services/post-service";
+
 
 interface PostCardProps {
   post: Post;
@@ -159,9 +174,14 @@ const CommentsDialog = ({ post }: { post: Post }) => {
 export function PostCard({ post }: PostCardProps) {
   const { user } = useUser();
   const { firestore } = initializeFirebase();
-  
+  const { toast } = useToast();
+  const router = useRouter();
+
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  
+  const isOwner = user?.uid === post.authorId;
 
   useEffect(() => {
     setIsLiked(!!user && !!post.likeIds?.includes(user.uid));
@@ -189,6 +209,21 @@ export function PostCard({ post }: PostCardProps) {
         setLikeCount(prev => !newIsLiked ? prev + 1 : prev - 1);
     });
   };
+  
+  const handleDelete = async () => {
+    if (!isOwner) return;
+    try {
+        await deletePost(post.id, post.imageUrls);
+        toast({ title: "تم حذف المنشور بنجاح."});
+        // This part is tricky. In a real app, you'd have a global state management
+        // to remove the post from the UI. For now, we'll just close the alert.
+        setIsDeleteAlertOpen(false);
+        router.refresh(); // Not ideal, but re-fetches data for the page.
+    } catch(error) {
+        console.error("Error deleting post:", error);
+        toast({ title: "خطأ", description: "لم نتمكن من حذف المنشور.", variant: "destructive" });
+    }
+  }
 
   const commentsCollectionQuery = useMemoFirebase(() => {
     if (!firestore || !post.id) return null;
@@ -221,19 +256,46 @@ export function PostCard({ post }: PostCardProps) {
                 </Link>
                 <p className="text-xs text-muted-foreground">@{post.author.username?.toLowerCase()} · {postDate ? formatDistanceToNow(postDate) : ''}</p>
             </div>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 me-auto ms-0">
-                    <MoreHorizontal className="h-4 w-4" />
-                </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                <DropdownMenuItem>
-                    <Flag className="ms-2 h-4 w-4" />
-                    <span>إبلاغ عن المنشور</span>
-                </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
+             <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 me-auto ms-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                    {isOwner && (
+                        <>
+                            <DropdownMenuItem disabled>
+                                <Edit className="ms-2 h-4 w-4" />
+                                <span>تعديل المنشور</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setIsDeleteAlertOpen(true)} className="text-destructive">
+                                <Trash2 className="ms-2 h-4 w-4" />
+                                <span>حذف المنشور</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                        </>
+                    )}
+                    <DropdownMenuItem>
+                        <Flag className="ms-2 h-4 w-4" />
+                        <span>إبلاغ عن المنشور</span>
+                    </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>هل أنت متأكد تمامًا؟</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            هذا الإجراء لا يمكن التراجع عنه. سيؤدي هذا إلى حذف منشورك بشكل دائم من خوادمنا.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">حذف</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
             </div>
         </CardHeader>
         <CardContent className="space-y-4 p-4 pt-0">

@@ -9,20 +9,25 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Moon, Sun, LogOut, Lock, UserCog, Palette } from "lucide-react";
 import Image from "next/image";
 import { useUser, initializeFirebase } from "@/firebase";
-import { updateProfile as updateAuthProfile } from "firebase/auth";
+import { signOut, updateProfile as updateAuthProfile } from "firebase/auth";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type User as UserType } from "@/lib/types";
 import { getCurrentUserProfile, updateProfile } from "@/services/user-service";
+import { Separator } from "@/components/ui/separator";
+import { useTheme } from "next-themes";
+import { Switch } from "@/components/ui/switch";
+import { useRouter } from "next/navigation";
 
 
-export default function SettingsPage() {
+function ProfileSettings() {
     const { toast } = useToast();
     const { user, isUserLoading } = useUser();
-    
+    const router = useRouter();
+
     const [userData, setUserData] = useState<UserType | null>(null);
     const [name, setName] = useState("");
     const [username, setUsername] = useState("");
@@ -93,7 +98,6 @@ export default function SettingsPage() {
 
             await updateProfile(updatedUserData);
             
-            // Optimistically update local state to reflect changes immediately
             const updatedFullUser = { ...userData, ...updatedUserData };
             setUserData(updatedFullUser as UserType);
             setAvatarUrl(updatedFullUser.avatarUrl);
@@ -129,60 +133,24 @@ export default function SettingsPage() {
 
     if (isLoading) {
         return (
-            <Card>
-                <CardHeader>
-                    <Skeleton className="h-8 w-1/3" />
-                    <Skeleton className="h-4 w-2/3" />
-                </CardHeader>
-                <CardContent className="space-y-8">
-                     <div className="space-y-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-40 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                     <div className="space-y-2">
-                        <Skeleton className="h-4 w-24" />
-                        <div className="flex items-center gap-4">
-                            <Skeleton className="h-24 w-24 rounded-full" />
-                            <Skeleton className="h-10 flex-1" />
+            <div className="space-y-6">
+                {[...Array(5)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-4">
+                        <Skeleton className="h-10 w-10" />
+                        <div className="flex-1 space-y-2">
+                             <Skeleton className="h-4 w-1/3" />
+                             <Skeleton className="h-3 w-2/3" />
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                     <div className="space-y-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-20 w-full" />
-                    </div>
-                </CardContent>
-                <CardFooter>
-                    <Skeleton className="h-10 w-28" />
-                </CardFooter>
-            </Card>
+                ))}
+            </div>
         )
     }
-
-    if (!user) {
-        return (
-             <Card>
-                <CardHeader>
-                    <CardTitle>الرجاء تسجيل الدخول</CardTitle>
-                    <CardDescription>يجب عليك تسجيل الدخول لعرض هذه الصفحة.</CardDescription>
-                </CardHeader>
-            </Card>
-        )
-    }
-
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle>إعدادات الملف الشخصي</CardTitle>
+                <CardTitle>تعديل الملف الشخصي</CardTitle>
                 <CardDescription>قم بتحديث معلوماتك الشخصية هنا.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -201,7 +169,7 @@ export default function SettingsPage() {
                             }
                          </div>
                     </Card>
-                    <Button variant="outline" onClick={() => coverInputRef.current?.click()}>تغيير صورة الغلاف</Button>
+                    <Button variant="outline" onClick={() => coverInputRef.current?.click()} disabled={isSaving}>تغيير صورة الغلاف</Button>
                     <Input ref={coverInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleFileChange(e, setCoverUrl)} />
                 </div>
                 
@@ -213,27 +181,24 @@ export default function SettingsPage() {
                             <AvatarImage src={avatarUrl || undefined} alt={name} />
                             <AvatarFallback>{name?.charAt(0)}</AvatarFallback>
                         </Avatar>
-                        <Button variant="outline" onClick={() => avatarInputRef.current?.click()}>تغيير الصورة الشخصية</Button>
+                        <Button variant="outline" onClick={() => avatarInputRef.current?.click()} disabled={isSaving}>تغيير الصورة الشخصية</Button>
                         <Input ref={avatarInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleFileChange(e, setAvatarUrl)} />
                     </div>
                 </div>
 
-                {/* Name */}
                 <div className="space-y-2">
                     <Label htmlFor="name">الاسم الكامل</Label>
-                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSaving}/>
                 </div>
 
-                 {/* Username */}
                  <div className="space-y-2">
                     <Label htmlFor="username">اسم المستخدم</Label>
-                    <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+                    <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} disabled={isSaving} />
                 </div>
 
-                {/* Bio */}
                 <div className="space-y-2">
                     <Label htmlFor="bio">النبذة التعريفية</Label>
-                    <Textarea id="bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={4} placeholder="أخبرنا عن نفسك..." />
+                    <Textarea id="bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={4} placeholder="أخبرنا عن نفسك..." disabled={isSaving}/>
                 </div>
             </CardContent>
             <CardFooter>
@@ -243,4 +208,141 @@ export default function SettingsPage() {
             </CardFooter>
         </Card>
     );
+}
+
+function PrivacySettings() {
+    const { user } = useUser();
+    const [isPrivate, setIsPrivate] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        if (user) {
+            getCurrentUserProfile().then(profile => {
+                if (profile) {
+                    setIsPrivate(profile.isPrivate || false);
+                }
+                setIsLoading(false);
+            })
+        }
+    }, [user]);
+
+    const handlePrivacyToggle = async (checked: boolean) => {
+        setIsPrivate(checked);
+        try {
+            await updateProfile({ isPrivate: checked });
+            toast({
+                title: "تم تحديث الخصوصية",
+                description: checked ? "أصبح حسابك خاصًا الآن." : "أصبح حسابك عامًا الآن."
+            });
+        } catch (error) {
+            toast({ title: "خطأ", description: "لم نتمكن من تحديث إعدادات الخصوصية.", variant: "destructive" });
+            setIsPrivate(!checked); // Revert on error
+        }
+    }
+
+    if (isLoading) {
+        return <Skeleton className="h-10 w-full" />
+    }
+
+    return (
+        <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+                <Label htmlFor="private-account" className="text-base">حساب خاص</Label>
+                <p className="text-sm text-muted-foreground">
+                    عندما يكون حسابك خاصًا، يمكن فقط للمتابعين الذين توافق عليهم رؤية صورك ومقاطع الفيديو الخاصة بك.
+                </p>
+            </div>
+            <Switch
+                id="private-account"
+                checked={isPrivate}
+                onCheckedChange={handlePrivacyToggle}
+            />
+        </div>
+    )
+}
+
+function ThemeSettings() {
+    const { theme, setTheme } = useTheme();
+
+    return (
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+                <Palette className="h-5 w-5 text-muted-foreground" />
+                <Label htmlFor="theme-switcher">المظهر</Label>
+            </div>
+            <div className="flex items-center gap-2 rounded-full border p-1">
+                <Button variant={theme === 'light' ? 'secondary': 'ghost'} size="icon" className="rounded-full h-8 w-8" onClick={() => setTheme('light')}>
+                    <Sun className="h-5 w-5"/>
+                </Button>
+                 <Button variant={theme === 'dark' ? 'secondary': 'ghost'} size="icon" className="rounded-full h-8 w-8" onClick={() => setTheme('dark')}>
+                    <Moon className="h-5 w-5"/>
+                </Button>
+            </div>
+        </div>
+    )
+}
+
+
+export default function SettingsPage() {
+    const { user, isUserLoading } = useUser();
+    const router = useRouter();
+    const { auth } = initializeFirebase();
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const handleLogout = async () => {
+        setIsLoggingOut(true);
+        try {
+            await signOut(auth);
+            router.push('/login');
+        } catch (error) {
+            console.error("Logout error", error);
+        } finally {
+            setIsLoggingOut(false);
+        }
+    }
+
+    if (isUserLoading) {
+         return (
+             <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        )
+    }
+
+    if (!user) {
+        return (
+             <Card>
+                <CardHeader>
+                    <CardTitle>الرجاء تسجيل الدخول</CardTitle>
+                    <CardDescription>يجب عليك تسجيل الدخول لعرض هذه الصفحة.</CardDescription>
+                </CardHeader>
+                 <CardFooter>
+                    <Button onClick={() => router.push('/login')}>تسجيل الدخول</Button>
+                </CardFooter>
+            </Card>
+        )
+    }
+
+    return (
+        <div className="space-y-8">
+            <ProfileSettings />
+
+            <Card>
+                 <CardHeader>
+                    <CardTitle>الإعدادات العامة</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <ThemeSettings />
+                    <Separator />
+                    <PrivacySettings />
+                    <Separator />
+                     <Button variant="ghost" className="w-full justify-start gap-4 text-red-500 hover:text-red-600" onClick={handleLogout} disabled={isLoggingOut}>
+                        <LogOut className="h-5 w-5" />
+                        <span>{isLoggingOut ? "جاري تسجيل الخروج..." : "تسجيل الخروج"}</span>
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
+    )
 }

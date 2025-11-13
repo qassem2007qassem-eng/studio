@@ -90,7 +90,7 @@ export function BottomNavBar() {
                 className={cn(
                   'flex flex-col items-center justify-center text-center gap-1 transition-colors duration-200',
                   isActive ? 'text-primary' : 'text-muted-foreground hover:text-primary',
-                  item.href === '/home/settings' && !user ? 'pointer-events-none opacity-50' : ''
+                  !user && (item.requiresAuth || item.href === '/home/settings') ? 'pointer-events-none opacity-50' : ''
                 )}
               >
                 <item.icon className="h-6 w-6" />

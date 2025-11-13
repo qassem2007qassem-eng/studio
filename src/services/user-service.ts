@@ -43,7 +43,8 @@ const createUserProfile = async (user, username, fullName, avatarUrl) => {
       bio: "",
       createdAt: serverTimestamp(),
       followers: [],
-      following: []
+      following: [],
+      isPrivate: false,
     });
     console.log("User profile created successfully!");
   } catch (error) {
@@ -116,64 +117,61 @@ const getUserById = async (userId) => {
 };
 
 // ✅ متابعة مستخدم
-const followUser = async (targetUserId) => {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    console.log("No user logged in");
-    return;
-  }
+const followUser = async (targetUserId: string): Promise<void> => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error("No user is logged in.");
+    }
+    if (currentUser.uid === targetUserId) {
+        throw new Error("User cannot follow themselves.");
+    }
 
-  try {
-    const batch = writeBatch(firestore);
-    
-    // Add to current user's following list
-    const currentUserRef = doc(firestore, "users", currentUser.uid);
+    const db = getFirestore();
+    const batch = writeBatch(db);
+
+    const currentUserRef = doc(db, "users", currentUser.uid);
+    const targetUserRef = doc(db, "users", targetUserId);
+
+    // Add target to current user's following list
     batch.update(currentUserRef, {
-        following: arrayUnion(targetUserId)
+      following: arrayUnion(targetUserId)
     });
-    
-    // Add to target user's followers list
-    const targetUserRef = doc(firestore, "users", targetUserId);
+
+    // Add current user to target's followers list
     batch.update(targetUserRef, {
-        followers: arrayUnion(currentUser.uid)
+      followers: arrayUnion(currentUser.uid)
     });
-    
+
     await batch.commit();
-    console.log("Followed user successfully!");
-  } catch (error) {
-    console.error("Error following user:", error);
-  }
 };
 
+
 // ✅ إلغاء المتابعة
-const unfollowUser = async (targetUserId) => {
-  const currentUser = auth.currentUser;
-  if (!currentUser) {
-    console.log("No user logged in");
-    return;
-  }
+const unfollowUser = async (targetUserId: string): Promise<void> => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+        throw new Error("No user is logged in.");
+    }
 
-  try {
-    const batch = writeBatch(firestore);
+    const db = getFirestore();
+    const batch = writeBatch(db);
 
-    // Remove from current user's following list
-    const currentUserRef = doc(firestore, "users", currentUser.uid);
+    const currentUserRef = doc(db, "users", currentUser.uid);
+    const targetUserRef = doc(db, "users", targetUserId);
+
+    // Remove target from current user's following list
     batch.update(currentUserRef, {
         following: arrayRemove(targetUserId)
     });
 
-    // Remove from target user's followers list
-    const targetUserRef = doc(firestore, "users", targetUserId);
-     batch.update(targetUserRef, {
+    // Remove current user from target's followers list
+    batch.update(targetUserRef, {
         followers: arrayRemove(currentUser.uid)
     });
-    
+
     await batch.commit();
-    console.log("Unfollowed user successfully!");
-  } catch (error) {
-    console.error("Error unfollowing user:", error);
-  }
 };
+
 
 // ✅ التحقق إذا كان يتابع مستخدم
 const checkIfFollowing = async (targetUserId) => {
@@ -200,6 +198,7 @@ const updateProfile = async (updates) => {
     console.log("Profile updated successfully!");
   } catch (error) {
     console.error("Error updating profile:", error);
+    throw error; // Re-throw the error to be handled by the caller
   }
 };
 

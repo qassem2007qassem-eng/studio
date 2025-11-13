@@ -21,12 +21,14 @@ import { useUser, useFirebase } from "@/firebase";
 import { useEffect, useState, useMemo } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { getUserByUsername, followUser, unfollowUser, checkIfFollowing } from "@/services/user-service";
-import { formatDistanceToNow } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProfilePage() {
   const params = useParams();
+  const router = useRouter();
+  const { toast } = useToast();
   const { firestore } = useFirebase();
   const { user: currentUser, isUserLoading: isCurrentUserLoading } = useUser();
   
@@ -88,8 +90,10 @@ export default function ProfilePage() {
 
   const canViewContent = useMemo(() => {
     if (isProfileUserLoading || isFollowStatusLoading) return false;
-    return isCurrentUserProfile || isFollowing;
-  }, [isProfileUserLoading, isFollowStatusLoading, isCurrentUserProfile, isFollowing]);
+    if (isCurrentUserProfile) return true;
+    if (!profileUser?.isPrivate) return true;
+    return isFollowing;
+  }, [isProfileUserLoading, isFollowStatusLoading, isCurrentUserProfile, isFollowing, profileUser]);
 
   // Effect for fetching posts, depends on canViewContent
   useEffect(() => {
@@ -106,16 +110,21 @@ export default function ProfilePage() {
       try {
           const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id));
           const snapshot = await getDocs(postsQuery);
-          const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+          const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
           
+          // Filter posts based on privacy for non-owners
+          const visiblePosts = isCurrentUserProfile 
+            ? postsData
+            : postsData.filter(post => post.privacy === 'everyone' || (post.privacy === 'followers' && isFollowing));
+
           // Sort posts on the client-side
-          posts.sort((a, b) => {
+          visiblePosts.sort((a, b) => {
             const dateA = a.createdAt?.toDate()?.getTime() || 0;
             const dateB = b.createdAt?.toDate()?.getTime() || 0;
             return dateB - dateA;
           });
 
-          setUserPosts(posts);
+          setUserPosts(visiblePosts);
       } catch (e) {
           console.error("Error fetching posts:", e);
           setUserPosts([]);
@@ -127,9 +136,9 @@ export default function ProfilePage() {
     if (profileUser && !isProfileUserLoading && !isFollowStatusLoading) {
         fetchPosts();
     }
-  }, [profileUser, firestore, canViewContent, isProfileUserLoading, isFollowStatusLoading]);
+  }, [profileUser, firestore, canViewContent, isCurrentUserProfile, isFollowing, isProfileUserLoading, isFollowStatusLoading]);
 
-  const handleFollowToggle = async () => {
+ const handleFollowToggle = async () => {
     if (!currentUser || !profileUser || isTogglingFollow || isCurrentUserProfile) return;
 
     setIsTogglingFollow(true);
@@ -138,18 +147,25 @@ export default function ProfilePage() {
       if (isFollowing) {
           await unfollowUser(profileUser.id);
           setIsFollowing(false);
+          toast({ title: `تم إلغاء متابعة ${profileUser.name}`});
       } else {
           await followUser(profileUser.id);
           setIsFollowing(true);
+          toast({ title: `أنت تتابع الآن ${profileUser.name}`});
       }
+       // Re-fetch profile user to get updated follower count
        const updatedUser = await getUserByUsername(usernameFromUrl);
        setProfileUser(updatedUser);
     } catch (e) {
-      console.error("Error toggling follow:", e)
+      console.error("Error toggling follow:", e);
+      toast({ title: "حدث خطأ", description: "لم نتمكن من إتمام العملية. حاول مرة أخرى.", variant: "destructive" });
+      // Revert UI on error
+      setIsFollowing(prev => !prev);
     } finally {
       setIsTogglingFollow(false);
     }
   };
+
 
   if (isProfileUserLoading || isCurrentUserLoading) {
     return (
@@ -215,15 +231,13 @@ export default function ProfilePage() {
         <CardContent className="p-4 relative">
           <div className="flex justify-between">
             <Avatar className="-mt-16 h-28 w-28 border-4 border-card">
-              <AvatarImage src={profileUser.avatarUrl} alt={profileUser.name} />
+              <AvatarImage src={profileUser.avatarUrl || undefined} alt={profileUser.name} />
               <AvatarFallback>{profileUser.name?.charAt(0)}</AvatarFallback>
             </Avatar>
             {isCurrentUserProfile ? (
-                 <Button variant="outline" asChild>
-                    <Link href="/home/settings">
-                        <Settings className="h-4 w-4 me-2" />
-                        تعديل الملف الشخصي
-                    </Link>
+                 <Button variant="outline" onClick={() => router.push('/home/settings')}>
+                    <Settings className="h-4 w-4 me-2" />
+                    تعديل الملف الشخصي
                 </Button>
             ): (
                 <Button onClick={handleFollowToggle} disabled={followButtonDisabled} variant={isFollowing ? 'secondary' : 'default'}>
@@ -235,7 +249,7 @@ export default function ProfilePage() {
           <div className="mt-4 space-y-1">
             <h1 className="text-2xl font-bold font-headline">{profileUser.name}</h1>
             <p className="text-sm text-muted-foreground">@{profileUser.username.toLowerCase()}</p>
-            {canViewContent || isCurrentUserProfile ? (
+            {canViewContent || !profileUser.isPrivate ? (
                  <p className="pt-2">{profileUser.bio || "لا يوجد نبذة تعريفية."}</p>
             ) : (
                 <p className="pt-2 text-muted-foreground italic">تابع هذا المستخدم لعرض نبذته التعريفية.</p>
@@ -265,7 +279,7 @@ export default function ProfilePage() {
           <TabsTrigger value="likes" disabled>الإعجابات</TabsTrigger>
         </TabsList>
         <TabsContent value="posts" className="space-y-6 mt-6">
-           {!canViewContent && !isCurrentUserProfile ? (
+           {!canViewContent ? (
                 <Card>
                     <CardContent className="p-8 text-center text-muted-foreground space-y-2">
                         <Lock className="h-8 w-8 mx-auto"/>
@@ -289,4 +303,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

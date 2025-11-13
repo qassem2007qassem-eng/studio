@@ -5,23 +5,37 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ImageIcon,
-  Paperclip,
   Smile,
   Loader2,
   X,
+  Globe,
+  Users,
+  Lock,
+  ChevronDown
 } from 'lucide-react';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useUser, initializeFirebase } from '@/firebase';
-import { collection, serverTimestamp, addDoc, type Timestamp } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { type User as UserType } from '@/lib/types';
+import { type User as UserType, type PrivacySetting } from '@/lib/types';
 import { getCurrentUserProfile } from '@/services/user-service';
+import { createPost } from '@/services/post-service';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
+
+const privacyOptions: { value: PrivacySetting; label: string; icon: React.FC<any> }[] = [
+  { value: 'everyone', label: 'الجميع', icon: Globe },
+  { value: 'followers', label: 'المتابعون فقط', icon: Users },
+  { value: 'only_me', label: 'أنا فقط', icon: Lock },
+];
 
 export default function CreatePostPage() {
   const { user, isUserLoading } = useUser();
@@ -32,7 +46,8 @@ export default function CreatePostPage() {
   const { toast } = useToast();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const [privacy, setPrivacy] = useState<PrivacySetting>('everyone');
+  const [commenting, setCommenting] = useState<PrivacySetting>('everyone');
 
   useEffect(() => {
     if (user && !userData) {
@@ -89,33 +104,17 @@ export default function CreatePostPage() {
     setIsSaving(true);
 
     try {
-      const { firestore, storage } = initializeFirebase();
-      
-      // Use Promise.all to upload all images in parallel
-      const imageUrls = await Promise.all(
-        postImages.map(image => {
-           const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
-           return uploadString(imageRef, image, 'data_url').then(snapshot => getDownloadURL(snapshot.ref));
-        })
-      );
-
-      const postsCollection = collection(firestore, 'posts');
-      
-      const postData = {
-        authorId: user.uid,
+      await createPost({
+        content: content.trim(),
+        imageBlobs: postImages,
         author: {
           name: profile.name,
           username: profile.username.toLowerCase(),
           avatarUrl: profile.avatarUrl,
         },
-        content: content.trim(),
-        imageUrls: imageUrls,
-        createdAt: serverTimestamp(),
-        likeIds: [],
-        updatedAt: serverTimestamp(),
-      };
-
-      await addDoc(postsCollection, postData);
+        privacy,
+        commenting
+      });
 
       setContent('');
       setPostImages([]);
@@ -135,6 +134,8 @@ export default function CreatePostPage() {
       setIsSaving(false);
     }
   };
+  
+  const CurrentPrivacyIcon = privacyOptions.find(p => p.value === privacy)?.icon;
 
   if (isUserLoading) {
       return (
@@ -175,7 +176,23 @@ export default function CreatePostPage() {
                     </Avatar>
                     <div>
                         <p className="font-semibold">{userData.name}</p>
-                        <p className="text-sm text-muted-foreground">عام</p>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-7 p-1 text-xs">
+                                     {CurrentPrivacyIcon && <CurrentPrivacyIcon className="h-3 w-3 me-1" />}
+                                    {privacyOptions.find(p => p.value === privacy)?.label}
+                                    <ChevronDown className="h-3 w-3 ms-1"/>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                {privacyOptions.map(option => (
+                                    <DropdownMenuItem key={option.value} onSelect={() => setPrivacy(option.value)}>
+                                        <option.icon className="h-4 w-4 me-2"/>
+                                        {option.label}
+                                    </DropdownMenuItem>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
                 <Textarea
@@ -224,8 +241,8 @@ export default function CreatePostPage() {
                         <span>شعور/نشاط</span>
                     </Button>
                     <Button variant="ghost" className="gap-2 text-muted-foreground" disabled>
-                        <Paperclip className="h-5 w-5 text-green-500"/>
-                        <span>مرفق</span>
+                        <Users className="h-5 w-5 text-blue-500"/>
+                        <span>الإشارة للأصدقاء</span>
                     </Button>
                 </div>
             </footer>

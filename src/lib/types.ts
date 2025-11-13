@@ -1,6 +1,8 @@
 
 import { Timestamp } from "firebase/firestore";
 
+export type PrivacySetting = 'everyone' | 'followers' | 'only_me' | 'none';
+
 export interface User {
   id: string;
   username: string;
@@ -14,6 +16,7 @@ export interface User {
   createdAt: Timestamp;
   followers: string[];
   following: string[];
+  isPrivate?: boolean;
 }
 
 export interface Comment {
@@ -42,6 +45,8 @@ export interface Post {
   createdAt: Timestamp;
   likeIds?: string[];
   updatedAt?: Timestamp;
+  privacy: PrivacySetting;
+  commenting: PrivacySetting;
 }
 
 export interface Story {
@@ -62,7 +67,7 @@ export interface Story {
 }
 
 export interface AppNotification {
-  id: string;
+  id:string;
   user: Pick<User, 'username' | 'avatarUrl'> & { name: string };
   action: 'liked' | 'commented' | 'followed';
   postContent?: string;
