@@ -110,9 +110,9 @@ export default function CreatePostPage() {
         },
         content: content.trim(),
         imageUrls: imageUrls,
-        createdAt: serverTimestamp() as Timestamp,
+        createdAt: serverTimestamp(),
         likeIds: [],
-        updatedAt: serverTimestamp() as Timestamp,
+        updatedAt: serverTimestamp(),
       };
 
       await addDoc(postsCollection, postData);

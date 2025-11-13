@@ -85,13 +85,15 @@ export default function SettingsPage() {
 
             const updatedUserData: Partial<UserType> = {
                 name: name,
-                username: username,
+                username: username.toLowerCase(),
                 bio: bio,
                 avatarUrl: newAvatarUrl,
                 coverUrl: newCoverUrl,
             };
 
             await updateProfile(updatedUserData);
+            
+            setUserData(prev => ({...prev, ...updatedUserData} as UserType));
 
             toast({
                 title: "تم الحفظ",
@@ -220,7 +222,7 @@ export default function SettingsPage() {
                  {/* Username */}
                  <div className="space-y-2">
                     <Label htmlFor="username">اسم المستخدم</Label>
-                    <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} disabled />
+                    <Input id="username" value={username} onChange={(e) => setUsername(e.target.value)} />
                 </div>
 
                 {/* Bio */}

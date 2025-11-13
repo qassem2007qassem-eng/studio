@@ -52,9 +52,9 @@ service cloud.firestore {
      */
     match /posts/{postId} {
         allow get, list: if true;
-        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid && request.resource.data.createdAt is timestamp;
+        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
         allow update: if isSignedIn() && (
-            (resource.data.authorId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'imageUrl', 'updatedAt']) && request.resource.data.updatedAt is timestamp) ||
+            (resource.data.authorId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'imageUrls', 'updatedAt'])) ||
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeIds'])
         );
         allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
@@ -66,7 +66,7 @@ service cloud.firestore {
      */
     match /posts/{postId}/comments/{commentId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid && request.resource.data.postId == postId && request.resource.data.createdAt is timestamp;
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid && request.resource.data.postId == postId;
       allow update: if isSignedIn() && resource.data.authorId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
     }
@@ -94,7 +94,7 @@ service cloud.firestore {
      */
     match /stories/{storyId} {
       allow read: if true;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid && request.resource.data.createdAt is timestamp;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
