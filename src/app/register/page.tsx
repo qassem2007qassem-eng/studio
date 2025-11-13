@@ -2,7 +2,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   Card,
@@ -10,6 +11,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,13 +21,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, Loader2, UserCircle2 } from 'lucide-react';
+import { CalendarIcon, Loader2, UserCircle2, CheckCircle } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useAuth } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
 import {
   doc,
   setDoc,
@@ -34,6 +36,7 @@ import {
   query,
   where,
   getDocs,
+  getFirestore
 } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -41,9 +44,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 
-export default function RegisterPage() {
+function RegisterForm() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerificationSent, setIsVerificationSent] = useState(false);
+  
   const [formData, setFormData] = useState({
     email: '',
     fullName: '',
@@ -58,8 +66,25 @@ export default function RegisterPage() {
 
   const auth = useAuth();
   const firestore = useFirestore();
-  const router = useRouter();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const name = searchParams.get('name');
+    const email = searchParams.get('email');
+    const avatar = searchParams.get('avatar');
+
+    if (name && email) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: name,
+        email: email,
+        avatar: avatar || null,
+      }));
+      setStep(3); // Skip to DOB step if coming from Google sign-in
+    }
+  }, [searchParams]);
+
+  const isFromGoogle = !!searchParams.get('email');
 
   const handleNext = () => setStep((prev) => prev + 1);
   const handlePrev = () => setStep((prev) => prev - 1);
@@ -68,12 +93,12 @@ export default function RegisterPage() {
     const { name, value } = e.target;
     if (name === 'username') {
       const lowerCaseValue = value.toLowerCase();
-      if (value !== lowerCaseValue) {
-        setUsernameError('اسم المستخدم يجب أن يحتوي على أحرف صغيرة فقط.');
+      if (/[^a-z0-9._]/.test(lowerCaseValue)) {
+        setUsernameError('اسم المستخدم يجب أن يحتوي على أحرف إنجليزية صغيرة، أرقام، نقاط، أو شرطات سفلية فقط.');
       } else {
         setUsernameError(null);
       }
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: lowerCaseValue }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -107,7 +132,6 @@ export default function RegisterPage() {
     const usernameLower = formData.username.toLowerCase();
 
     try {
-      // 1. Check if username is already taken
       const usersRef = collection(firestore, 'users');
       const q = query(usersRef, where('username', '==', usernameLower));
       const querySnapshot = await getDocs(q);
@@ -121,8 +145,7 @@ export default function RegisterPage() {
         setIsLoading(false);
         return;
       }
-
-      // 2. Create user with email and password
+      
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         formData.email,
@@ -130,7 +153,8 @@ export default function RegisterPage() {
       );
       const user = userCredential.user;
 
-      // 3. Upload avatar if it exists
+      await sendEmailVerification(user);
+
       let photoURL = `https://i.pravatar.cc/150?u=${user.uid}`;
       if (formData.avatar) {
         const storage = getStorage();
@@ -143,18 +167,16 @@ export default function RegisterPage() {
         photoURL = await getDownloadURL(snapshot.ref);
       }
 
-      // 4. Update Firebase Auth profile
       await updateProfile(user, {
         displayName: formData.fullName,
         photoURL: photoURL,
       });
 
-      // 5. Create user document in Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
-      const userData = {
+      await setDoc(userDocRef, {
         id: user.uid,
-        username: usernameLower, // Always save username as lowercase
-        email: formData.email, // Save the real email
+        username: usernameLower,
+        email: formData.email,
         name: formData.fullName,
         dob: formData.dob ? format(formData.dob, 'yyyy-MM-dd') : null,
         gender: formData.gender,
@@ -164,16 +186,10 @@ export default function RegisterPage() {
         coverUrl: `https://picsum.photos/seed/${user.uid}/1080/400`,
         followers: [],
         following: [],
-      };
-
-      await setDoc(userDocRef, userData);
-
-      toast({
-        title: 'نجاح',
-        description: 'تم إنشاء حسابك بنجاح! يتم توجيهك الآن...',
       });
+      
+      setIsVerificationSent(true);
 
-      router.push('/home');
     } catch (error: any) {
       setIsLoading(false);
       let description = 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.';
@@ -189,8 +205,38 @@ export default function RegisterPage() {
         description: description,
         variant: 'destructive',
       });
+    } finally {
+        setIsLoading(false);
     }
   };
+  
+  if (isVerificationSent) {
+    return (
+       <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
+            <Card className="mx-auto w-full max-w-sm text-center">
+                 <CardHeader>
+                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900">
+                        <CheckCircle className="h-10 w-10 text-green-500 dark:text-green-400" />
+                    </div>
+                    <CardTitle className="text-2xl font-headline mt-4">تحقق من بريدك الإلكتروني</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">
+                        لقد أرسلنا رابط تحقق إلى <span className="font-semibold text-foreground">{formData.email}</span>.
+                        <br />
+                        الرجاء التحقق من بريدك الوارد (والبريد المزعج) والنقر على الرابط لتفعيل حسابك.
+                    </p>
+                </CardContent>
+                <CardFooter>
+                    <Button className="w-full" asChild>
+                        <Link href="/login">العودة إلى تسجيل الدخول</Link>
+                    </Button>
+                </CardFooter>
+            </Card>
+        </div>
+    )
+  }
+
 
   const stepsContent = [
     {
@@ -208,6 +254,7 @@ export default function RegisterPage() {
             required
             value={formData.email}
             onChange={handleChange}
+            disabled={isFromGoogle}
           />
         </div>
       ),
@@ -226,6 +273,7 @@ export default function RegisterPage() {
             required
             value={formData.fullName}
             onChange={handleChange}
+            disabled={isFromGoogle}
           />
         </div>
       ),
@@ -312,7 +360,7 @@ export default function RegisterPage() {
 
           <Label
             htmlFor="avatar-upload"
-            className={cn(buttonVariants({ variant: 'outline' }), 'cursor-pointer')}
+            className={cn(buttonVariants({ variant: 'outline' }), 'cursor-pointer', isFromGoogle && 'hidden')}
           >
             اختر صورة
           </Label>
@@ -322,6 +370,7 @@ export default function RegisterPage() {
             accept="image/*"
             className="hidden"
             onChange={handleFileChange}
+            disabled={isFromGoogle}
           />
         </div>
       ),
@@ -364,62 +413,77 @@ export default function RegisterPage() {
         </div>
       ),
     },
-  ];
+  ].filter(s => !(isFromGoogle && ['email', 'fullName', 'password'].includes(s.field)));
 
-  const currentStepData = stepsContent[step - 1];
-  const isFinalStep = step === stepsContent.length;
 
+  const currentStepData = stepsContent[step - (isFromGoogle ? 3 : 1)];
+  if (!currentStepData) {
+      // Handle case where step is out of bounds, maybe redirect or show error
+      return <div>خطأ: خطوة غير صالحة</div>
+  }
+  const isFinalStep = step === stepsContent.length + (isFromGoogle ? 2 : 0);
+  
   return (
-    <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-      <Card className="mx-auto w-full max-w-sm">
-        <CardHeader className="text-center">
-          <Logo className="mx-auto mb-4" />
-          <CardTitle className="text-2xl font-headline">{currentStepData.title}</CardTitle>
-          <CardDescription>
-            {isFinalStep
-              ? 'الخطوة الأخيرة!'
-              : `الخطوة ${step} من ${stepsContent.length}`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
-            {currentStepData.content}
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              {step > 1 && (
-                <Button variant="outline" onClick={handlePrev}>
-                  السابق
-                </Button>
-              )}
+    <Card className="mx-auto w-full max-w-sm">
+      <CardHeader className="text-center">
+        <Logo className="mx-auto mb-4" />
+        <CardTitle className="text-2xl font-headline">{currentStepData.title}</CardTitle>
+        <CardDescription>
+          {isFinalStep
+            ? 'الخطوة الأخيرة!'
+            : `الخطوة ${step} من ${stepsContent.length + (isFromGoogle ? 2 : 0)}`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4">
+          {currentStepData.content}
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            {step > 1 && (
+              <Button variant="outline" onClick={handlePrev}>
+                السابق
+              </Button>
+            )}
 
-              {!isFinalStep && (
-                <Button
-                  onClick={handleNext}
-                  disabled={!currentStepData.validation()}
-                  className={cn(step === 1 ? 'col-span-2' : '', (step === 5) ? 'col-span-2' : '')}
-                >
-                  {step === 5 && !formData.avatar ? 'تخطى' : 'التالي'}
-                </Button>
-              )}
+            {!isFinalStep && (
+              <Button
+                onClick={handleNext}
+                disabled={!currentStepData.validation()}
+                className={cn(step === 1 ? 'col-span-2' : '', (step === 5 && !isFromGoogle) ? 'col-span-2' : '', (step === 3 && isFromGoogle) ? 'col-span-2' : '')}
+              >
+                {step === 5 && !formData.avatar && !isFromGoogle ? 'تخطى' : 'التالي'}
+              </Button>
+            )}
 
-              {isFinalStep && (
-                <Button
-                  onClick={handleCreateAccount}
-                  disabled={isLoading || !currentStepData.validation()}
-                  className="col-span-2"
-                >
-                  {isLoading ? <Loader2 className="animate-spin" /> : 'إنشاء حساب'}
-                </Button>
-              )}
-            </div>
+            {isFinalStep && (
+              <Button
+                onClick={handleCreateAccount}
+                disabled={isLoading || !currentStepData.validation()}
+                className="col-span-2"
+              >
+                {isLoading ? <Loader2 className="animate-spin" /> : 'إنشاء حساب'}
+              </Button>
+            )}
           </div>
-          <div className="mt-4 text-center text-sm">
-            لديك حساب بالفعل؟{' '}
-            <Link href="/login" className="underline">
-              تسجيل الدخول
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+        <div className="mt-4 text-center text-sm">
+          لديك حساب بالفعل؟{' '}
+          <Link href="/login" className="underline">
+            تسجيل الدخول
+          </Link>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
+
+
+export default function RegisterPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
+                <RegisterForm />
+            </div>
+        </Suspense>
+    );
+}
+
