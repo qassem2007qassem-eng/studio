@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useUser } from '@/firebase';
-import { collection, query, where, getDocs, orderBy, startAt, endAt, or, and } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, startAt, endAt, onSnapshot, doc, writeBatch, serverTimestamp, increment } from 'firebase/firestore';
 import { type Post, type User } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
@@ -28,44 +28,83 @@ const useDebounce = (value: string, delay: number) => {
     return debouncedValue;
 };
 
-const UserSearchResult = ({ user, currentUser, firestore }: { user: User, currentUser: any, firestore: any }) => {
+const UserSearchResult = ({ user: profileUser, currentUser, firestore }: { user: User, currentUser: any, firestore: any }) => {
     const [isFollowing, setIsFollowing] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isFollowLoading, setIsFollowLoading] = useState(true);
+    const [followDocId, setFollowDocId] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!currentUser || !firestore) {
-            setIsLoading(false);
+        if (!currentUser || !firestore || currentUser.uid === profileUser.id) {
+            setIsFollowLoading(false);
             return;
-        };
+        }
         const followsRef = collection(firestore, 'follows');
-        const q = query(followsRef, where('followerId', '==', currentUser.uid), where('followeeId', '==', user.id));
+        const q = query(followsRef, where('followerId', '==', currentUser.uid), where('followeeId', '==', profileUser.id));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            setIsFollowing(!snapshot.empty);
-            setIsLoading(false);
+            if (!snapshot.empty) {
+                setIsFollowing(true);
+                setFollowDocId(snapshot.docs[0].id);
+            } else {
+                setIsFollowing(false);
+                setFollowDocId(null);
+            }
+            setIsFollowLoading(false);
         });
         return () => unsubscribe();
-    }, [currentUser, firestore, user.id]);
+    }, [currentUser, firestore, profileUser.id]);
+    
+    const handleFollowToggle = async () => {
+        if (!currentUser || !profileUser || isFollowLoading || currentUser.uid === profileUser.id || !firestore) return;
+    
+        setIsFollowLoading(true);
+        
+        const currentUserRef = doc(firestore, 'users', currentUser.uid);
+        const profileUserRef = doc(firestore, 'users', profileUser.id);
+        const batch = writeBatch(firestore);
+    
+        if (isFollowing && followDocId) {
+          const followRef = doc(firestore, 'follows', followDocId);
+          batch.delete(followRef);
+          batch.update(currentUserRef, { followingCount: increment(-1) });
+          batch.update(profileUserRef, { followerCount: increment(-1) });
+    
+        } else {
+          const newFollowRef = doc(collection(firestore, 'follows'));
+          batch.set(newFollowRef, {
+            followerId: currentUser.uid,
+            followeeId: profileUser.id,
+            createdAt: serverTimestamp()
+          });
+          batch.update(currentUserRef, { followingCount: increment(1) });
+          batch.update(profileUserRef, { followerCount: increment(1) });
+        }
+    
+        try {
+            await batch.commit();
+        } catch(error) {
+            console.error("Failed to toggle follow", error);
+        } finally {
+            setIsFollowLoading(false);
+        }
+      };
 
-    const handleFollow = async () => {
-        // Implement follow/unfollow logic here, similar to profile page
-    }
 
-    if (user.id === currentUser?.uid) return null;
+    if (profileUser.id === currentUser?.uid) return null;
 
     return (
-        <div key={user.id} className="flex items-center gap-3">
+        <div key={profileUser.id} className="flex items-center gap-3">
             <Avatar>
-                <AvatarImage src={user.avatarUrl} alt={user.name} />
-                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                <AvatarImage src={profileUser.avatarUrl} alt={profileUser.name} />
+                <AvatarFallback>{profileUser.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
-                <Link href={`/home/profile/${user.username.toLowerCase()}`} className="font-semibold hover:underline">
-                    {user.name}
+                <Link href={`/home/profile/${profileUser.username.toLowerCase()}`} className="font-semibold hover:underline">
+                    {profileUser.name}
                 </Link>
-                <p className="text-sm text-muted-foreground">@{user.username}</p>
+                <p className="text-sm text-muted-foreground">@{profileUser.username}</p>
             </div>
-            <Button size="sm" onClick={handleFollow} disabled={isLoading}>
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (isFollowing ? "Unfollow" : "Follow")}
+            <Button size="sm" onClick={handleFollowToggle} disabled={isFollowLoading} variant={isFollowing ? 'secondary' : 'default'}>
+                {isFollowLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (isFollowing ? "إلغاء المتابعة" : "متابعة")}
             </Button>
         </div>
     )
@@ -93,23 +132,18 @@ export default function SearchPage() {
                 // Search Users
                 const usersRef = collection(firestore, 'users');
                 const userQuery = query(usersRef,
-                    or(
-                      and(where('username', '>=', debouncedSearchTerm.toLowerCase()), where('username', '<=', debouncedSearchTerm.toLowerCase() + '\uf8ff')),
-                      and(where('name', '>=', debouncedSearchTerm), where('name', '<=', debouncedSearchTerm + '\uf8ff'))
-                    )
+                    where('username', '>=', debouncedSearchTerm.toLowerCase()),
+                    where('username', '<=', debouncedSearchTerm.toLowerCase() + '\uf8ff')
                 );
                 const userSnapshot = await getDocs(userQuery);
                 const users = userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
 
                 // Search Posts
                 const postsRef = collection(firestore, 'posts');
-                // Firestore doesn't support full-text search on content out of the box.
-                // This is a very basic "starts with" search. A real app would use a third-party service like Algolia.
                 const postQuery = query(postsRef,
-                    where('content', '>=', debouncedSearchTerm),
-                    where('content', '<=', debouncedSearchTerm + '\uf8ff'),
                     orderBy('content'),
-                    orderBy("createdAt", "desc")
+                    startAt(debouncedSearchTerm),
+                    endAt(debouncedSearchTerm + '\uf8ff')
                 );
                 const postSnapshot = await getDocs(postQuery);
                 const posts = postSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
