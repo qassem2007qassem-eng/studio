@@ -210,58 +210,6 @@ function ProfileSettings() {
     );
 }
 
-function PrivacySettings() {
-    const { user } = useUser();
-    const [isPrivate, setIsPrivate] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-    const { toast } = useToast();
-
-    useEffect(() => {
-        if (user) {
-            getCurrentUserProfile().then(profile => {
-                if (profile) {
-                    setIsPrivate(profile.isPrivate || false);
-                }
-                setIsLoading(false);
-            })
-        }
-    }, [user]);
-
-    const handlePrivacyToggle = async (checked: boolean) => {
-        setIsPrivate(checked);
-        try {
-            await updateProfile({ isPrivate: checked });
-            toast({
-                title: "تم تحديث الخصوصية",
-                description: checked ? "أصبح حسابك خاصًا الآن." : "أصبح حسابك عامًا الآن."
-            });
-        } catch (error) {
-            toast({ title: "خطأ", description: "لم نتمكن من تحديث إعدادات الخصوصية.", variant: "destructive" });
-            setIsPrivate(!checked); // Revert on error
-        }
-    }
-
-    if (isLoading) {
-        return <Skeleton className="h-10 w-full" />
-    }
-
-    return (
-        <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5">
-                <Label htmlFor="private-account" className="text-base">حساب خاص</Label>
-                <p className="text-sm text-muted-foreground">
-                    عندما يكون حسابك خاصًا، يمكن فقط للمتابعين الذين توافق عليهم رؤية صورك ومقاطع الفيديو الخاصة بك.
-                </p>
-            </div>
-            <Switch
-                id="private-account"
-                checked={isPrivate}
-                onCheckedChange={handlePrivacyToggle}
-            />
-        </div>
-    )
-}
-
 function ThemeSettings() {
     const { theme, setTheme } = useTheme();
 
@@ -334,8 +282,6 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <ThemeSettings />
-                    <Separator />
-                    <PrivacySettings />
                     <Separator />
                      <Button variant="ghost" className="w-full justify-start gap-4 text-red-500 hover:text-red-600" onClick={handleLogout} disabled={isLoggingOut}>
                         <LogOut className="h-5 w-5" />
