@@ -158,14 +158,12 @@ function RegisterForm() {
             description: "لم نتمكن من إرسال بريد التحقق. الرجاء التأكد من صحة بريدك الإلكتروني والمحاولة مرة أخرى.",
             variant: "destructive"
          });
-         // Optionally, you could delete the user account here if email is mandatory
-         // await user.delete();
          setIsLoading(false);
          return;
       }
 
 
-      let photoURL = `https://i.pravatar.cc/150?u=${user.uid}`;
+      let photoURL = "";
       if (formData.avatar) {
         const storage = getStorage();
         const avatarRef = ref(storage, `avatars/${user.uid}`);
@@ -193,7 +191,7 @@ function RegisterForm() {
         createdAt: serverTimestamp(),
         bio: '',
         avatarUrl: photoURL,
-        coverUrl: `https://picsum.photos/seed/${user.uid}/1080/400`,
+        coverUrl: "",
         followers: [],
         following: [],
       });
@@ -471,3 +469,5 @@ export default function RegisterPage() {
         </Suspense>
     );
 }
+
+    

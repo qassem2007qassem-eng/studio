@@ -37,9 +37,9 @@ const createUserProfile = async (user, username, fullName, avatarUrl) => {
       id: user.uid,
       username: username.toLowerCase(),
       name: fullName,
-      email: user.email, // This should be the unique one with timestamp
-      avatarUrl: avatarUrl || `https://i.pravatar.cc/150?u=${user.uid}`,
-      coverUrl: `https://picsum.photos/seed/${user.uid}/1080/400`,
+      email: user.email, 
+      avatarUrl: avatarUrl || "",
+      coverUrl: "",
       bio: "",
       createdAt: serverTimestamp(),
       followers: [],
@@ -277,3 +277,5 @@ export {
   getFollowers,
   getFollowing
 };
+
+    
