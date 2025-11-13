@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Moon, Sun, LogOut, Lock, UserCog, Palette } from "lucide-react";
+import { Loader2, Moon, Sun, LogOut, Lock, UserCog, Palette, Shield } from "lucide-react";
 import Image from "next/image";
 import { useUser, initializeFirebase } from "@/firebase";
 import { signOut, updateProfile as updateAuthProfile } from "firebase/auth";
@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
+import Link from 'next/link';
 
 
 function ProfileSettings() {
@@ -237,6 +238,7 @@ export default function SettingsPage() {
     const router = useRouter();
     const { auth } = initializeFirebase();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const isAdmin = user?.email === 'admin@app.com' || user?.uid === 'oImAj9urAsZL9zkezvOd7soIrsS2';
 
     const handleLogout = async () => {
         setIsLoggingOut(true);
@@ -283,6 +285,17 @@ export default function SettingsPage() {
                 <CardContent className="space-y-6">
                     <ThemeSettings />
                     <Separator />
+                    {isAdmin && (
+                        <>
+                            <Button asChild variant="ghost" className="w-full justify-start gap-4">
+                                <Link href="/home/admin">
+                                    <Shield className="h-5 w-5" />
+                                    <span>لوحة تحكم المشرفين</span>
+                                </Link>
+                            </Button>
+                            <Separator />
+                        </>
+                    )}
                      <Button variant="ghost" className="w-full justify-start gap-4 text-red-500 hover:text-red-600" onClick={handleLogout} disabled={isLoggingOut}>
                         <LogOut className="h-5 w-5" />
                         <span>{isLoggingOut ? "جاري تسجيل الخروج..." : "تسجيل الخروج"}</span>

@@ -64,5 +64,5 @@ export interface Report {
     reportedEntityType: 'post' | 'user' | 'comment';
     reason: string;
     createdAt: Timestamp;
-    status: 'pending' | 'resolved' | 'dismissed';
+    status: 'pending' | 'resolved' | 'dismissed' | 'deleted';
 }

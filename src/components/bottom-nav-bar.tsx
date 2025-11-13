@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, PlusCircle, User, Settings } from 'lucide-react';
+import { Home, Users, PlusCircle, User, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/firebase';
 import { useEffect, useState } from 'react';
@@ -32,13 +32,15 @@ export function BottomNavBar() {
   }, [user]);
 
   const username = userData?.username?.toLowerCase();
+  // Simple admin check for demo purposes
+  const isAdmin = user?.email === 'admin@app.com' || user?.uid === 'oImAj9urAsZL9zkezvOd7soIrsS2';
 
   const navItems = [
     { href: '/home', icon: Home, label: 'الرئيسية' },
     { href: '/home/friends', icon: Users, label: 'الأصدقاء' },
     { href: '/home/create-post', icon: PlusCircle, label: 'إنشاء', isSpecial: true },
     { href: `/home/profile/${username}`, icon: User, label: 'حسابي', requiresAuth: true },
-    { href: '/home/settings', icon: Settings, label: 'الإعدادات' },
+    isAdmin ? { href: '/home/admin', icon: Shield, label: 'مشرف' } : { href: '/home/settings', icon: 'settings', label: 'الإعدادات', disabled: true },
   ];
 
   if (isUserLoading) {
@@ -63,9 +65,11 @@ export function BottomNavBar() {
       <div className="container mx-auto h-full max-w-2xl px-2">
         <div className="grid h-full grid-cols-5 items-center">
           {navItems.map((item) => {
+            if (item.disabled) return <div key={item.href} />;
             if (item.requiresAuth && (!user || !username)) return <div key={item.href} />;
 
             const isActive = pathname === item.href;
+            const Icon = item.icon;
             
             if (item.isSpecial) {
               return (
@@ -76,7 +80,7 @@ export function BottomNavBar() {
                       onClick={() => router.push(item.href)}
                       disabled={!user}
                     >
-                      <item.icon className="h-8 w-8" />
+                      <Icon className="h-8 w-8" />
                       <span className="sr-only">{item.label}</span>
                    </Button>
                 </div>
@@ -93,7 +97,7 @@ export function BottomNavBar() {
                   !user && (item.requiresAuth || item.href === '/home/settings') ? 'pointer-events-none opacity-50' : ''
                 )}
               >
-                <item.icon className="h-6 w-6" />
+                <Icon className="h-6 w-6" />
                 <span className="text-xs font-medium">{item.label}</span>
               </Link>
             );
