@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, User, Users, PlusCircle, Settings } from 'lucide-react';
+import { Home, Users, PlusCircle, User, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/firebase';
 import { useEffect, useState } from 'react';
@@ -26,6 +26,8 @@ export function BottomNavBar() {
           setUserData(profile as UserType);
         }
       });
+    } else {
+      setUserData(null);
     }
   }, [user]);
 
@@ -61,8 +63,7 @@ export function BottomNavBar() {
       <div className="container mx-auto h-full max-w-2xl px-2">
         <div className="grid h-full grid-cols-5 items-center">
           {navItems.map((item) => {
-            if (item.requiresAuth && !user) return null;
-            if (item.requiresAuth && !username) return null;
+            if (item.requiresAuth && (!user || !username)) return <div key={item.href} />;
 
             const isActive = pathname === item.href;
             
@@ -73,6 +74,7 @@ export function BottomNavBar() {
                       size="lg" 
                       className="h-14 w-14 rounded-full shadow-lg"
                       onClick={() => router.push(item.href)}
+                      disabled={!user}
                     >
                       <item.icon className="h-8 w-8" />
                       <span className="sr-only">{item.label}</span>
@@ -88,7 +90,7 @@ export function BottomNavBar() {
                 className={cn(
                   'flex flex-col items-center justify-center text-center gap-1 transition-colors duration-200',
                   isActive ? 'text-primary' : 'text-muted-foreground hover:text-primary',
-                  item.disabled && 'pointer-events-none opacity-50'
+                  item.requiresAuth && !user && 'pointer-events-none opacity-50'
                 )}
               >
                 <item.icon className="h-6 w-6" />
@@ -101,3 +103,5 @@ export function BottomNavBar() {
     </nav>
   );
 }
+
+    

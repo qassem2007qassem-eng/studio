@@ -101,7 +101,7 @@ const CommentsDialog = ({ post }: { post: Post }) => {
                 postId: post.id,
                 author: {
                     name: userData.name,
-                    username: userData.username,
+                    username: userData.username.toLowerCase(),
                     avatarUrl: userData.avatarUrl,
                 },
                 content: newComment.trim(),
@@ -276,3 +276,5 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
+
+    

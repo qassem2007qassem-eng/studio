@@ -69,59 +69,77 @@ export default function ProfilePage() {
       return currentUser.uid === profileUser.id;
   }, [currentUser, profileUser]);
 
-  const fetchProfileData = useCallback(async () => {
-    if (!usernameFromUrl || !firestore) return;
 
-    setIsProfileUserLoading(true);
-    const user = await getUserByUsername(usernameFromUrl);
-    setProfileUser(user);
-    setIsProfileUserLoading(false);
-    
-    if(user && currentUser) {
+  // Effect for fetching the profile user's data
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (!usernameFromUrl || !firestore) return;
+
+      setIsProfileUserLoading(true);
+      setProfileUser(null); // Reset previous user data
+      
+      const user = await getUserByUsername(usernameFromUrl);
+      setProfileUser(user);
+      
+      setIsProfileUserLoading(false);
+    };
+
+    fetchProfileData();
+  }, [usernameFromUrl, firestore]);
+
+  // Effect for checking follow status, depends on profileUser
+  useEffect(() => {
+    const checkFollow = async () => {
+        if (!currentUser || !profileUser || isCurrentUserProfile) {
+            setIsFollowStatusLoading(false);
+            return;
+        }
         setIsFollowStatusLoading(true);
-        const followingStatus = await checkIfFollowing(user.id);
+        const followingStatus = await checkIfFollowing(profileUser.id);
         setIsFollowing(followingStatus);
         setIsFollowStatusLoading(false);
-    } else {
-        setIsFollowStatusLoading(false);
+    };
+    if (profileUser) {
+        checkFollow();
     }
-  }, [usernameFromUrl, firestore, currentUser]);
+  }, [currentUser, profileUser, isCurrentUserProfile]);
 
-  const fetchPosts = useCallback(async () => {
-    if (!profileUser || !firestore) return;
 
-    const canView = isCurrentUserProfile || isFollowing;
-    if (!canView) {
-        setUserPosts([]);
-        setPostsLoading(false);
-        return;
-    }
+  const canViewContent = useMemo(() => {
+    if (isProfileUserLoading || isFollowStatusLoading) return false;
+    return isCurrentUserProfile || isFollowing;
+  }, [isProfileUserLoading, isFollowStatusLoading, isCurrentUserProfile, isFollowing]);
 
-    setPostsLoading(true);
-    try {
-        const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id), orderBy("createdAt", "desc"));
-        const snapshot = await getDocs(postsQuery);
-        const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-        setUserPosts(posts);
-    } catch (e) {
-        console.error("Error fetching posts:", e);
-        setUserPosts([]);
-    } finally {
-        setPostsLoading(false);
-    }
-  }, [profileUser, firestore, isCurrentUserProfile, isFollowing]);
-
+  // Effect for fetching posts, depends on canViewContent
   useEffect(() => {
-    fetchProfileData();
-  }, [fetchProfileData]);
+    const fetchPosts = async () => {
+      if (!profileUser || !firestore) return;
 
-  useEffect(() => {
-    if(!isProfileUserLoading && profileUser){
-      fetchPosts();
+      if (!canViewContent) {
+          setUserPosts([]);
+          setPostsLoading(false);
+          return;
+      }
+
+      setPostsLoading(true);
+      try {
+          const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id), orderBy("createdAt", "desc"));
+          const snapshot = await getDocs(postsQuery);
+          const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+          setUserPosts(posts);
+      } catch (e) {
+          console.error("Error fetching posts:", e);
+          setUserPosts([]);
+      } finally {
+          setPostsLoading(false);
+      }
+    };
+    
+    // Run this effect only when profileUser is loaded and canViewContent status is determined
+    if (profileUser && !isProfileUserLoading && !isFollowStatusLoading) {
+        fetchPosts();
     }
-  }, [isProfileUserLoading, profileUser, fetchPosts]);
-
-  const canViewContent = isCurrentUserProfile || isFollowing;
+  }, [profileUser, firestore, canViewContent, isProfileUserLoading, isFollowStatusLoading]);
 
   const handleFollowToggle = async () => {
     if (!currentUser || !profileUser || isTogglingFollow || isCurrentUserProfile) return;
@@ -136,6 +154,7 @@ export default function ProfilePage() {
           await followUser(profileUser.id);
           setIsFollowing(true);
       }
+       // Re-fetch user to update follower count
        const updatedUser = await getUserByUsername(usernameFromUrl);
        setProfileUser(updatedUser);
     } catch (e) {
@@ -229,7 +248,7 @@ export default function ProfilePage() {
           <div className="mt-4 space-y-1">
             <h1 className="text-2xl font-bold font-headline">{profileUser.name}</h1>
             <p className="text-sm text-muted-foreground">@{profileUser.username.toLowerCase()}</p>
-            {canViewContent ? (
+            {canViewContent || isCurrentUserProfile ? (
                  <p className="pt-2">{profileUser.bio || "لا يوجد نبذة تعريفية."}</p>
             ) : (
                 <p className="pt-2 text-muted-foreground italic">تابع هذا المستخدم لعرض نبذته التعريفية.</p>
@@ -259,7 +278,7 @@ export default function ProfilePage() {
           <TabsTrigger value="likes" disabled>الإعجابات</TabsTrigger>
         </TabsList>
         <TabsContent value="posts" className="space-y-6 mt-6">
-           {!canViewContent ? (
+           {!canViewContent && !isCurrentUserProfile ? (
                 <Card>
                     <CardContent className="p-8 text-center text-muted-foreground space-y-2">
                         <Lock className="h-8 w-8 mx-auto"/>
@@ -283,3 +302,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    

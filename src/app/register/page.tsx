@@ -62,10 +62,12 @@ export default function RegisterPage() {
     const handleCreateAccount = async () => {
         setIsLoading(true);
 
+        const usernameLower = formData.username.toLowerCase();
+
         try {
             // 1. Check if username is already taken
             const usersRef = collection(firestore, "users");
-            const q = query(usersRef, where("username", "==", formData.username.toLowerCase()));
+            const q = query(usersRef, where("username", "==", usernameLower));
             const querySnapshot = await getDocs(q);
 
             if (!querySnapshot.empty) {
@@ -79,7 +81,7 @@ export default function RegisterPage() {
             }
 
             // 2. Create user with a unique email and the provided password
-            const uniqueEmail = `${formData.username.toLowerCase()}_${Date.now()}@syrianstudenthub.com`;
+            const uniqueEmail = `${usernameLower}_${Date.now()}@syrianstudenthub.com`;
             const userCredential = await createUserWithEmailAndPassword(auth, uniqueEmail, formData.password);
             const user = userCredential.user;
             
@@ -102,8 +104,8 @@ export default function RegisterPage() {
             const userDocRef = doc(firestore, "users", user.uid);
             const userData = {
                 id: user.uid,
-                username: formData.username.toLowerCase(),
-                email: user.email, // Store the unique email
+                username: usernameLower, // Always save username as lowercase
+                email: user.email,
                 name: formData.fullName,
                 dob: formData.dob ? format(formData.dob, 'yyyy-MM-dd') : null,
                 gender: formData.gender,
@@ -129,6 +131,8 @@ export default function RegisterPage() {
             let description = "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.";
             if (error.code === 'auth/weak-password') {
                 description = 'كلمة المرور ضعيفة جدًا. يجب أن تتكون من 6 أحرف على الأقل.';
+            } else if (error.code === 'auth/email-already-in-use') {
+                 description = "اسم المستخدم هذا مستخدم بالفعل. الرجاء اختيار اسم آخر.";
             }
             toast({
                 title: "خطأ في إنشاء الحساب",
@@ -297,3 +301,5 @@ export default function RegisterPage() {
         </div>
     );
 }
+
+    

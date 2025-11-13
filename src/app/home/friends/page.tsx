@@ -61,10 +61,14 @@ export default function FriendsPage() {
   }, [currentUser, isCurrentUserLoading]);
 
   useEffect(() => {
-      if(!isCurrentUserLoading) {
+      if(!isCurrentUserLoading && currentUser) {
         fetchInitialUsers();
       }
-  }, [isCurrentUserLoading, currentUserProfile]);
+      if (!currentUser && !isCurrentUserLoading) {
+          setIsLoading(false);
+          setUsers([]);
+      }
+  }, [isCurrentUserLoading, currentUserProfile, currentUser]);
 
   const handleLoadMore = async () => {
     if (!hasMore || isLoadingMore) return;
@@ -142,7 +146,7 @@ export default function FriendsPage() {
                   <p className="text-sm text-muted-foreground">@{user.username.toLowerCase()}</p>
                 </div>
               </Link>
-              {currentUser && (
+              {currentUser && currentUser.uid !== user.id && (
                 <Button 
                     onClick={() => handleFollowToggle(user.id)}
                     variant={isFollowingMap[user.id] ? 'secondary' : 'default'}
@@ -159,6 +163,7 @@ export default function FriendsPage() {
             </div>
           ))
         )}
+        {!isLoading && users.length === 0 && <p className="text-center text-muted-foreground pt-4">لا يوجد مستخدمون لعرضهم.</p>}
       </CardContent>
       {hasMore && (
         <CardFooter>
@@ -170,3 +175,5 @@ export default function FriendsPage() {
     </Card>
   );
 }
+
+    
