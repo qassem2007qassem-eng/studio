@@ -150,6 +150,24 @@ const getUserById = async (userId) => {
   }
 };
 
+
+// ✅ جلب بيانات عدة مستخدمين بالـ UIDs
+const getUsersByIds = async (userIds: string[]): Promise<User[]> => {
+  if (userIds.length === 0) {
+    return [];
+  }
+  try {
+    const usersRef = collection(firestore, 'users');
+    const q = query(usersRef, where('id', 'in', userIds));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+  } catch (error) {
+    console.error("Error getting users by IDs:", error);
+    return [];
+  }
+};
+
+
 // ✅ متابعة مستخدم
 const followUser = async (targetUserId: string): Promise<void> => {
     const currentUser = auth.currentUser;
@@ -300,6 +318,7 @@ export {
   getCurrentUserProfile,
   getUserByUsername,
   getUserById,
+  getUsersByIds,
   followUser,
   unfollowUser,
   checkIfFollowing,
@@ -308,5 +327,3 @@ export {
   getFollowers,
   getFollowing
 };
-
-    

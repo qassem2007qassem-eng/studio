@@ -18,6 +18,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { getUserByUsername, followUser, unfollowUser, checkIfFollowing, getCurrentUserProfile } from "@/services/user-service";
 import { getPostsForUser } from "@/services/post-service";
 import { useToast } from "@/hooks/use-toast";
+import { FollowListDialog } from "@/components/follow-list-dialog";
 
 export default function ProfilePage() {
   const params = useParams();
@@ -59,7 +60,8 @@ export default function ProfilePage() {
       return;
     }
     setIsFollowStatusLoading(true);
-    const followingStatus = await checkIfFollowing(profileUser.id);
+    // Force refresh of current user profile to get latest following list
+    const followingStatus = await checkIfFollowing(profileUser.id, { forceRefresh: true });
     setIsFollowing(followingStatus);
     setIsFollowStatusLoading(false);
   }, [currentUser, profileUser, isCurrentUserProfile]);
@@ -132,6 +134,14 @@ export default function ProfilePage() {
       setIsTogglingFollow(false);
     }
   };
+
+  const onFollowStateChange = async () => {
+      // Re-fetch profile user to get updated counts
+      const updatedUser = await getUserByUsername(usernameFromUrl);
+      setProfileUser(updatedUser);
+       // Re-fetch current user profile to get updated following list for the dialog
+      await getCurrentUserProfile({ forceRefresh: true });
+  }
 
   if (isProfileUserLoading || isCurrentUserLoading) {
     return (
@@ -221,12 +231,26 @@ export default function ProfilePage() {
             )}
           </div>
           <div className="mt-4 flex gap-6 text-sm text-muted-foreground">
-            <div>
-              <span className="font-bold text-foreground">{followingCount}</span> متابِع
-            </div>
-            <div>
-              <span className="font-bold text-foreground">{followerCount}</span> متابَع
-            </div>
+            <FollowListDialog 
+                title="يتابع" 
+                userIds={profileUser.following || []} 
+                trigger={
+                    <button className="hover:underline disabled:cursor-default disabled:no-underline" disabled={followingCount === 0}>
+                        <span className="font-bold text-foreground">{followingCount}</span> متابِع
+                    </button>
+                }
+                onFollowStateChange={onFollowStateChange}
+            />
+            <FollowListDialog 
+                title="المتابعون" 
+                userIds={profileUser.followers || []} 
+                trigger={
+                    <button className="hover:underline disabled:cursor-default disabled:no-underline" disabled={followerCount === 0}>
+                        <span className="font-bold text-foreground">{followerCount}</span> متابَع
+                    </button>
+                }
+                onFollowStateChange={onFollowStateChange}
+            />
              <div>
               <span className="font-bold text-foreground">{canViewContent ? (userPosts?.length || 0) : '؟'}</span> منشور
             </div>
@@ -268,5 +292,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    
