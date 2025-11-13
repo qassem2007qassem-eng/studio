@@ -56,3 +56,13 @@ export interface AppNotification {
   postContent?: string;
   createdAt: string;
 }
+
+export interface Report {
+    id: string;
+    reporterId: string;
+    reportedEntityId: string;
+    reportedEntityType: 'post' | 'user' | 'comment';
+    reason: string;
+    createdAt: Timestamp;
+    status: 'pending' | 'resolved' | 'dismissed';
+}

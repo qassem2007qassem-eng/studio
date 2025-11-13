@@ -57,6 +57,7 @@ import { Skeleton } from "./ui/skeleton";
 import { initializeFirebase } from '@/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { deletePost } from "@/services/post-service";
+import { createReport } from "@/services/report-service";
 
 
 interface PostCardProps {
@@ -180,6 +181,7 @@ export function PostCard({ post }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [isReportAlertOpen, setIsReportAlertOpen] = useState(false);
   
   const isOwner = user?.uid === post.authorId;
 
@@ -225,6 +227,25 @@ export function PostCard({ post }: PostCardProps) {
     }
   }
 
+  const handleReport = async () => {
+    if (!user) {
+        toast({ title: "خطأ", description: "يجب عليك تسجيل الدخول للإبلاغ عن منشور.", variant: "destructive"});
+        return;
+    }
+    try {
+        await createReport({
+            reportedEntityType: 'post',
+            reportedEntityId: post.id,
+            reason: "محتوى غير لائق", // يمكن تطويره لاحقًا
+        });
+        toast({ title: "تم إرسال البلاغ", description: "شكرًا لك، سنقوم بمراجعة بلاغك." });
+    } catch(error) {
+        console.error("Error creating report:", error);
+        toast({ title: "خطأ", description: "لم نتمكن من إرسال بلاغك. حاول مرة أخرى.", variant: "destructive" });
+    }
+    setIsReportAlertOpen(false);
+  }
+
   const commentsCollectionQuery = useMemoFirebase(() => {
     if (!firestore || !post.id) return null;
     return query(collection(firestore, 'posts', post.id, 'comments'))
@@ -244,111 +265,129 @@ export function PostCard({ post }: PostCardProps) {
   return (
     <Dialog>
         <Card>
-        <CardHeader className="p-4">
-            <div className="flex items-center gap-3">
-            <Avatar>
-                <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
-                <AvatarFallback>{post.author.name?.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <div className="grid gap-0.5">
-                <Link href={`/home/profile/${post.author.username?.toLowerCase()}`} className="font-semibold hover:underline">
-                {post.author.name}
-                </Link>
-                <p className="text-xs text-muted-foreground">@{post.author.username?.toLowerCase()} · {postDate ? formatDistanceToNow(postDate) : ''}</p>
-            </div>
-             <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 me-auto ms-0">
-                        <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                    {isOwner && (
-                        <>
-                            <DropdownMenuItem disabled>
-                                <Edit className="ms-2 h-4 w-4" />
-                                <span>تعديل المنشور</span>
+            <CardHeader className="p-4">
+                <div className="flex items-center gap-3">
+                    <Avatar>
+                        <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
+                        <AvatarFallback>{post.author.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="grid gap-0.5">
+                        <Link href={`/home/profile/${post.author.username?.toLowerCase()}`} className="font-semibold hover:underline">
+                        {post.author.name}
+                        </Link>
+                        <p className="text-xs text-muted-foreground">@{post.author.username?.toLowerCase()} · {postDate ? formatDistanceToNow(postDate) : ''}</p>
+                    </div>
+                    <div className="me-auto ms-0">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                            {isOwner && (
+                                <>
+                                    <DropdownMenuItem disabled>
+                                        <Edit className="ms-2 h-4 w-4" />
+                                        <span>تعديل المنشور</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setIsDeleteAlertOpen(true)} className="text-destructive focus:text-destructive">
+                                        <Trash2 className="ms-2 h-4 w-4" />
+                                        <span>حذف المنشور</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                </>
+                            )}
+                            <DropdownMenuItem onClick={() => setIsReportAlertOpen(true)}>
+                                <Flag className="ms-2 h-4 w-4" />
+                                <span>إبلاغ عن المنشور</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setIsDeleteAlertOpen(true)} className="text-destructive">
-                                <Trash2 className="ms-2 h-4 w-4" />
-                                <span>حذف المنشور</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                        </>
-                    )}
-                    <DropdownMenuItem>
-                        <Flag className="ms-2 h-4 w-4" />
-                        <span>إبلاغ عن المنشور</span>
-                    </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>هل أنت متأكد تمامًا؟</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            هذا الإجراء لا يمكن التراجع عنه. سيؤدي هذا إلى حذف منشورك بشكل دائم من خوادمنا.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">حذف</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            </div>
-        </CardHeader>
-        <CardContent className="space-y-4 p-4 pt-0">
-            {post.content && <p className="whitespace-pre-wrap">{post.content}</p>}
-            {hasImages && (
-                <div className={cn(
-                    "grid gap-2",
-                    post.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2",
-                    post.imageUrls.length > 2 ? "grid-cols-2" : ""
-                )}>
-                    {post.imageUrls.map((imageUrl, index) => (
-                        <div key={index} className={cn(
-                            "relative w-full overflow-hidden rounded-lg border",
-                            post.imageUrls.length === 1 ? "aspect-video" : "aspect-square",
-                            post.imageUrls.length === 3 && index === 0 ? "col-span-2 row-span-2" : ""
-                        )}>
-                            <Image
-                                src={imageUrl}
-                                alt={`Post image ${index + 1}`}
-                                data-ai-hint="post image"
-                                fill
-                                className="object-cover"
-                            />
-                        </div>
-                    ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                 </div>
-            )}
-        </CardContent>
-        <CardFooter className="flex flex-col items-start gap-4 p-4 pt-0">
-            <div className="flex w-full items-center justify-between text-sm text-muted-foreground">
-            <p>{likeCount} إعجاب</p>
-            <p>{commentCount} تعليق</p>
-            </div>
-            <Separator />
-            <div className="grid w-full grid-cols-3 gap-2">
-            <Button variant="ghost" className="gap-2" onClick={handleLike} disabled={!user}>
-                <Heart className={cn("h-5 w-5", isLiked && "fill-red-500 text-red-500")} />
-                <span>أعجبني</span>
-            </Button>
-            <DialogTrigger asChild>
-                <Button variant="ghost" className="gap-2">
-                    <MessageCircle className="h-5 w-5" />
-                    <span>تعليق</span>
-                </Button>
-            </DialogTrigger>
-            <Button variant="ghost" className="gap-2">
-                <Share2 className="h-5 w-5" />
-                <span>مشاركة</span>
-            </Button>
-            </div>
-        </CardFooter>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 pt-0">
+                {post.content && <p className="whitespace-pre-wrap">{post.content}</p>}
+                {hasImages && (
+                    <div className={cn(
+                        "grid gap-2",
+                        post.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2",
+                        post.imageUrls.length > 2 ? "grid-cols-2" : ""
+                    )}>
+                        {post.imageUrls.map((imageUrl, index) => (
+                            <div key={index} className={cn(
+                                "relative w-full overflow-hidden rounded-lg border",
+                                post.imageUrls.length === 1 ? "aspect-video" : "aspect-square",
+                                post.imageUrls.length === 3 && index === 0 ? "col-span-2 row-span-2" : ""
+                            )}>
+                                <Image
+                                    src={imageUrl}
+                                    alt={`Post image ${index + 1}`}
+                                    data-ai-hint="post image"
+                                    fill
+                                    className="object-cover"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+            <CardFooter className="flex flex-col items-start gap-4 p-4 pt-0">
+                <div className="flex w-full items-center justify-between text-sm text-muted-foreground">
+                <p>{likeCount} إعجاب</p>
+                <p>{commentCount} تعليق</p>
+                </div>
+                <Separator />
+                <div className="grid w-full grid-cols-3 gap-2">
+                    <Button variant="ghost" className="gap-2" onClick={handleLike} disabled={!user}>
+                        <Heart className={cn("h-5 w-5", isLiked && "fill-red-500 text-red-500")} />
+                        <span>أعجبني</span>
+                    </Button>
+                    <DialogTrigger asChild>
+                        <Button variant="ghost" className="gap-2">
+                            <MessageCircle className="h-5 w-5" />
+                            <span>تعليق</span>
+                        </Button>
+                    </DialogTrigger>
+                    <Button variant="ghost" className="gap-2">
+                        <Share2 className="h-5 w-5" />
+                        <span>مشاركة</span>
+                    </Button>
+                </div>
+            </CardFooter>
         </Card>
         <CommentsDialog post={post} />
+
+        <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>هل أنت متأكد تمامًا؟</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        هذا الإجراء لا يمكن التراجع عنه. سيؤدي هذا إلى حذف منشورك بشكل دائم من خوادمنا.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">حذف</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={isReportAlertOpen} onOpenChange={setIsReportAlertOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>الإبلاغ عن محتوى</AlertDialogTitle>
+                    <AlertDialogDescription>
+                       هل أنت متأكد أنك تريد الإبلاغ عن هذا المنشور؟ سيتم إرسال بلاغك إلى المشرفين للمراجعة.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleReport}>إبلاغ</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
     </Dialog>
   );
 }
