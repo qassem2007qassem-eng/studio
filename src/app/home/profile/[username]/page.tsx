@@ -8,14 +8,12 @@ import {
   collection, 
   query, 
   where, 
-  getDocs, 
   limit, 
   doc, 
   writeBatch, 
   serverTimestamp, 
   increment, 
   orderBy, 
-  deleteDoc,
   getDoc
 } from 'firebase/firestore';
 import { Button } from "@/components/ui/button";
@@ -286,3 +284,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    
