@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -26,7 +25,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
-const GoogleIcon = (props) => (
+const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 48 48" {...props}>
     <path
       fill="#FFC107"
@@ -59,6 +58,10 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  // Hardcoded admin credentials for demo purposes
+  const ADMIN_EMAIL = 'admin@app.com';
+  const ADMIN_PASSWORD = 'admin123'; // Firebase requires a password of at least 6 characters
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
@@ -68,9 +71,15 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Special admin login check
+      let userCredential;
+      if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+          userCredential = await signInWithEmailAndPassword(auth, ADMIN_EMAIL, ADMIN_PASSWORD);
+      } else {
+          userCredential = await signInWithEmailAndPassword(auth, email, password);
+      }
       
-      if (!userCredential.user.emailVerified) {
+      if (!userCredential.user.emailVerified && email !== ADMIN_EMAIL) {
          toast({
           title: 'لم يتم التحقق من البريد الإلكتروني',
           description: 'لقد تم إرسال رابط تحقق إلى بريدك الإلكتروني. الرجاء التحقق منه لتسجيل الدخول. قد يكون في مجلد الرسائل غير المرغوب فيها.',

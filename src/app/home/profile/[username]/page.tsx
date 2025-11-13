@@ -8,17 +8,24 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
-import { Settings, UserPlus, UserCheck, Loader2, Lock } from "lucide-react";
+import { Settings, UserPlus, UserCheck, Loader2, Lock, Trash2 } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser } from "@/firebase";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams, useRouter } from 'next/navigation';
-import { getUserByUsername, followUser, unfollowUser, checkIfFollowing, getCurrentUserProfile } from "@/services/user-service";
+import { getUserByUsername, followUser, unfollowUser, checkIfFollowing, getCurrentUserProfile, deleteUserAndContent } from "@/services/user-service";
 import { getPostsForUser } from "@/services/post-service";
 import { useToast } from "@/hooks/use-toast";
 import { FollowListDialog } from "@/components/follow-list-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+
+// Simple admin check
+const isAdminUser = (user: User | null) => {
+    if (!user) return false;
+    return user.email === 'admin@app.com';
+};
 
 export default function ProfilePage() {
   const params = useParams();
@@ -35,6 +42,10 @@ export default function ProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowStatusLoading, setIsFollowStatusLoading] = useState(true);
   const [isTogglingFollow, setIsTogglingFollow] = useState(false);
+  
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+
 
   const usernameFromUrl = useMemo(() => {
     const username = Array.isArray(params.username) ? params.username[0] : params.username;
@@ -45,6 +56,8 @@ export default function ProfilePage() {
       if(!currentUser || !profileUser) return false;
       return currentUser.uid === profileUser.id;
   }, [currentUser, profileUser]);
+
+  const isAdmin = isAdminUser(currentUser);
 
   const fetchProfileUser = useCallback(async () => {
     if (!usernameFromUrl) return;
@@ -60,7 +73,6 @@ export default function ProfilePage() {
       return;
     }
     setIsFollowStatusLoading(true);
-    // Force refresh of current user profile to get latest following list
     const followingStatus = await checkIfFollowing(profileUser.id, { forceRefresh: true });
     setIsFollowing(followingStatus);
     setIsFollowStatusLoading(false);
@@ -77,13 +89,12 @@ export default function ProfilePage() {
   }, [profileUser, isCurrentUserLoading, checkFollowStatus]);
 
   const canViewContent = useMemo(() => {
-    if (isProfileUserLoading) return false; // Wait for profile to load
-    if (isCurrentUserProfile) return true;
+    if (isProfileUserLoading) return false;
+    if (isAdmin || isCurrentUserProfile) return true;
     if (!profileUser?.isPrivate) return true;
-    // For private profiles, wait until follow status is confirmed
     if (isFollowStatusLoading) return false; 
     return isFollowing;
-  }, [isProfileUserLoading, isFollowStatusLoading, isCurrentUserProfile, isFollowing, profileUser]);
+  }, [isProfileUserLoading, isFollowStatusLoading, isCurrentUserProfile, isFollowing, profileUser, isAdmin]);
 
 
   useEffect(() => {
@@ -99,7 +110,6 @@ export default function ProfilePage() {
       setPostsLoading(false);
     };
 
-    // Only fetch posts once we know if we can view them
     if (!isProfileUserLoading && !isFollowStatusLoading) {
       fetchPosts();
     }
@@ -120,11 +130,8 @@ export default function ProfilePage() {
         setIsFollowing(true);
         toast({ title: `أنت تتابع الآن ${profileUser.name}`});
       }
-       // Re-fetch profile user to get updated follower count
        const updatedUser = await getUserByUsername(usernameFromUrl);
        setProfileUser(updatedUser);
-       
-       // This ensures the current user's profile is also up-to-date for subsequent actions
        await getCurrentUserProfile({ forceRefresh: true }); 
     } catch (e) {
       console.error("Error toggling follow:", e);
@@ -136,11 +143,24 @@ export default function ProfilePage() {
   };
 
   const onFollowStateChange = async () => {
-      // Re-fetch profile user to get updated counts
       const updatedUser = await getUserByUsername(usernameFromUrl);
       setProfileUser(updatedUser);
-       // Re-fetch current user profile to get updated following list for the dialog
       await getCurrentUserProfile({ forceRefresh: true });
+  }
+  
+  const handleDeleteUser = async () => {
+    if (!isAdmin || !profileUser) return;
+    setIsDeletingUser(true);
+    try {
+        await deleteUserAndContent(profileUser.id);
+        toast({ title: "تم حذف المستخدم بنجاح", description: `تم حذف حساب ${profileUser.name} وكل محتوياته.` });
+        router.push('/home');
+    } catch(error: any) {
+        console.error("Error deleting user:", error);
+        toast({ title: "خطأ", description: error.message || "فشل حذف المستخدم.", variant: "destructive" });
+        setIsDeletingUser(false);
+        setIsDeleteAlertOpen(false);
+    }
   }
 
   if (isProfileUserLoading || isCurrentUserLoading) {
@@ -204,22 +224,29 @@ export default function ProfilePage() {
             }
         </div>
         <CardContent className="p-4 relative">
-          <div className="flex justify-between">
+          <div className="flex justify-between items-start">
             <Avatar className="-mt-16 h-28 w-28 border-4 border-card">
               <AvatarImage src={profileUser.avatarUrl || undefined} alt={profileUser.name} />
               <AvatarFallback>{profileUser.name?.charAt(0)}</AvatarFallback>
             </Avatar>
-            {isCurrentUserProfile ? (
-                 <Button variant="outline" onClick={() => router.push('/home/settings')}>
-                    <Settings className="h-4 w-4 me-2" />
-                    تعديل الملف الشخصي
-                </Button>
-            ): (
-                <Button onClick={handleFollowToggle} disabled={followButtonDisabled} variant={isFollowing ? 'secondary' : 'default'}>
-                    {isTogglingFollow ? <Loader2 className="h-4 w-4 animate-spin" /> : 
-                     isFollowing ? <><UserCheck className="h-4 w-4 me-2" /> متابَع</> : <><UserPlus className="h-4 w-4 me-2" /> متابعة</>}
-                </Button> 
-            )}
+            <div className="flex gap-2">
+                {isCurrentUserProfile ? (
+                     <Button variant="outline" onClick={() => router.push('/home/settings')}>
+                        <Settings className="h-4 w-4 me-2" />
+                        تعديل الملف الشخصي
+                    </Button>
+                ): isAdmin ? (
+                     <Button variant="destructive" onClick={() => setIsDeleteAlertOpen(true)}>
+                        <Trash2 className="h-4 w-4 me-2"/>
+                        حذف المستخدم (مشرف)
+                    </Button>
+                ) : (
+                    <Button onClick={handleFollowToggle} disabled={followButtonDisabled} variant={isFollowing ? 'secondary' : 'default'}>
+                        {isTogglingFollow ? <Loader2 className="h-4 w-4 animate-spin" /> : 
+                         isFollowing ? <><UserCheck className="h-4 w-4 me-2" /> متابَع</> : <><UserPlus className="h-4 w-4 me-2" /> متابعة</>}
+                    </Button> 
+                )}
+            </div>
           </div>
           <div className="mt-4 space-y-1">
             <h1 className="text-2xl font-bold font-headline">{profileUser.name}</h1>
@@ -235,7 +262,7 @@ export default function ProfilePage() {
                 title="يتابع" 
                 userIds={profileUser.following || []} 
                 trigger={
-                    <button className="hover:underline disabled:cursor-default disabled:no-underline" disabled={followingCount === 0}>
+                    <button className="hover:underline disabled:cursor-default disabled:no-underline" disabled={followingCount === 0 || !canViewContent}>
                         <span className="font-bold text-foreground">{followingCount}</span> متابِع
                     </button>
                 }
@@ -245,7 +272,7 @@ export default function ProfilePage() {
                 title="المتابعون" 
                 userIds={profileUser.followers || []} 
                 trigger={
-                    <button className="hover:underline disabled:cursor-default disabled:no-underline" disabled={followerCount === 0}>
+                    <button className="hover:underline disabled:cursor-default disabled:no-underline" disabled={followerCount === 0 || !canViewContent}>
                         <span className="font-bold text-foreground">{followerCount}</span> متابَع
                     </button>
                 }
@@ -289,6 +316,24 @@ export default function ProfilePage() {
           )}
         </TabsContent>
       </Tabs>
+      
+        <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>هل أنت متأكد من حذف هذا المستخدم؟</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        هذا الإجراء لا يمكن التراجع عنه. سيؤدي هذا إلى حذف حساب المستخدم وجميع منشوراته وتعليقاته بشكل دائم.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive hover:bg-destructive/90" disabled={isDeletingUser}>
+                        {isDeletingUser ? <Loader2 className="animate-spin" /> : "نعم، قم بالحذف"}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
     </div>
   );
 }

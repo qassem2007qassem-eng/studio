@@ -20,13 +20,15 @@ import {
   arrayRemove,
   orderBy,
   limit,
-  startAfter
+  startAfter,
+  deleteDoc,
+  collectionGroup
 } from 'firebase/firestore';
 
 import { initializeFirebase } from '@/firebase';
 import { type User } from '@/lib/types';
+import { deletePost } from './post-service';
 
-// Initialize firebase services
 const { auth, firestore } = initializeFirebase();
 
 
@@ -39,18 +41,16 @@ type GetProfileOptions = {
   userId?: string;
 };
 
-// ✅ جلب بيانات المستخدم الحالي أو أي مستخدم آخر
 const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<User | null> => {
   const targetUserId = options.userId || auth.currentUser?.uid;
   if (!targetUserId) {
     console.log("No user ID provided or user not logged in");
-    if (!options.userId) { // Clear cache only if we are fetching the current user
+    if (!options.userId) {
         currentUserProfileCache = null;
     }
     return null;
   }
 
-  // If fetching the currently logged-in user, use caching
   if (targetUserId === auth.currentUser?.uid) {
     const now = Date.now();
     if (!options.forceRefresh && currentUserProfileCache && cacheTimestamp && (now - cacheTimestamp < CACHE_DURATION)) {
@@ -64,7 +64,6 @@ const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<U
     
     if (docSnap.exists()) {
       const userProfile = { id: docSnap.id, ...docSnap.data() } as User;
-      // Update cache only if it's the current user
       if (targetUserId === auth.currentUser?.uid) {
         currentUserProfileCache = userProfile;
         cacheTimestamp = Date.now();
@@ -87,8 +86,7 @@ const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<U
 };
 
 
-// ✅ إنشاء ملف تعريف مستخدم جديد
-const createUserProfile = async (user, username, fullName, avatarUrl) => {
+const createUserProfile = async (user: any, username: string, fullName: string, avatarUrl: string | null) => {
   try {
     const userDocRef = doc(firestore, "users", user.uid);
     await setDoc(userDocRef, {
@@ -111,8 +109,7 @@ const createUserProfile = async (user, username, fullName, avatarUrl) => {
 };
 
 
-// ✅ جلب بيانات مستخدم آخر بالاسم
-const getUserByUsername = async (username) => {
+const getUserByUsername = async (username: string): Promise<User | null> => {
   if (!username) return null;
   try {
     const usersRef = collection(firestore, "users");
@@ -121,7 +118,7 @@ const getUserByUsername = async (username) => {
     
     if (!querySnapshot.empty) {
       const userDoc = querySnapshot.docs[0];
-      return { id: userDoc.id, ...userDoc.data() };
+      return { id: userDoc.id, ...userDoc.data() } as User;
     } else {
       console.log("User not found!");
       return null;
@@ -132,14 +129,13 @@ const getUserByUsername = async (username) => {
   }
 };
 
-// ✅ جلب بيانات مستخدم آخر بالـ UID
-const getUserById = async (userId) => {
+const getUserById = async (userId: string): Promise<User | null> => {
   try {
     const docRef = doc(firestore, "users", userId);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() };
+      return { id: docSnap.id, ...docSnap.data() } as User;
     } else {
       console.log("User not found by ID!");
       return null;
@@ -151,7 +147,6 @@ const getUserById = async (userId) => {
 };
 
 
-// ✅ جلب بيانات عدة مستخدمين بالـ UIDs
 const getUsersByIds = async (userIds: string[]): Promise<User[]> => {
   if (userIds.length === 0) {
     return [];
@@ -168,7 +163,6 @@ const getUsersByIds = async (userIds: string[]): Promise<User[]> => {
 };
 
 
-// ✅ متابعة مستخدم
 const followUser = async (targetUserId: string): Promise<void> => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -197,7 +191,6 @@ const followUser = async (targetUserId: string): Promise<void> => {
 };
 
 
-// ✅ إلغاء المتابعة
 const unfollowUser = async (targetUserId: string): Promise<void> => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -223,7 +216,6 @@ const unfollowUser = async (targetUserId: string): Promise<void> => {
 };
 
 
-// ✅ التحقق إذا كان يتابع مستخدم
 const checkIfFollowing = async (targetUserId: string, options: GetProfileOptions = {}): Promise<boolean> => {
   const currentUser = auth.currentUser;
   if (!currentUser) return false;
@@ -237,8 +229,7 @@ const checkIfFollowing = async (targetUserId: string, options: GetProfileOptions
   }
 };
 
-// ✅ تحديث الملف الشخصي
-const updateProfile = async (updates) => {
+const updateProfile = async (updates: Partial<User>) => {
   const user = auth.currentUser;
   if (!user) return;
 
@@ -253,8 +244,7 @@ const updateProfile = async (updates) => {
   }
 };
 
-// ✅ جلب دفعة من المستخدمين مع الترقيم
-const getUsers = async (pageSize = 20, lastVisible = null) => {
+const getUsers = async (pageSize = 20, lastVisible: any = null) => {
   try {
     const usersRef = collection(firestore, "users");
     let q;
@@ -265,9 +255,9 @@ const getUsers = async (pageSize = 20, lastVisible = null) => {
     }
 
     const querySnapshot = await getDocs(q);
-    const users = [];
+    const users: User[] = [];
     querySnapshot.forEach((doc) => {
-      users.push({ id: doc.id, ...doc.data() });
+      users.push({ id: doc.id, ...doc.data() } as User);
     });
 
     const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
@@ -280,9 +270,58 @@ const getUsers = async (pageSize = 20, lastVisible = null) => {
   }
 };
 
+const deleteUserAndContent = async (userId: string) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser || currentUser.email !== 'admin@app.com') {
+      throw new Error("Only admins can delete users.");
+    }
+    if (currentUser.uid === userId) {
+      throw new Error("Admin cannot delete their own account.");
+    }
+    
+    const db = getFirestore();
+    const batch = writeBatch(db);
 
-// ✅ جلب المتابِعين
-const getFollowers = async (userId) => {
+    // 1. Delete all posts by the user
+    const postsQuery = query(collection(db, 'posts'), where('authorId', '==', userId));
+    const postsSnapshot = await getDocs(postsQuery);
+    for (const postDoc of postsSnapshot.docs) {
+      // Must use the deletePost service to also delete images from storage
+      await deletePost(postDoc.id, postDoc.data().imageUrls || [], true);
+    }
+    
+    // 2. Delete all comments by the user (using collectionGroup query)
+    const commentsQuery = query(collectionGroup(db, 'comments'), where('authorId', '==', userId));
+    const commentsSnapshot = await getDocs(commentsQuery);
+    commentsSnapshot.forEach(commentDoc => batch.delete(commentDoc.ref));
+
+    // 3. Remove user from other users' followers/following lists
+    const allUsersRef = collection(db, "users");
+    const allUsersSnap = await getDocs(allUsersRef);
+    allUsersSnap.forEach(userDoc => {
+        const data = userDoc.data();
+        if (data.followers?.includes(userId)) {
+            batch.update(userDoc.ref, { followers: arrayRemove(userId) });
+        }
+        if (data.following?.includes(userId)) {
+            batch.update(userDoc.ref, { following: arrayRemove(userId) });
+        }
+    });
+
+    // 4. Delete the user document itself
+    const userRef = doc(db, "users", userId);
+    batch.delete(userRef);
+
+    // 5. Commit all batched writes
+    await batch.commit();
+
+    // Note: Deleting the Firebase Auth user record requires the Admin SDK
+    // and cannot be done from the client-side. This function only deletes Firestore data.
+    console.log(`Successfully deleted all Firestore data for user ${userId}. Auth record must be deleted manually.`);
+};
+
+
+const getFollowers = async (userId: string) => {
   try {
     const userDoc = await getUserById(userId);
     if (!userDoc || !userDoc.followers) return [];
@@ -297,8 +336,7 @@ const getFollowers = async (userId) => {
   }
 };
 
-// ✅ جلب المتابَعين
-const getFollowing = async (userId) => {
+const getFollowing = async (userId: string) => {
   try {
     const userDoc = await getUserById(userId);
     if (!userDoc || !userDoc.following) return [];
@@ -325,5 +363,6 @@ export {
   updateProfile,
   getUsers,
   getFollowers,
-  getFollowing
+  getFollowing,
+  deleteUserAndContent
 };

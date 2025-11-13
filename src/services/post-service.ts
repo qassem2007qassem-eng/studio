@@ -77,7 +77,7 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
 };
 
 
-export const deletePost = async (postId: string, imageUrls: string[]): Promise<void> => {
+export const deletePost = async (postId: string, imageUrls: string[], asAdmin = false): Promise<void> => {
     const user = auth.currentUser;
     if (!user) {
       throw new Error('User not authenticated');
@@ -88,11 +88,22 @@ export const deletePost = async (postId: string, imageUrls: string[]): Promise<v
     const postRef = doc(firestore, 'posts', postId);
     const postSnap = await getDoc(postRef);
 
-    if (!postSnap.exists() || postSnap.data().authorId !== user.uid) {
-        throw new Error("Post not found or user not authorized to delete it.");
+    if (!postSnap.exists()) {
+        throw new Error("Post not found.");
+    }
+    
+    // Admin can delete any post, otherwise check ownership
+    if (!asAdmin && postSnap.data().authorId !== user.uid) {
+        throw new Error("User not authorized to delete this post.");
     }
     
     const batch = writeBatch(firestore);
+    
+    // Also delete comments subcollection
+    const commentsRef = collection(firestore, 'posts', postId, 'comments');
+    const commentsSnap = await getDocs(commentsRef);
+    commentsSnap.forEach(commentDoc => batch.delete(commentDoc.ref));
+
     batch.delete(postRef);
 
     await batch.commit();
@@ -102,7 +113,9 @@ export const deletePost = async (postId: string, imageUrls: string[]): Promise<v
             const imageRef = ref(storage, url);
             await deleteObject(imageRef);
         } catch (error: any) {
-            console.error(`Failed to delete image ${url}:`, error);
+            if (error.code !== 'storage/object-not-found') {
+              console.error(`Failed to delete image ${url}:`, error);
+            }
         }
     }
 }
@@ -119,12 +132,14 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     
     let privacyFilters: PrivacySetting[] = ['everyone'];
 
+    const currentUser = auth.currentUser;
+    const isAdmin = currentUser?.email === 'admin@app.com';
+
     // If a user is logged in, check if they are viewing their own profile or if they follow the user.
     if (currentUserId) {
-        if (currentUserId === profileUserId) {
+        if (currentUserId === profileUserId || isAdmin) {
             privacyFilters = ['everyone', 'followers', 'only_me'];
         } else {
-            // Check if the current user follows the profile user
             const profileUser = await getCurrentUserProfile({ userId: profileUserId });
             if (profileUser?.followers?.includes(currentUserId)) {
                 privacyFilters.push('followers');
@@ -142,7 +157,6 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         const snapshot = await getDocs(q);
         const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         
-        // Sort manually in code
         posts.sort((a, b) => {
             const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
             const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
@@ -155,5 +169,3 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         return [];
     }
 };
-
-    

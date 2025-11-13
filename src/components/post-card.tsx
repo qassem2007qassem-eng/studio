@@ -7,7 +7,7 @@ import { Heart, MessageCircle, MoreHorizontal, Share2, Flag, Trash2, Edit } from
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-import { type Post, type Comment } from "@/lib/types";
+import { type Post, type Comment, type User } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -82,6 +82,13 @@ const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Da
         return null;
     }
 };
+
+// Simple admin check
+const isAdminUser = (user: User | null) => {
+    if (!user) return false;
+    return user.email === 'admin@app.com';
+};
+
 
 const CommentsDialog = ({ post }: { post: Post }) => {
     const { user } = useUser();
@@ -184,6 +191,7 @@ export function PostCard({ post }: PostCardProps) {
   const [isReportAlertOpen, setIsReportAlertOpen] = useState(false);
   
   const isOwner = user?.uid === post.authorId;
+  const isAdmin = isAdminUser(user);
 
   useEffect(() => {
     setIsLiked(!!user && !!post.likeIds?.includes(user.uid));
@@ -213,14 +221,12 @@ export function PostCard({ post }: PostCardProps) {
   };
   
   const handleDelete = async () => {
-    if (!isOwner) return;
+    if (!isOwner && !isAdmin) return;
     try {
-        await deletePost(post.id, post.imageUrls);
+        await deletePost(post.id, post.imageUrls, isAdmin);
         toast({ title: "تم حذف المنشور بنجاح."});
-        // This part is tricky. In a real app, you'd have a global state management
-        // to remove the post from the UI. For now, we'll just close the alert.
         setIsDeleteAlertOpen(false);
-        router.refresh(); // Not ideal, but re-fetches data for the page.
+        router.refresh(); 
     } catch(error) {
         console.error("Error deleting post:", error);
         toast({ title: "خطأ", description: "لم نتمكن من حذف المنشور.", variant: "destructive" });
@@ -236,7 +242,7 @@ export function PostCard({ post }: PostCardProps) {
         await createReport({
             reportedEntityType: 'post',
             reportedEntityId: post.id,
-            reason: "محتوى غير لائق", // يمكن تطويره لاحقًا
+            reason: "محتوى غير لائق",
         });
         toast({ title: "تم إرسال البلاغ", description: "شكرًا لك، سنقوم بمراجعة بلاغك." });
     } catch(error) {
@@ -285,7 +291,7 @@ export function PostCard({ post }: PostCardProps) {
                             </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                            {isOwner && (
+                            {(isOwner || isAdmin) && (
                                 <>
                                     <DropdownMenuItem disabled>
                                         <Edit className="ms-2 h-4 w-4" />
@@ -293,15 +299,17 @@ export function PostCard({ post }: PostCardProps) {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => setIsDeleteAlertOpen(true)} className="text-destructive focus:text-destructive">
                                         <Trash2 className="ms-2 h-4 w-4" />
-                                        <span>حذف المنشور</span>
+                                        <span>{isAdmin && !isOwner ? "حذف (مشرف)" : "حذف"}</span>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                 </>
                             )}
-                            <DropdownMenuItem onClick={() => setIsReportAlertOpen(true)}>
-                                <Flag className="ms-2 h-4 w-4" />
-                                <span>إبلاغ عن المنشور</span>
-                            </DropdownMenuItem>
+                            {!isOwner && 
+                                <DropdownMenuItem onClick={() => setIsReportAlertOpen(true)}>
+                                    <Flag className="ms-2 h-4 w-4" />
+                                    <span>إبلاغ عن المنشور</span>
+                                </DropdownMenuItem>
+                            }
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
