@@ -1,0 +1,58 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper function to check if the user is authenticated.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if the user is the owner of the file.
+    // It compares the user's UID with the first path segment.
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Rules for user avatars.
+    // - Users can only create/update their own avatar.
+    // - Any authenticated user can read avatars.
+    match /avatars/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+
+    // Rules for user cover photos.
+    // - Users can only create/update their own cover photo.
+    // - Any authenticated user can read cover photos.
+    match /covers/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(userId);
+    }
+
+    // Rules for post images.
+    // - Any authenticated user can create post images.
+    // - Any authenticated user can read post images.
+    // - Deletion should be handled by server-side logic (e.g., Cloud Functions).
+    match /posts/{userId}/{imageId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if false; // Prevent modification/deletion from client.
+    }
+
+    // Rules for story images/videos.
+    // - Any authenticated user can create stories.
+    // - Any authenticated user can read stories.
+    // - Deletion should be handled by server-side logic (e.g., Cloud Functions for expired stories).
+    match /stories/{userId}/{storyId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if false; // Prevent modification/deletion from client.
+    }
+
+    // Default rule: Deny all other read/write operations for security.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
