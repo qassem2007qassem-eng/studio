@@ -14,6 +14,19 @@ import { type Story, type User } from "@/lib/types";
 
 const STORY_DURATION = 10000; // 10 seconds per story
 
+const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Date | null => {
+    if (!timestamp) return null;
+    if (timestamp instanceof Timestamp) {
+        return timestamp.toDate();
+    }
+    if (timestamp instanceof Date) {
+        return timestamp;
+    }
+    const date = new Date(timestamp);
+    return isNaN(date.getTime()) ? null : date;
+};
+
+
 export default function StoryPage() {
     const router = useRouter();
     const params = useParams();
@@ -101,7 +114,7 @@ export default function StoryPage() {
         return null;
     }
 
-    const storyDate = story.createdAt as unknown as Timestamp;
+    const storyDate = safeToDate(story.createdAt);
 
 
     return (
@@ -149,7 +162,7 @@ export default function StoryPage() {
                             <Link href={`/home/profile/${user.username}`} className="font-bold text-white text-sm hover:underline">
                                 {story.user.name}
                             </Link>
-                            <p className="text-xs text-gray-300">{storyDate?.toDate().toLocaleString()}</p>
+                            <p className="text-xs text-gray-300">{storyDate?.toLocaleString()}</p>
                          </div>
                        </div>
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" asChild>

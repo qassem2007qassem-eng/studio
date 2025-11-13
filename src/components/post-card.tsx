@@ -28,7 +28,7 @@ import {
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { useFirebase, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
-import { arrayRemove, arrayUnion, collection, doc, increment, orderBy, query, serverTimestamp, Timestamp } from "firebase/firestore";
+import { arrayRemove, arrayUnion, collection, doc, increment, orderBy, query, serverTimestamp, Timestamp, getDoc } from "firebase/firestore";
 
 
 interface PostCardProps {
@@ -52,6 +52,17 @@ const CommentsDialog = ({ post }: { post: Post }) => {
     const { firestore } = useFirebase();
     const { user } = useUser();
     const [newComment, setNewComment] = useState("");
+    const [userData, setUserData] = useState<any>(null);
+
+    useEffect(() => {
+        if(user && firestore) {
+            getDoc(doc(firestore, 'users', user.uid)).then(doc => {
+                if(doc.exists()) {
+                    setUserData(doc.data());
+                }
+            })
+        }
+    }, [user, firestore]);
 
     const commentsCollection = useMemoFirebase(() => {
         if (!post || !firestore) return null;
@@ -67,14 +78,14 @@ const CommentsDialog = ({ post }: { post: Post }) => {
 
     const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (newComment.trim() && user && commentsCollection) {
+        if (newComment.trim() && user && commentsCollection && userData) {
              const commentData = {
                 authorId: user.uid,
                 postId: post.id,
                 author: {
-                    name: user.displayName || 'مستخدم',
-                    username: user.email?.split('@')[0].toLowerCase() || 'user',
-                    avatarUrl: user.photoURL || `https://i.pravatar.cc/150?u=${user.uid}`,
+                    name: userData.name,
+                    username: userData.username,
+                    avatarUrl: userData.avatarUrl,
                 },
                 content: newComment.trim(),
                 createdAt: serverTimestamp(),
