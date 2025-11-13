@@ -9,11 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { ImageIcon, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
-import { useFirebase, useUser, addDocumentNonBlocking } from "@/firebase";
-import { collection, serverTimestamp, doc, getDoc } from "firebase/firestore";
+import { useFirebase, useUser } from "@/firebase";
+import { collection, serverTimestamp, doc, getDoc, addDoc } from "firebase/firestore";
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { type User as UserType } from "@/lib/types";
+import { getCurrentUserProfile } from "@/services/user-service";
 
 export default function CreateStoryPage() {
     const [storyImage, setStoryImage] = useState<string | null>(null);
@@ -28,15 +29,14 @@ export default function CreateStoryPage() {
     const [userData, setUserData] = useState<UserType | null>(null);
 
     useEffect(() => {
-        if (user && firestore) {
-            const userDocRef = doc(firestore, 'users', user.uid);
-            getDoc(userDocRef).then((doc) => {
-                if (doc.exists()) {
-                    setUserData(doc.data() as UserType);
+        if (user) {
+             getCurrentUserProfile().then(profile => {
+                if (profile) {
+                    setUserData(profile as UserType);
                 }
             });
         }
-    }, [user, firestore]);
+    }, [user]);
 
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -82,7 +82,7 @@ export default function CreateStoryPage() {
                 viewers: [],
             };
             
-            await addDocumentNonBlocking(storiesCollection, storyData);
+            await addDoc(storiesCollection, storyData);
             
             toast({
                 title: "نجاح",
@@ -149,5 +149,3 @@ export default function CreateStoryPage() {
         </Card>
     );
 }
-
-    

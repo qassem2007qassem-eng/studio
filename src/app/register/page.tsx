@@ -14,9 +14,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useAuth, setDocumentNonBlocking } from '@/firebase';
+import { useAuth } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -93,12 +93,11 @@ export default function RegisterPage() {
                 bio: "",
                 avatarUrl: photoURL,
                 coverUrl: `https://picsum.photos/seed/${user.uid}/1080/400`,
-                postCount: 0,
-                followerCount: 0,
-                followingCount: 0,
+                followers: [],
+                following: [],
             };
 
-            setDocumentNonBlocking(userDocRef, userData, { merge: true });
+            await setDoc(userDocRef, userData);
 
             toast({
                 title: "نجاح",

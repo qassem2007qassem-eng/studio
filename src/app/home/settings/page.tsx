@@ -11,12 +11,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
-import { useUser, useFirebase, updateDocumentNonBlocking } from "@/firebase";
-import { updateProfile } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { useUser, useFirebase } from "@/firebase";
+import { updateProfile as updateAuthProfile } from "firebase/auth";
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type User as UserType } from "@/lib/types";
+import { getCurrentUserProfile, updateProfile } from "@/services/user-service";
 
 
 export default function SettingsPage() {
@@ -35,11 +35,10 @@ export default function SettingsPage() {
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        if (user && firestore) {
-            const userDocRef = doc(firestore, 'users', user.uid);
-            getDoc(userDocRef).then(docSnap => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data() as UserType;
+        if (!isUserLoading && user) {
+            getCurrentUserProfile().then(profile => {
+                if (profile) {
+                    const data = profile as UserType;
                     setUserData(data);
                     setName(data.name || '');
                     setUsername(data.username || '');
@@ -47,15 +46,15 @@ export default function SettingsPage() {
                     setAvatarUrl(data.avatarUrl || null);
                     setCoverUrl(data.coverUrl || null);
                 }
-                setIsLoading(false);
+                 setIsLoading(false);
             }).catch(() => setIsLoading(false));
         } else if (!isUserLoading) {
             setIsLoading(false);
         }
-    }, [user, isUserLoading, firestore]);
+    }, [user, isUserLoading]);
 
     const handleSaveChanges = async () => {
-        if (!user || !userData || !firestore || !auth) return;
+        if (!user || !userData || !auth) return;
 
         setIsSaving(true);
         try {
@@ -75,12 +74,13 @@ export default function SettingsPage() {
                 newCoverUrl = await getDownloadURL(snapshot.ref);
             }
             
-            await updateProfile(auth.currentUser!, {
-                displayName: name,
-                photoURL: newAvatarUrl
-            });
+            if (auth.currentUser) {
+                await updateAuthProfile(auth.currentUser, {
+                    displayName: name,
+                    photoURL: newAvatarUrl
+                });
+            }
 
-            const userDocRef = doc(firestore, "users", user.uid);
             const updatedUserData: Partial<UserType> = {
                 name: name,
                 username: username,
@@ -89,7 +89,7 @@ export default function SettingsPage() {
                 coverUrl: newCoverUrl,
             };
 
-            updateDocumentNonBlocking(userDocRef, updatedUserData);
+            await updateProfile(updatedUserData);
 
             toast({
                 title: "تم الحفظ",
@@ -233,5 +233,3 @@ export default function SettingsPage() {
         </Card>
     );
 }
-
-    

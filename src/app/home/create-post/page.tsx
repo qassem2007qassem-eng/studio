@@ -20,11 +20,12 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { useFirebase, useUser, addDocumentNonBlocking } from '@/firebase';
-import { collection, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { useFirebase, useUser } from '@/firebase';
+import { collection, serverTimestamp, doc, getDoc, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { type User as UserType } from '@/lib/types';
+import { getCurrentUserProfile } from '@/services/user-service';
 
 
 export default function CreatePostPage() {
@@ -37,15 +38,14 @@ export default function CreatePostPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (user && firestore) {
-      const userDocRef = doc(firestore, 'users', user.uid);
-      getDoc(userDocRef).then((doc) => {
-        if (doc.exists()) {
-          setUserData(doc.data() as UserType);
+    if (user) {
+      getCurrentUserProfile().then(profile => {
+        if (profile) {
+          setUserData(profile as UserType);
         }
       });
     }
-  }, [user, firestore]);
+  }, [user]);
 
   const handleCreatePost = async () => {
     if (!content.trim() || !user || !firestore || !userData) {
@@ -67,7 +67,7 @@ export default function CreatePostPage() {
         likeIds: [],
       };
 
-      await addDocumentNonBlocking(postsCollection, postData);
+      await addDoc(postsCollection, postData);
       setContent('');
       toast({
         title: 'نجاح',

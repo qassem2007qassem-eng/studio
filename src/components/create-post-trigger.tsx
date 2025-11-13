@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { type User as UserType } from "@/lib/types";
-import { doc, getDoc } from "firebase/firestore";
+import { getCurrentUserProfile } from "@/services/user-service";
 
 export function CreatePostTrigger() {
   const { user } = useUser();
@@ -16,15 +16,14 @@ export function CreatePostTrigger() {
   const [userData, setUserData] = useState<UserType | null>(null);
 
   useEffect(() => {
-    if (user && firestore) {
-      const userDocRef = doc(firestore, 'users', user.uid);
-      getDoc(userDocRef).then((doc) => {
-        if (doc.exists()) {
-          setUserData(doc.data() as UserType);
+    if (user) {
+      getCurrentUserProfile().then(profile => {
+        if (profile) {
+          setUserData(profile as UserType);
         }
       });
     }
-  }, [user, firestore]);
+  }, [user]);
 
   if (!user || !userData) {
     return null;
@@ -51,5 +50,3 @@ export function CreatePostTrigger() {
     </div>
   );
 }
-
-    

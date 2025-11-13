@@ -27,8 +27,22 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
-import { useFirebase, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
-import { arrayRemove, arrayUnion, collection, doc, increment, orderBy, query, serverTimestamp, Timestamp, getDoc } from "firebase/firestore";
+import { useFirebase, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { 
+    arrayRemove, 
+    arrayUnion, 
+    collection, 
+    doc, 
+    increment, 
+    orderBy, 
+    query, 
+    serverTimestamp, 
+    Timestamp, 
+    getDoc,
+    addDoc,
+    updateDoc
+} from "firebase/firestore";
+import { getCurrentUserProfile } from "@/services/user-service";
 
 
 interface PostCardProps {
@@ -63,9 +77,9 @@ const CommentsDialog = ({ post }: { post: Post }) => {
 
     useEffect(() => {
         if(user && firestore) {
-            getDoc(doc(firestore, 'users', user.uid)).then(doc => {
-                if(doc.exists()) {
-                    setUserData(doc.data() as UserType);
+            getCurrentUserProfile().then(profile => {
+                if(profile) {
+                    setUserData(profile as UserType);
                 }
             })
         }
@@ -97,7 +111,7 @@ const CommentsDialog = ({ post }: { post: Post }) => {
                 content: newComment.trim(),
                 createdAt: serverTimestamp(),
             };
-            await addDocumentNonBlocking(commentsCollection, commentData);
+            await addDoc(commentsCollection, commentData);
             setNewComment("");
         }
     };
@@ -174,7 +188,7 @@ export function PostCard({ post }: PostCardProps) {
     setIsLiked(newIsLiked);
     setLikeCount(prev => newIsLiked ? prev + 1 : prev - 1);
 
-    updateDocumentNonBlocking(postRef, {
+    updateDoc(postRef, {
         likeIds: newIsLiked ? arrayUnion(user.uid) : arrayRemove(user.uid)
     });
   };

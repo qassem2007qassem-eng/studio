@@ -7,13 +7,6 @@ import {
   collection, 
   query, 
   where, 
-  limit, 
-  doc, 
-  writeBatch, 
-  serverTimestamp, 
-  increment, 
-  getDoc,
-  onSnapshot,
   orderBy,
   Timestamp
 } from 'firebase/firestore';
@@ -25,10 +18,11 @@ import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Loader2, Lock } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser, useFirebase } from "@/firebase";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from 'next/navigation';
+import { getUserByUsername, followUser, unfollowUser, checkIfFollowing } from "@/services/user-service";
 
 const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Date | null => {
     if (!timestamp) return null;
@@ -52,7 +46,7 @@ const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Da
 export default function ProfilePage() {
   const params = useParams();
   const { firestore } = useFirebase();
-  const { user: currentUser } = useUser();
+  const { user: currentUser, isUserLoading: isCurrentUserLoading } = useUser();
   
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isProfileUserLoading, setIsProfileUserLoading] = useState(true);
@@ -62,127 +56,75 @@ export default function ProfilePage() {
 
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowStatusLoading, setIsFollowStatusLoading] = useState(true);
+  const [isTogglingFollow, setIsTogglingFollow] = useState(false);
 
   const usernameFromUrl = useMemo(() => {
     const username = Array.isArray(params.username) ? params.username[0] : params.username;
     return username ? decodeURIComponent(username).toLowerCase() : null;
   }, [params.username]);
 
-  // Step 1: Fetch the profile user's data based on the username in the URL
-  useEffect(() => {
-    if (!firestore || !usernameFromUrl) {
-      setIsProfileUserLoading(false);
-      return;
-    }
+  const fetchProfileData = useCallback(async () => {
+    if (!usernameFromUrl || !firestore) return;
 
     setIsProfileUserLoading(true);
-    const usersRef = collection(firestore, 'users');
-    const userQuery = query(usersRef, where("username", "==", usernameFromUrl), limit(1));
-
-    const unsubscribe = onSnapshot(userQuery, (snapshot) => {
-      if (!snapshot.empty) {
-        const userDoc = snapshot.docs[0];
-        setProfileUser({ id: userDoc.id, ...userDoc.data() } as User);
-      } else {
-        setProfileUser(null);
-      }
-      setIsProfileUserLoading(false);
-    }, (error) => {
-      console.error("Error fetching user:", error);
-      setProfileUser(null);
-      setIsProfileUserLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [firestore, usernameFromUrl]);
-
-  const isCurrentUserProfile = currentUser?.uid === profileUser?.id;
-  
-  // Step 2: Check follow status, depends on currentUser and profileUser
-  useEffect(() => {
-    if (!currentUser || !profileUser || !firestore || isCurrentUserProfile) {
-        setIsFollowStatusLoading(false);
-        return;
-    }
-
+    setPostsLoading(true);
     setIsFollowStatusLoading(true);
-    const followDocId = `${currentUser.uid}_${profileUser.id}`;
-    const followRef = doc(firestore, 'follows', followDocId);
 
-    const unsubscribe = onSnapshot(followRef, (docSnap) => {
-        setIsFollowing(docSnap.exists());
-        setIsFollowStatusLoading(false);
-    }, (error) => {
-        console.error("Error checking follow status:", error);
-        setIsFollowStatusLoading(false);
-    });
+    const user = await getUserByUsername(usernameFromUrl);
+    setProfileUser(user);
+    setIsProfileUserLoading(false);
 
-    return () => unsubscribe();
-  }, [currentUser, profileUser, firestore, isCurrentUserProfile]);
+    if (user && currentUser) {
+        const followingStatus = await checkIfFollowing(user.id);
+        setIsFollowing(followingStatus);
+        setIsFollowStatusLoading(false);
+
+        const isOwnProfile = currentUser.uid === user.id;
+        if (isOwnProfile || followingStatus) {
+            const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", user.id), orderBy("createdAt", "desc"));
+            const snapshot = await getDocs(postsQuery);
+            const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+            setUserPosts(posts);
+        } else {
+             setUserPosts([]);
+        }
+    } else {
+        setUserPosts([]);
+    }
+    
+    setPostsLoading(false);
+
+  }, [usernameFromUrl, firestore, currentUser]);
+
+  useEffect(() => {
+    if (!isCurrentUserLoading) {
+        fetchProfileData();
+    }
+  }, [isCurrentUserLoading, fetchProfileData]);
   
+  const isCurrentUserProfile = currentUser?.uid === profileUser?.id;
   const canViewContent = isCurrentUserProfile || isFollowing;
 
-  // Step 3: Fetch user's posts, depends on profileUser and canViewContent
-  useEffect(() => {
-    if (!firestore || !profileUser || !canViewContent) {
-        setPostsLoading(false);
-        setUserPosts([]);
-        return;
-    }
-
-    setPostsLoading(true);
-    const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id), orderBy("createdAt", "desc"));
-    
-    const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
-        const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-        setUserPosts(posts);
-        setPostsLoading(false);
-    }, (error) => {
-        console.error("Error fetching posts:", error);
-        setUserPosts([]);
-        setPostsLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [firestore, profileUser, canViewContent]);
-
   const handleFollowToggle = async () => {
-    if (!currentUser || !profileUser || isFollowStatusLoading || isCurrentUserProfile || !firestore) return;
+    if (!currentUser || !profileUser || isTogglingFollow || isCurrentUserProfile) return;
 
-    setIsFollowStatusLoading(true);
+    setIsTogglingFollow(true);
     
-    const currentUserRef = doc(firestore, 'users', currentUser.uid);
-    const profileUserRef = doc(firestore, 'users', profileUser.id);
-    const followDocId = `${currentUser.uid}_${profileUser.id}`;
-    const followRef = doc(firestore, 'follows', followDocId);
+    if (isFollowing) {
+        await unfollowUser(profileUser.id);
+        setIsFollowing(false);
+    } else {
+        await followUser(profileUser.id);
+        setIsFollowing(true);
+    }
+    // Manually refetch profile data to update follower counts
+    const user = await getUserByUsername(usernameFromUrl);
+    setProfileUser(user);
 
-    const batch = writeBatch(firestore);
-
-    try {
-        const followDoc = await getDoc(followRef);
-        if (followDoc.exists()) {
-            // Unfollow
-            batch.delete(followRef);
-            batch.update(currentUserRef, { followingCount: increment(-1) });
-            batch.update(profileUserRef, { followerCount: increment(-1) });
-        } else {
-            // Follow
-            batch.set(followRef, {
-                followerId: currentUser.uid,
-                followeeId: profileUser.id,
-                createdAt: serverTimestamp()
-            });
-            batch.update(currentUserRef, { followingCount: increment(1) });
-            batch.update(profileUserRef, { followerCount: increment(1) });
-        }
-        await batch.commit();
-    } catch(error) {
-        console.error("Failed to toggle follow", error);
-    } 
-    // No finally block to set loading to false, the onSnapshot listener will handle it.
+    setIsTogglingFollow(false);
   };
 
-  if (isProfileUserLoading) {
+  if (isProfileUserLoading || isCurrentUserLoading) {
     return (
         <div className="space-y-6">
             <Card className="overflow-hidden">
@@ -224,8 +166,10 @@ export default function ProfilePage() {
       )
   }
   
-  const followerCount = profileUser.followerCount || 0;
-  const followingCount = profileUser.followingCount || 0;
+  const followerCount = profileUser.followers?.length || 0;
+  const followingCount = profileUser.following?.length || 0;
+
+  const followButtonDisabled = isFollowStatusLoading || isTogglingFollow;
 
 
   return (
@@ -256,8 +200,8 @@ export default function ProfilePage() {
                     </Link>
                 </Button>
             ): (
-                <Button onClick={handleFollowToggle} disabled={isFollowStatusLoading} variant={isFollowing ? 'secondary' : 'default'}>
-                    {isFollowStatusLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 
+                <Button onClick={handleFollowToggle} disabled={followButtonDisabled} variant={isFollowing ? 'secondary' : 'default'}>
+                    {followButtonDisabled ? <Loader2 className="h-4 w-4 animate-spin" /> : 
                      isFollowing ? <><UserCheck className="h-4 w-4 me-2" /> متابَع</> : <><UserPlus className="h-4 w-4 me-2" /> متابعة</>}
                 </Button> 
             )}

@@ -12,7 +12,6 @@
  *   - LIST: Allowed for searching users by username.
  *   - WRITE: Only the owner can write to their own profile.
  * - /posts/{postId}: Stores posts. Read access is controlled by the author's privacy settings (not yet implemented, so public for now). Write access is restricted to the author.
- * - /follows/{followId}: Manages follow relationships. Authenticated users can create/delete their own follow documents.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -34,29 +33,17 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-    
-    /**
-     * @description Checks if the current user is following the target user.
-     * @param {string} targetUserId The UID of the user to check if they are being followed.
-     * @return {boolean} True if the current user follows the target user.
-     */
-    function isFollowing(targetUserId) {
-      return exists(/databases/$(database)/documents/follows/$(request.auth.uid)_$(targetUserId));
-    }
 
     /**
      * @description User profiles. Read access is conditional.
      * @path /users/{userId}
-     * @allow get: Anyone can get a user document to check basic info. More detailed rules could be applied to the data itself.
+     * @allow get: Anyone can get a user document to check basic info.
      * @allow list: Signed-in users can list/query users (e.g., for search).
      * @allow create, update, delete: Only the user themselves can manage their profile.
      */
     match /users/{userId} {
-      allow get: if isSignedIn(); // Allows fetching any user document to see public info
-      allow list: if isSignedIn(); // Allow querying/listing for signed-in users (for search).
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isOwner(userId);
+      allow read, list: if isSignedIn();
+      allow write: if isOwner(userId);
     }
     
     /**
@@ -82,21 +69,6 @@ service cloud.firestore {
       allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid && request.resource.data.postId == postId;
       allow update: if isSignedIn() && resource.data.authorId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
-    }
-    
-    /**
-     * @description Follow relationships. Managed by the follower.
-     * @path /follows/{followId}
-     * @allow read: Any signed-in user can read follow relationships (e.g., to check "is following?").
-     * @allow create: The user initiating the follow (follower) can create the document.
-     * @allow delete: The user who initiated the follow (follower) can delete it.
-     */
-    match /follows/{followId} {
-        allow read: if isSignedIn();
-        // The followId must be in the format 'followerId_followeeId'
-        allow create: if isSignedIn() && request.resource.data.followerId == request.auth.uid && followId == request.resource.data.followerId + '_' + request.resource.data.followeeId;
-        allow delete: if isSignedIn() && resource.data.followerId == request.auth.uid;
-        allow update: if false; 
     }
 
     /**

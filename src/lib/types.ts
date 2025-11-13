@@ -12,9 +12,8 @@ export interface User {
   dob?: string;
   gender?: string;
   createdAt: string | Timestamp | Date;
-  postCount: number;
-  followerCount: number;
-  followingCount: number;
+  followers: string[];
+  following: string[];
 }
 
 export interface Comment {
@@ -66,12 +65,3 @@ export interface AppNotification {
   postContent?: string;
   createdAt: string;
 }
-
-export interface Follow {
-    id: string;
-    followerId: string;
-    followeeId: string;
-    createdAt: Timestamp;
-}
-
-    
