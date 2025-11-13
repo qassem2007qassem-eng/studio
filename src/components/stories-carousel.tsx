@@ -33,52 +33,62 @@ const groupStoriesByUser = (stories: Story[]): { [userId: string]: Story[] } => 
 
 export function StoriesCarousel() {
     const { user, isUserLoading } = useUser();
-    const { firestore } = useFirebase();
-    const [following, setFollowing] = useState<string[] | null>(null);
+    // const { firestore } = useFirebase();
+    // const [following, setFollowing] = useState<string[] | null>(null);
 
-    // 1. Fetch current user's following list
-    useEffect(() => {
-        if (user) {
-            getCurrentUserProfile().then(profile => {
-                const ownId = profile?.id || user.uid;
-                setFollowing([ownId, ...(profile?.following || [])]);
-            });
-        } else {
-            setFollowing([]);
-        }
-    }, [user]);
+    // // 1. Fetch current user's following list
+    // useEffect(() => {
+    //     if (user) {
+    //         getCurrentUserProfile().then(profile => {
+    //             const ownId = profile?.id || user.uid;
+    //             // Ensure user's own ID is in the list to see their own stories/create button
+    //             const followingList = profile?.following || [];
+    //             if (!followingList.includes(ownId)) {
+    //                 followingList.unshift(ownId);
+    //             }
+    //             setFollowing(followingList);
+    //         });
+    //     } else {
+    //         setFollowing([]);
+    //     }
+    // }, [user]);
 
-    // 2. Build the query for stories based on the following list
-    const storiesQuery = useMemoFirebase(() => {
-        if (!firestore || following === null || following.length === 0) return null;
+    // // 2. Build the query for stories based on the following list
+    // const storiesQuery = useMemoFirebase(() => {
+    //     if (!firestore || following === null || following.length === 0) return null;
         
-        const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
+    //     const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
         
-        // Firestore 'in' queries are limited to 30 items.
-        const queryableFollowing = following.slice(0, 30);
+    //     // Firestore 'in' queries are limited to 30 items.
+    //     const queryableFollowing = following.slice(0, 30);
 
-        return query(
-            collection(firestore, 'stories'), 
-            where("createdAt", ">=", twentyFourHoursAgo),
-            where("userId", "in", queryableFollowing),
-            orderBy("createdAt", "desc")
-        );
-    }, [firestore, following]);
+    //     return query(
+    //         collection(firestore, 'stories'), 
+    //         where("createdAt", ">=", twentyFourHoursAgo),
+    //         where("userId", "in", queryableFollowing)
+    //     );
+    // }, [firestore, following]);
 
-    const { data: stories, isLoading } = useCollection<Story>(storiesQuery);
+    // const { data: stories, isLoading, error } = useCollection<Story>(storiesQuery);
 
-    const groupedStories = useMemo(() => groupStoriesByUser(stories || []), [stories]);
+    // useEffect(() => {
+    //   if (error) {
+    //     console.error("Error fetching stories:", error);
+    //   }
+    // }, [error]);
+
+    // const groupedStories = useMemo(() => groupStoriesByUser(stories || []), [stories]);
     
-    // Create an ordered list of story groups based on the `following` array to maintain order
-    const storyGroups = useMemo(() => {
-        if (!following || !groupedStories) return [];
-        // Map over the `following` list to preserve the order and pick the corresponding story group.
-        return following
-            .map(userId => groupedStories[userId])
-            .filter(Boolean); // Filter out users who have no stories
-    }, [groupedStories, following]);
+    // // Create an ordered list of story groups based on the `following` array to maintain order
+    // const storyGroups = useMemo(() => {
+    //     if (!following || !groupedStories) return [];
+    //     // Map over the `following` list to preserve the order and pick the corresponding story group.
+    //     return following
+    //         .map(userId => groupedStories[userId])
+    //         .filter(Boolean); // Filter out users who have no stories
+    // }, [groupedStories, following]);
     
-    const isDataLoading = isUserLoading || following === null || (following.length > 0 && isLoading);
+    // const isDataLoading = isUserLoading || following === null || (following.length > 0 && isLoading);
 
     if (isUserLoading) {
         return (
@@ -129,7 +139,7 @@ export function StoriesCarousel() {
                       </Link>
                     </div>
                 </CarouselItem>
-                {isDataLoading ? (
+                {/* {isDataLoading ? (
                      [...Array(4)].map((_, index) => (
                         <CarouselItem key={index} className="basis-1/3 md:basis-1/4 lg:basis-1/5 ps-2">
                             <div className="p-1">
@@ -142,13 +152,17 @@ export function StoriesCarousel() {
                     const firstStory = userStories[0];
                     if (!firstStory) return null;
                     
-                    // Don't show the user's own story group here, it's represented by the "Create Story" button
-                    if (firstStory.userId === user.uid) return null;
+                    // Don't show the user's own story group here if they have no stories other than the "create" button
+                    if (firstStory.userId === user.uid && userStories.length === 0) return null;
+
+
+                    // Find the first story of the user to link to
+                    const linkToStoryId = firstStory.id;
 
                     return (
                         <CarouselItem key={firstStory.userId} className="basis-1/3 md:basis-1/4 lg:basis-1/5 ps-2">
                             <div className="p-0">
-                            <Link href={`/home/stories/${firstStory.id}`}>
+                            <Link href={`/home/stories/${linkToStoryId}`}>
                                 <Card className="relative aspect-[9/16] w-full overflow-hidden rounded-lg group">
                                     {firstStory.type === 'image' && firstStory.contentUrl ? (
                                         <Image
@@ -177,7 +191,7 @@ export function StoriesCarousel() {
                             </div>
                         </CarouselItem>
                     )
-                })}
+                })} */}
             </CarouselContent>
         </Carousel>
     </Card>
