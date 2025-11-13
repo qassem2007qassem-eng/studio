@@ -13,16 +13,9 @@ import {
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useUser } from '@/firebase';
-import { collection, serverTimestamp, addDoc } from 'firebase/firestore';
+import { collection, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { type User as UserType } from '@/lib/types';
@@ -43,14 +36,14 @@ export default function CreatePostPage() {
 
 
   useEffect(() => {
-    if (user) {
+    if (user && !userData) {
       getCurrentUserProfile().then(profile => {
         if (profile) {
           setUserData(profile as UserType);
         }
       });
     }
-  }, [user]);
+  }, [user, userData]);
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -84,20 +77,23 @@ export default function CreatePostPage() {
       }
 
       const postsCollection = collection(firestore, 'posts');
+      
       const postData = {
+        authorId: user.uid,
         author: {
           name: userData.name,
-          username: userData.username,
+          username: userData.username.toLowerCase(),
           avatarUrl: userData.avatarUrl,
         },
-        authorId: user.uid,
         content: content.trim(),
         imageUrl: imageUrl,
         createdAt: serverTimestamp(),
         likeIds: [],
+        updatedAt: serverTimestamp(),
       };
 
       await addDoc(postsCollection, postData);
+
       setContent('');
       setPostImage(null);
       toast({
@@ -106,7 +102,7 @@ export default function CreatePostPage() {
       });
       router.push('/home');
     } catch (error) {
-      console.error(error);
+      console.error("Error creating post:", error);
       toast({
         title: 'خطأ',
         description: 'لم نتمكن من نشر منشورك. حاول مرة أخرى.',
@@ -126,16 +122,15 @@ export default function CreatePostPage() {
   }
 
   if (!user || !userData) {
-    return (
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-            <Card className="w-full max-w-sm">
-                <CardHeader>
-                    <CardTitle className="text-center">الرجاء تسجيل الدخول</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-center">يجب عليك تسجيل الدخول لإنشاء منشور.</p>
-                </CardContent>
-            </Card>
+    // This state is hit if the user is not logged in or their profile hasn't loaded yet.
+    // Instead of a full-page card, we can show the loading state inside the create-post UI
+    // or simply disable the functionality until the user data is available.
+     return (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-card p-6 rounded-lg shadow-lg text-center">
+                <p>الرجاء تسجيل الدخول لإنشاء منشور.</p>
+                <Button onClick={() => router.push('/login')} className="mt-4">تسجيل الدخول</Button>
+            </div>
         </div>
     );
   }

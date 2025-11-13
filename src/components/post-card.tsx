@@ -74,14 +74,14 @@ const CommentsDialog = ({ post }: { post: Post }) => {
     const [userData, setUserData] = useState<UserType | null>(null);
 
     useEffect(() => {
-        if(user) {
+        if(user && !userData) {
             getCurrentUserProfile().then(profile => {
                 if(profile) {
                     setUserData(profile as UserType);
                 }
             })
         }
-    }, [user]);
+    }, [user, userData]);
 
     const commentsCollection = useMemoFirebase(() => {
         if (!post || !firestore) return null;
