@@ -84,14 +84,16 @@ service cloud.firestore {
      * @principle Allows public read, enforces owner-only writes based on the authorId field, but allows likes from anyone.
      */
     match /posts/{postId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
-      allow update: if isSignedIn() && (
-        (request.resource.data.keys().hasOnly(['likeIds']) && request.resource.data.likeIds.size() == resource.data.likeIds.size() + 1) ||
-        (request.resource.data.keys().hasOnly(['likeIds']) && request.resource.data.likeIds.size() == resource.data.likeIds.size() - 1) ||
-        (resource.data.authorId == request.auth.uid)
-      );
-      allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+        allow get, list: if true;
+        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+        allow update: if isSignedIn() && (
+            (resource.data.authorId == request.auth.uid && !request.resource.data.keys().hasAny(['likeIds'])) ||
+            (request.resource.data.keys().hasOnly(['likeIds']) && (
+                (request.resource.data.likeIds.size() == resource.data.likeIds.size() + 1 && request.auth.uid in request.resource.data.likeIds) ||
+                (request.resource.data.likeIds.size() == resource.data.likeIds.size() - 1 && !(request.auth.uid in request.resource.data.likeIds))
+            ))
+        );
+        allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
     }
 
     /**
@@ -155,15 +157,22 @@ service cloud.firestore {
     }
 
     /**
+     * @description Allows listing of stories for signed-in users.
+     */
+    match /stories {
+      allow list: if isSignedIn();
+    }
+
+    /**
      * @description Stories are publicly readable. Write access is restricted to the story's author.
      * Stories expire after 24 hours (enforced by client-side query).
      * @path /stories/{storyId}
-     * @allow (get, list) Signed-in users can read stories.
+     * @allow (get) Signed-in users can read stories.
      * @allow (create) Signed-in user creating a story with their own userId.
      * @allow (update, delete) Signed-in user who is the author of the story.
      */
     match /stories/{storyId} {
-      allow get, list: if isSignedIn();
+      allow get: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
@@ -185,3 +194,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
