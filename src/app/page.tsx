@@ -10,14 +10,14 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 
 const onboardingSteps = [
   {
-    image: "https://picsum.photos/seed/1/600/400",
+    image: "https://storage.googleapis.com/proud-graph-429913-h3-assets/community_illustration.svg",
     imageHint: "community connection",
     title: "مرحباً بك في مجمع الطلاب السوري",
     description:
       "منصة اجتماعية وتعليمية مخصصة للطلاب السوريين للتواصل، مشاركة المعرفة، والحصول على الدعم.",
   },
   {
-    image: "https://picsum.photos/seed/2/600/400",
+    image: "https://storage.googleapis.com/proud-graph-429913-h3-assets/ai_features_illustration.svg",
     imageHint: "ai features",
     title: "ميزات ذكاء اصطناعي مبتكرة",
     description:
@@ -46,13 +46,13 @@ export default function OnboardingPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
       <Card className="mx-auto w-full max-w-md overflow-hidden">
-        <div className="relative h-64 w-full">
+        <div className="relative h-64 w-full bg-white p-4">
           <Image
             src={currentStep.image}
             alt={currentStep.title}
             data-ai-hint={currentStep.imageHint}
             fill
-            className="object-cover"
+            className="object-contain"
             priority
           />
         </div>
