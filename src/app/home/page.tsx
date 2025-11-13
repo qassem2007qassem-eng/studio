@@ -3,7 +3,6 @@
 
 import { AppHeader } from "@/components/app-header-mobile";
 import { PostCard } from "@/components/post-card";
-// import { StoriesCarousel } from "@/components/stories-carousel";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useCollection } from "@/firebase";
 import { collection, query, orderBy } from "firebase/firestore";
@@ -30,7 +29,6 @@ export default function HomePage() {
   return (
     <>
       <AppHeader />
-      {/* <StoriesCarousel /> */}
       <Separator />
       <CreatePostTrigger />
       <div className="space-y-4 pt-6">

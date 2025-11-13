@@ -49,24 +49,6 @@ export interface Post {
   commenting: PrivacySetting;
 }
 
-export interface Story {
-  id: string;
-  userId: string;
-  user: {
-      name: string;
-      username: string;
-      avatarUrl?: string;
-  };
-  type: 'image' | 'text';
-  contentUrl?: string; // For image stories
-  text?: string;         // For text stories
-  backgroundColor?: string; // For text stories
-  createdAt: Timestamp;
-  expiresAt: Timestamp;
-  viewers: string[];
-  likeIds?: string[];
-}
-
 export interface AppNotification {
   id:string;
   user: Pick<User, 'username' | 'avatarUrl'> & { name: string };
