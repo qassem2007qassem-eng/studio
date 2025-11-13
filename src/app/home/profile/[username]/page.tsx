@@ -22,7 +22,6 @@ export default function ProfilePage() {
   const params = useParams();
   const usernameFromUrl = useMemo(() => {
     const username = Array.isArray(params.username) ? params.username[0] : params.username;
-    // Decode URI component and convert to lower case
     return username ? decodeURIComponent(username).toLowerCase() : '';
   }, [params.username]);
   
@@ -43,7 +42,7 @@ export default function ProfilePage() {
     }
     
     setIsUserLoading(true);
-    setProfileUser(null); // Reset profile user on username change
+    setProfileUser(null); 
 
     const usersRef = collection(firestore, 'users');
     const userQuery = query(usersRef, where("username", "==", usernameFromUrl), limit(1));
@@ -82,34 +81,40 @@ export default function ProfilePage() {
           limit(1)
       );
 
-      getDocs(followQuery).then(followQuerySnapshot => {
-          if (!followQuerySnapshot.empty) {
+      const unsubscribe = onSnapshot(followQuery, (snapshot) => {
+          if (!snapshot.empty) {
               setIsFollowing(true);
-              setFollowDocId(followQuerySnapshot.docs[0].id);
+              setFollowDocId(snapshot.docs[0].id);
           } else {
               setIsFollowing(false);
               setFollowDocId(null);
           }
-      }).catch(err => {
-        console.error("Error checking follow status:", err);
-        setIsFollowing(false);
-        setFollowDocId(null);
-      }).finally(() => {
-        setIsFollowLoading(false);
+          setIsFollowLoading(false);
+      }, (err) => {
+          console.error("Error checking follow status:", err);
+          setIsFollowing(false);
+          setFollowDocId(null);
+          setIsFollowLoading(false);
       });
+      
+      return () => unsubscribe();
   }, [currentUser, profileUser, firestore]);
 
-  const postsCollection = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'posts');
-  }, [firestore]);
-
   const userPostsQuery = useMemoFirebase(() => {
-    if (!postsCollection || !profileUser) return null;
-    return query(postsCollection, where("authorId", "==", profileUser.id), orderBy("createdAt", "desc"));
-  }, [postsCollection, profileUser]);
+    if (!firestore || !profileUser) return null;
+    return query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id), orderBy("createdAt", "desc"));
+  }, [firestore, profileUser]);
 
   const { data: userPosts, isLoading: postsLoading } = useCollection<Post>(userPostsQuery);
+  
+  // Memoize follower/following counts
+  const { followerCount, followingCount } = useMemo(() => {
+      return {
+          followerCount: profileUser?.followerCount || 0,
+          followingCount: profileUser?.followingCount || 0,
+      }
+  }, [profileUser]);
+
 
   const isCurrentUserProfile = currentUser?.uid === profileUser?.id;
 
@@ -118,28 +123,37 @@ export default function ProfilePage() {
 
     setIsFollowLoading(true);
     
+    const currentUserRef = doc(firestore, 'users', currentUser.uid);
+    const profileUserRef = doc(firestore, 'users', profileUser.id);
+    const batch = writeBatch(firestore);
+
     if (isFollowing && followDocId) {
       // --- Unfollow Logic ---
       const followRef = doc(firestore, 'follows', followDocId);
-      await deleteDoc(followRef);
-      
-      setIsFollowing(false);
-      setFollowDocId(null);
+      batch.delete(followRef);
+      batch.update(currentUserRef, { followingCount: increment(-1) });
+      batch.update(profileUserRef, { followerCount: increment(-1) });
 
     } else {
       // --- Follow Logic ---
       const newFollowRef = doc(collection(firestore, 'follows'));
-      await writeBatch(firestore).set(newFollowRef, {
+      batch.set(newFollowRef, {
         id: newFollowRef.id,
         followerId: currentUser.uid,
         followeeId: profileUser.id,
         createdAt: serverTimestamp()
-      }).commit();
-
-      setIsFollowing(true);
-      setFollowDocId(newFollowRef.id);
+      });
+      batch.update(currentUserRef, { followingCount: increment(1) });
+      batch.update(profileUserRef, { followerCount: increment(1) });
     }
-    setIsFollowLoading(false);
+
+    try {
+        await batch.commit();
+    } catch(error) {
+        console.error("Failed to toggle follow", error);
+    } finally {
+        setIsFollowLoading(false);
+    }
   };
 
 
@@ -184,10 +198,6 @@ export default function ProfilePage() {
           </Card>
       )
   }
-  
-  const followerCount = profileUser.followerCount || 0;
-  const followingCount = profileUser.followingCount || 0;
-
 
   return (
     <div className="space-y-6">
