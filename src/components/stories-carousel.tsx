@@ -21,15 +21,22 @@ export function StoriesCarousel() {
         return collection(firestore, 'stories');
     }, [firestore]);
 
+    // IMPORTANT: Do not run the query until auth state is determined and a user is present.
     const storiesQuery = useMemoFirebase(() => {
-        // Do not run the query until auth state is determined and a user is present.
-        if (!storiesCollection || isUserLoading || !user) return null;
+        if (!storiesCollection || isUserLoading || !user) {
+            return null; // Return null if user is not yet authenticated or firestore is not ready
+        }
         const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
         return query(storiesCollection, where("createdAt", ">=", twentyFourHoursAgo), orderBy("createdAt", "desc"));
     }, [storiesCollection, isUserLoading, user]);
 
     const { data: stories, isLoading } = useCollection<Story>(storiesQuery);
 
+  
+  if (isUserLoading) {
+    // You might want to show a loading skeleton here
+    return null;
+  }
   
   if (!user) {
     return null;
@@ -95,4 +102,5 @@ export function StoriesCarousel() {
     </Carousel>
   );
 }
+
 
