@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,18 +11,19 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
-import { useUser, useFirebase } from "@/firebase";
+import { useUser } from "@/firebase";
 import { updateProfile as updateAuthProfile } from "firebase/auth";
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type User as UserType } from "@/lib/types";
 import { getCurrentUserProfile, updateProfile } from "@/services/user-service";
+import { initializeFirebase } from "@/firebase";
 
 
 export default function SettingsPage() {
     const { toast } = useToast();
     const { user, isUserLoading } = useUser();
-    const { auth, firestore } = useFirebase();
+    const { auth } = initializeFirebase();
 
     const [userData, setUserData] = useState<UserType | null>(null);
     const [name, setName] = useState("");
@@ -33,6 +34,10 @@ export default function SettingsPage() {
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    
+    const avatarInputRef = useRef<HTMLInputElement>(null);
+    const coverInputRef = useRef<HTMLInputElement>(null);
+
 
     useEffect(() => {
         if (!isUserLoading && user) {
@@ -59,7 +64,7 @@ export default function SettingsPage() {
         setIsSaving(true);
         try {
             let newAvatarUrl = userData.avatarUrl;
-            if (avatarUrl && avatarUrl !== userData.avatarUrl) {
+            if (avatarUrl && avatarUrl !== userData.avatarUrl && avatarUrl.startsWith('data:image')) {
                 const storage = getStorage();
                 const avatarRef = ref(storage, `avatars/${user.uid}`);
                 const snapshot = await uploadString(avatarRef, avatarUrl, 'data_url');
@@ -67,7 +72,7 @@ export default function SettingsPage() {
             }
 
             let newCoverUrl = userData.coverUrl;
-            if (coverUrl && coverUrl !== userData.coverUrl) {
+            if (coverUrl && coverUrl !== userData.coverUrl && coverUrl.startsWith('data:image')) {
                 const storage = getStorage();
                 const coverRef = ref(storage, `covers/${user.uid}`);
                 const snapshot = await uploadString(coverRef, coverUrl, 'data_url');
@@ -192,7 +197,8 @@ export default function SettingsPage() {
                             }
                          </div>
                     </Card>
-                    <Input type="file" accept="image/*" onChange={(e) => handleFileChange(e, setCoverUrl)} />
+                    <Button variant="outline" onClick={() => coverInputRef.current?.click()}>تغيير صورة الغلاف</Button>
+                    <Input ref={coverInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleFileChange(e, setCoverUrl)} />
                 </div>
                 
                 {/* Avatar */}
@@ -203,7 +209,8 @@ export default function SettingsPage() {
                             <AvatarImage src={avatarUrl || undefined} alt={name} />
                             <AvatarFallback>{name?.charAt(0)}</AvatarFallback>
                         </Avatar>
-                        <Input type="file" accept="image/*" onChange={(e) => handleFileChange(e, setAvatarUrl)} />
+                        <Button variant="outline" onClick={() => avatarInputRef.current?.click()}>تغيير الصورة الشخصية</Button>
+                        <Input ref={avatarInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleFileChange(e, setAvatarUrl)} />
                     </div>
                 </div>
 
@@ -233,3 +240,5 @@ export default function SettingsPage() {
         </Card>
     );
 }
+
+    

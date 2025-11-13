@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
-import { useFirebase, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { 
     arrayRemove, 
     arrayUnion, 
@@ -164,7 +164,7 @@ const CommentsDialog = ({ post }: { post: Post }) => {
 
 export function PostCard({ post }: PostCardProps) {
   const { user } = useUser();
-  const { firestore } = useFirebase();
+  const { firestore } = initializeFirebase();
   
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
@@ -210,6 +210,8 @@ export function PostCard({ post }: PostCardProps) {
     return <Card><CardContent><Skeleton className="h-24 w-full" /></CardContent></Card>;
   }
 
+  const hasImages = post.imageUrls && post.imageUrls.length > 0;
+
   return (
     <Dialog>
         <Card>
@@ -241,17 +243,29 @@ export function PostCard({ post }: PostCardProps) {
             </div>
         </CardHeader>
         <CardContent className="space-y-4 p-4 pt-0">
-            <p className="whitespace-pre-wrap">{post.content}</p>
-            {post.imageUrl && (
-            <div className="relative aspect-video w-full overflow-hidden rounded-lg border">
-                <Image
-                src={post.imageUrl}
-                alt="Post image"
-                data-ai-hint="post image"
-                fill
-                className="object-cover"
-                />
-            </div>
+            {post.content && <p className="whitespace-pre-wrap">{post.content}</p>}
+            {hasImages && (
+                <div className={cn(
+                    "grid gap-2",
+                    post.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2",
+                    post.imageUrls.length > 2 ? "grid-cols-2" : ""
+                )}>
+                    {post.imageUrls.map((imageUrl, index) => (
+                        <div key={index} className={cn(
+                            "relative w-full overflow-hidden rounded-lg border",
+                            post.imageUrls.length === 1 ? "aspect-video" : "aspect-square",
+                            post.imageUrls.length === 3 && index === 0 ? "col-span-2 row-span-2" : ""
+                        )}>
+                            <Image
+                                src={imageUrl}
+                                alt={`Post image ${index + 1}`}
+                                data-ai-hint="post image"
+                                fill
+                                className="object-cover"
+                            />
+                        </div>
+                    ))}
+                </div>
             )}
         </CardContent>
         <CardFooter className="flex flex-col items-start gap-4 p-4 pt-0">
@@ -282,3 +296,5 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
+
+    

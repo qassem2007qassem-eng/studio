@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ImageIcon, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
-import { useFirebase, useUser } from "@/firebase";
+import { useUser } from "@/firebase";
 import { collection, serverTimestamp, addDoc } from "firebase/firestore";
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
@@ -134,14 +134,14 @@ export default function CreateStoryPage() {
                             <p className="mt-2">انقر لاختيار صورة</p>
                         </div>
                     )}
-                    <Input 
-                        ref={fileInputRef}
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden"
-                        onChange={handleImageChange}
-                    />
                 </div>
+                <Input 
+                    ref={fileInputRef}
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden"
+                    onChange={handleImageChange}
+                />
             </CardContent>
             <CardFooter>
                 <Button onClick={handleCreateStory} disabled={isLoading || !storyImage} className="w-full">
@@ -151,3 +151,5 @@ export default function CreateStoryPage() {
         </Card>
     );
 }
+
+    

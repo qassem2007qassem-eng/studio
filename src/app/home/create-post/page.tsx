@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { type User as UserType } from '@/lib/types';
 import { getCurrentUserProfile } from '@/services/user-service';
 import { initializeFirebase } from '@/firebase';
+import { cn } from '@/lib/utils';
 
 
 export default function CreatePostPage() {
@@ -28,7 +29,7 @@ export default function CreatePostPage() {
   const { user, isUserLoading } = useUser();
   const [userData, setUserData] = useState<UserType | null>(null);
   const [content, setContent] = useState('');
-  const [postImage, setPostImage] = useState<string | null>(null);
+  const [postImages, setPostImages] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -46,18 +47,29 @@ export default function CreatePostPage() {
   }, [user, userData]);
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPostImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    const files = event.target.files;
+    if (files) {
+      const newImages: string[] = [];
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newImages.push(reader.result as string);
+          if (newImages.length === files.length) {
+            setPostImages(prev => [...prev, ...newImages]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
     }
   };
 
+  const removeImage = (index: number) => {
+    setPostImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+
   const handleCreatePost = async () => {
-    if ((!content.trim() && !postImage) || !user || !firestore || !userData) {
+    if ((!content.trim() && postImages.length === 0) || !user || !firestore || !userData) {
       toast({
         title: 'خطأ',
         description: 'لا يمكنك إنشاء منشور فارغ.',
@@ -68,12 +80,15 @@ export default function CreatePostPage() {
     setIsLoading(true);
 
     try {
-      let imageUrl = '';
-      if (postImage) {
+      const imageUrls: string[] = [];
+      if (postImages.length > 0) {
         const storage = getStorage();
-        const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}`);
-        const snapshot = await uploadString(imageRef, postImage, 'data_url');
-        imageUrl = await getDownloadURL(snapshot.ref);
+        for (const image of postImages) {
+           const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
+           const snapshot = await uploadString(imageRef, image, 'data_url');
+           const downloadURL = await getDownloadURL(snapshot.ref);
+           imageUrls.push(downloadURL);
+        }
       }
 
       const postsCollection = collection(firestore, 'posts');
@@ -86,7 +101,7 @@ export default function CreatePostPage() {
           avatarUrl: userData.avatarUrl,
         },
         content: content.trim(),
-        imageUrl: imageUrl,
+        imageUrls: imageUrls,
         createdAt: serverTimestamp() as Timestamp,
         likeIds: [],
         updatedAt: serverTimestamp() as Timestamp,
@@ -95,7 +110,7 @@ export default function CreatePostPage() {
       await addDoc(postsCollection, postData);
 
       setContent('');
-      setPostImage(null);
+      setPostImages([]);
       toast({
         title: 'نجاح',
         description: 'تم نشر منشورك بنجاح.',
@@ -122,9 +137,6 @@ export default function CreatePostPage() {
   }
 
   if (!user || !userData) {
-    // This state is hit if the user is not logged in or their profile hasn't loaded yet.
-    // Instead of a full-page card, we can show the loading state inside the create-post UI
-    // or simply disable the functionality until the user data is available.
      return (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-card p-6 rounded-lg shadow-lg text-center">
@@ -143,7 +155,7 @@ export default function CreatePostPage() {
                     <X className="h-5 w-5" />
                 </Button>
                 <h1 className="text-lg font-semibold">إنشاء منشور</h1>
-                <Button onClick={handleCreatePost} disabled={isLoading || (!content.trim() && !postImage)}>
+                <Button onClick={handleCreatePost} disabled={isLoading || (!content.trim() && postImages.length === 0)}>
                     {isLoading ? <Loader2 className="animate-spin" /> : 'نشر'}
                 </Button>
             </header>
@@ -166,12 +178,22 @@ export default function CreatePostPage() {
                     disabled={isLoading}
                     autoFocus
                 />
-                {postImage && (
-                  <div className="relative">
-                      <Image src={postImage} alt="معاينة الصورة" width={800} height={450} className="rounded-lg object-contain" />
-                      <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => setPostImage(null)}>
-                        <X className="h-4 w-4"/>
-                      </Button>
+                {postImages.length > 0 && (
+                  <div className={cn(
+                      "grid gap-2",
+                      postImages.length === 1 && "grid-cols-1",
+                      postImages.length === 2 && "grid-cols-2",
+                      postImages.length === 3 && "grid-cols-3",
+                      postImages.length >= 4 && "grid-cols-2",
+                  )}>
+                      {postImages.map((image, index) => (
+                        <div key={index} className="relative aspect-square">
+                           <Image src={image} alt={`معاينة الصورة ${index + 1}`} fill className="rounded-lg object-cover" />
+                           <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => removeImage(index)}>
+                              <X className="h-4 w-4"/>
+                           </Button>
+                        </div>
+                      ))}
                   </div>
                 )}
             </main>
@@ -187,6 +209,7 @@ export default function CreatePostPage() {
                         onChange={handleImageChange}
                         className="hidden"
                         accept="image/*"
+                        multiple
                       />
                     <Button variant="ghost" className="gap-2 text-muted-foreground" disabled>
                         <Smile className="h-5 w-5 text-yellow-500"/>
@@ -202,3 +225,5 @@ export default function CreatePostPage() {
     </div>
   );
 }
+
+    

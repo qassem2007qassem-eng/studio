@@ -38,7 +38,7 @@ export interface Post {
       avatarUrl?: string;
   };
   content: string;
-  imageUrl?: string;
+  imageUrls?: string[];
   createdAt: Timestamp;
   likeIds?: string[];
   updatedAt?: Timestamp;
@@ -67,3 +67,4 @@ export interface AppNotification {
   createdAt: string;
 }
 
+    
