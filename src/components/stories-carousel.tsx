@@ -1,4 +1,3 @@
-
 'use client';
 
 import Image from "next/image";
@@ -12,6 +11,22 @@ import { collection, query, orderBy, where, Timestamp } from "firebase/firestore
 import { useFirebase } from "@/firebase/provider";
 import { type Story } from "@/lib/types";
 import { Skeleton } from "./ui/skeleton";
+import { useMemo } from "react";
+
+// Helper to group stories by userId
+const groupStoriesByUser = (stories: Story[]): { [userId: string]: Story[] } => {
+    if (!stories) return {};
+    return stories.reduce((acc, story) => {
+        if (!acc[story.userId]) {
+            acc[story.userId] = [];
+        }
+        acc[story.userId].push(story);
+        // Sort each user's stories by creation date
+        acc[story.userId].sort((a, b) => (a.createdAt as Timestamp).toMillis() - (b.createdAt as Timestamp).toMillis());
+        return acc;
+    }, {} as { [userId: string]: Story[] });
+};
+
 
 export function StoriesCarousel() {
     const { user, isUserLoading } = useUser();
@@ -23,19 +38,22 @@ export function StoriesCarousel() {
     }, [firestore]);
 
     const storiesQuery = useMemoFirebase(() => {
-        if (!storiesCollection || isUserLoading || !user) return null;
+        if (!storiesCollection) return null;
         const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
         return query(storiesCollection, where("createdAt", ">=", twentyFourHoursAgo), orderBy("createdAt", "desc"));
-    }, [storiesCollection, isUserLoading, user]);
+    }, [storiesCollection]);
 
     const { data: stories, isLoading } = useCollection<Story>(storiesQuery);
+
+    const groupedStories = useMemo(() => groupStoriesByUser(stories || []), [stories]);
+    const storyGroups = useMemo(() => Object.values(groupedStories), [groupedStories]);
 
     if (isUserLoading) {
         return (
             <Carousel opts={{ align: "start", direction: "rtl" }} className="w-full">
                 <CarouselContent>
                     {[...Array(5)].map((_, index) => (
-                        <CarouselItem key={index} className="basis-1/4 md:basis-1/5 lg:basis-1/6">
+                        <CarouselItem key={index} className="basis-1/3 md:basis-1/4 lg:basis-1/5">
                             <div className="p-1">
                                 <Skeleton className="aspect-[9/16] w-full rounded-lg" />
                             </div>
@@ -79,29 +97,48 @@ export function StoriesCarousel() {
                       </Link>
                     </div>
                 </CarouselItem>
-                {stories?.map((story) => (
-                <CarouselItem key={story.id} className="basis-1/3 md:basis-1/4 lg:basis-1/5 ps-2">
-                    <div className="p-0">
-                    <Link href={`/home/stories/${story.id}`}>
-                        <Card className="relative aspect-[9/16] w-full overflow-hidden rounded-lg group">
-                        <Image
-                            src={story.contentUrl}
-                            alt={story.user.name}
-                            fill
-                            className="object-cover transition-transform duration-300 group-hover:scale-105"
-                            data-ai-hint="story photo"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                        <Avatar className="absolute top-3 right-3 h-10 w-10 border-4 border-primary">
-                            <AvatarImage src={story.user.avatarUrl} />
-                            <AvatarFallback>{story.user.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <p className="absolute bottom-2 left-0 right-0 text-center text-xs font-semibold text-white drop-shadow-md px-1 truncate">{story.user.name}</p>
-                        </Card>
-                    </Link>
-                    </div>
-                </CarouselItem>
-                ))}
+                {isLoading ? (
+                     [...Array(4)].map((_, index) => (
+                        <CarouselItem key={index} className="basis-1/3 md:basis-1/4 lg:basis-1/5 ps-2">
+                            <div className="p-1">
+                                <Skeleton className="aspect-[9/16] w-full rounded-lg" />
+                            </div>
+                        </CarouselItem>
+                    ))
+                ) : storyGroups.map((userStories) => {
+                    const firstStory = userStories[0];
+                    if (!firstStory) return null;
+
+                    // The link now points to the *first* story of that user group.
+                    return (
+                        <CarouselItem key={firstStory.userId} className="basis-1/3 md:basis-1/4 lg:basis-1/5 ps-2">
+                            <div className="p-0">
+                            <Link href={`/home/stories/${firstStory.id}`}>
+                                <Card className="relative aspect-[9/16] w-full overflow-hidden rounded-lg group">
+                                    {firstStory.type === 'image' && firstStory.contentUrl ? (
+                                        <Image
+                                            src={firstStory.contentUrl}
+                                            alt={firstStory.user.name}
+                                            fill
+                                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                            data-ai-hint="story photo"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600"></div>
+                                    )}
+
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                <Avatar className="absolute top-3 right-3 h-10 w-10 border-4 border-primary">
+                                    <AvatarImage src={firstStory.user.avatarUrl || undefined} />
+                                    <AvatarFallback>{firstStory.user.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <p className="absolute bottom-2 left-0 right-0 text-center text-xs font-semibold text-white drop-shadow-md px-1 truncate">{firstStory.user.name}</p>
+                                </Card>
+                            </Link>
+                            </div>
+                        </CarouselItem>
+                    )
+                })}
             </CarouselContent>
         </Carousel>
     </Card>
