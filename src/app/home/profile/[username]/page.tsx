@@ -4,7 +4,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { 
-  onSnapshot, 
   collection, 
   query, 
   where, 
@@ -14,8 +13,8 @@ import {
   serverTimestamp, 
   increment, 
   getDoc,
-  orderBy,
-  Timestamp
+  onSnapshot,
+  orderBy
 } from 'firebase/firestore';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +36,10 @@ export default function ProfilePage() {
   
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isProfileUserLoading, setIsProfileUserLoading] = useState(true);
+  
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowStatusLoading, setIsFollowStatusLoading] = useState(true);
 
@@ -48,7 +51,10 @@ export default function ProfilePage() {
   // Effect to fetch the profile user's data based on the username in the URL
   useEffect(() => {
     if (!firestore || !usernameFromUrl) {
-      if(!usernameFromUrl) setIsProfileUserLoading(false);
+      if(!usernameFromUrl) {
+        setIsProfileUserLoading(false);
+        setProfileUser(null);
+      }
       return;
     }
 
@@ -73,7 +79,7 @@ export default function ProfilePage() {
     return () => unsubscribe();
   }, [firestore, usernameFromUrl]);
 
-  // Effect to check follow status
+  // Effect to check follow status, depends on currentUser and profileUser
   useEffect(() => {
     if (!currentUser || !profileUser || !firestore) {
         setIsFollowStatusLoading(false);
@@ -103,12 +109,28 @@ export default function ProfilePage() {
   const isCurrentUserProfile = currentUser?.uid === profileUser?.id;
   const canViewContent = isCurrentUserProfile || isFollowing;
 
-  const userPostsQuery = useMemoFirebase(() => {
-    if (!firestore || !profileUser || !canViewContent) return null;
-    return query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id), orderBy("createdAt", "desc"));
-  }, [firestore, profileUser, canViewContent]);
+  // Effect to fetch user's posts, depends on profileUser and canViewContent
+  useEffect(() => {
+    if (!firestore || !profileUser || !canViewContent) {
+        setPostsLoading(false);
+        setUserPosts([]);
+        return;
+    }
+    setPostsLoading(true);
+    const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id), orderBy("createdAt", "desc"));
+    
+    const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
+        const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+        setUserPosts(posts);
+        setPostsLoading(false);
+    }, (error) => {
+        console.error("Error fetching posts:", error);
+        setUserPosts([]);
+        setPostsLoading(false);
+    });
 
-  const { data: userPosts, isLoading: postsLoading } = useCollection<Post>(userPostsQuery);
+    return () => unsubscribe();
+  }, [firestore, profileUser, canViewContent]);
 
   const handleFollowToggle = async () => {
     if (!currentUser || !profileUser || isFollowStatusLoading || isCurrentUserProfile || !firestore) return;
@@ -146,7 +168,6 @@ export default function ProfilePage() {
        // isFollowStatusLoading will be set to false by the onSnapshot listener
     }
   };
-
 
   if (isProfileUserLoading) {
     return (

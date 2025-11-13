@@ -8,7 +8,6 @@ import {
   LogOut,
   User,
   Settings,
-  Search,
   PlusCircle,
   Users,
   PlaySquare,
@@ -76,12 +75,6 @@ export function AppHeader() {
                 <Logo />
             </Link>
             <div className="flex items-center gap-2">
-                 <Button variant="ghost" size="icon" className="rounded-full" asChild>
-                    <Link href="/home/search">
-                        <Search />
-                        <span className="sr-only">Search</span>
-                    </Link>
-                </Button>
                 <Button variant="ghost" size="icon" className="rounded-full" onClick={() => router.push('/home/create-post')}>
                     <PlusCircle />
                     <span className="sr-only">Create</span>
@@ -91,7 +84,7 @@ export function AppHeader() {
 
         {/* Center Section - Main Navigation Tabs */}
         <div className="flex-1 max-w-lg hidden md:block">
-             <div className="grid grid-cols-5 gap-2">
+             <div className="grid grid-cols-4 gap-2">
                 <Button variant="ghost" className="h-12 w-full rounded-lg relative flex-col gap-1" asChild>
                     <Link href="/home">
                         <Home className="h-6 w-6" />
@@ -112,10 +105,6 @@ export function AppHeader() {
                         <User className="h-6 w-6" />
                         <span className="text-xs">الملف الشخصي</span>
                     </Link>
-                </Button>
-                 <Button variant="ghost" className="h-12 w-full rounded-lg flex-col gap-1 text-muted-foreground" disabled>
-                     <Bell className="h-6 w-6" />
-                     <span className="text-xs">الإشعارات</span>
                 </Button>
              </div>
         </div>
@@ -194,5 +183,3 @@ export function AppHeader() {
     </header>
   );
 }
-
-    
