@@ -87,7 +87,8 @@ service cloud.firestore {
       allow get, list: if true;
       allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
       allow update: if isSignedIn() && (
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeIds'])) ||
+        (request.resource.data.keys().hasOnly(['likeIds']) && request.resource.data.likeIds.size() == resource.data.likeIds.size() + 1) ||
+        (request.resource.data.keys().hasOnly(['likeIds']) && request.resource.data.likeIds.size() == resource.data.likeIds.size() - 1) ||
         (resource.data.authorId == request.auth.uid)
       );
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
@@ -157,12 +158,12 @@ service cloud.firestore {
      * @description Stories are publicly readable. Write access is restricted to the story's author.
      * Stories expire after 24 hours (enforced by client-side query).
      * @path /stories/{storyId}
-     * @allow (get, list) Anyone can read stories.
+     * @allow (get, list) Signed-in users can read stories.
      * @allow (create) Signed-in user creating a story with their own userId.
      * @allow (update, delete) Signed-in user who is the author of the story.
      */
     match /stories/{storyId} {
-      allow get, list: if true;
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
@@ -184,6 +185,3 @@ service cloud.firestore {
     }
   }
 }
-// Updated to trigger Firestore database creation.
-
-    
