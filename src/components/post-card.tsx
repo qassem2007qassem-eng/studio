@@ -276,5 +276,3 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
-
-    

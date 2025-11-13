@@ -277,5 +277,3 @@ export {
   getFollowers,
   getFollowing
 };
-
-    
