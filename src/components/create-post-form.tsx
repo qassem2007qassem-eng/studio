@@ -5,11 +5,12 @@ import { ImageIcon, Paperclip, Smile, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { useFirebase, useUser, addDocumentNonBlocking } from "@/firebase";
 import { collection, serverTimestamp } from "firebase/firestore";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
+import { Separator } from "./ui/separator";
 
 export function CreatePostForm() {
   const { firestore } = useFirebase();
@@ -29,7 +30,7 @@ export function CreatePostForm() {
       const postData = {
         author: {
           name: user.displayName || 'مستخدم',
-          username: user.email?.split('@')[0] || 'user',
+          username: user.email?.split('@')[0]?.toLowerCase() || 'user',
           avatarUrl: user.photoURL || `https://i.pravatar.cc/150?u=${user.uid}`,
         },
         authorId: user.uid,
@@ -56,50 +57,50 @@ export function CreatePostForm() {
   };
 
   if (!user) {
-    return null; // Don't show the form if the user is not logged in
+    return null; 
   }
+  
+  const username = user.email?.split('@')[0]?.toLowerCase();
 
   return (
     <Card>
-      <CardContent className="p-4">
-        <div className="flex gap-4">
-          <Avatar className="hidden sm:block">
-            <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ""} />
-            <AvatarFallback>{user.displayName?.charAt(0) || user.email?.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <div className="w-full space-y-4">
-            <Textarea
-              placeholder={`بماذا تفكر يا ${user.displayName?.split(' ')[0] || ''}؟`}
-              className="border-0 focus-visible:ring-0 ring-offset-0 text-lg"
-              rows={3}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              disabled={isLoading}
-            />
-            <div className="flex items-center justify-between">
-              <div className="flex gap-2 text-muted-foreground">
-                <Button variant="ghost" size="icon" disabled>
-                  <ImageIcon className="h-5 w-5" />
-                  <span className="sr-only">Add image</span>
-                </Button>
-                <Button variant="ghost" size="icon" disabled>
-                  <Paperclip className="h-5 w-5" />
-                  <span className="sr-only">Attach file</span>
-                </Button>
-                <Button variant="ghost" size="icon" disabled>
-                  <Smile className="h-5 w-5" />
-                  <span className="sr-only">Add emoji</span>
-                </Button>
-              </div>
-              <Button onClick={handleCreatePost} disabled={isLoading || !content.trim()}>
-                {isLoading ? <Loader2 className="animate-spin" /> : "نشر"}
-              </Button>
-            </div>
+      <CardContent className="p-4 space-y-4">
+        <div className="flex items-center gap-3">
+          <Link href={`/home/profile/${username}`}>
+            <Avatar>
+              <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ""} />
+              <AvatarFallback>{user.displayName?.charAt(0) || user.email?.charAt(0)}</AvatarFallback>
+            </Avatar>
+          </Link>
+          <div className="flex-1">
+             <input
+                placeholder={`بماذا تفكر يا ${user.displayName?.split(' ')[0] || ''}؟`}
+                className="w-full rounded-full bg-muted px-4 py-2 text-md border-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                disabled={isLoading}
+             />
           </div>
+           <Button onClick={handleCreatePost} disabled={isLoading || !content.trim()}>
+                {isLoading ? <Loader2 className="animate-spin" /> : "نشر"}
+            </Button>
+        </div>
+        <Separator />
+        <div className="grid grid-cols-3 gap-2">
+            <Button variant="ghost" className="gap-2 text-muted-foreground" disabled>
+                <ImageIcon className="h-5 w-5 text-red-500"/>
+                <span>صورة/فيديو</span>
+            </Button>
+            <Button variant="ghost" className="gap-2 text-muted-foreground" disabled>
+                <Smile className="h-5 w-5 text-yellow-500"/>
+                <span>شعور/نشاط</span>
+            </Button>
+            <Button variant="ghost" className="gap-2 text-muted-foreground" disabled>
+                <Paperclip className="h-5 w-5 text-green-500"/>
+                <span>مرفق</span>
+            </Button>
         </div>
       </CardContent>
     </Card>
   );
 }
-
-    

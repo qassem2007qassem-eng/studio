@@ -9,6 +9,10 @@ import {
   User,
   Settings,
   Search,
+  PlusCircle,
+  Users,
+  PlaySquare,
+  MessageSquare,
 } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -27,6 +31,7 @@ import { ThemeToggle } from './theme-toggle';
 import { useUser, useAuth } from '@/firebase';
 import { Skeleton } from './ui/skeleton';
 import { useRouter } from 'next/navigation';
+import { Separator } from './ui/separator';
 
 export function AppHeader() {
   const { user, isUserLoading } = useUser();
@@ -35,7 +40,9 @@ export function AppHeader() {
   const mockNotifications: any[] = [];
 
   const handleLogout = () => {
-    auth.signOut();
+    if (auth) {
+      auth.signOut();
+    }
     router.push('/login');
   };
   
@@ -44,42 +51,68 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center">
+      <div className="container flex h-16 items-center justify-between gap-4 px-4">
+        {/* Left Section - Logo and Actions */}
         <div className="flex items-center gap-2">
-            <Logo />
-             <Link href="/home/search" className="relative hidden md:block">
-                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Button variant="outline" className="ps-10 w-full justify-start text-muted-foreground font-normal">بحث...</Button>
+            <Link href="/home">
+                <Logo />
             </Link>
-        </div>
-
-        <nav className="flex-1 justify-center hidden md:flex">
-            <div className="flex items-center gap-4">
-                 <Button variant="ghost" size="icon" className="h-12 w-24 rounded-lg" asChild>
-                    <Link href="/home">
-                        <Home className="h-6 w-6" />
-                        <span className="sr-only">الصفحة الرئيسية</span>
+            <div className="hidden sm:flex items-center gap-2">
+                 <Button variant="ghost" size="icon" className="rounded-full" asChild>
+                    <Link href="/home/search">
+                        <Search />
+                        <span className="sr-only">Search</span>
                     </Link>
                 </Button>
+                <Button variant="ghost" size="icon" className="rounded-full" disabled>
+                    <PlusCircle />
+                    <span className="sr-only">Create</span>
+                </Button>
             </div>
-        </nav>
+        </div>
+
+        {/* Center Section - Main Navigation Tabs */}
+        <div className="flex-1 max-w-lg hidden md:block">
+             <div className="grid grid-cols-5 gap-2">
+                <Button variant="ghost" className="h-12 w-full rounded-lg relative flex-col gap-1" asChild>
+                    <Link href="/home">
+                        <Home className="h-6 w-6" />
+                         <span className="text-xs">الرئيسية</span>
+                        <div className="absolute bottom-0 h-1 w-3/4 bg-primary rounded-t-full"></div>
+                    </Link>
+                </Button>
+                 <Button variant="ghost" className="h-12 w-full rounded-lg flex-col gap-1 text-muted-foreground" disabled>
+                     <Users className="h-6 w-6" />
+                     <span className="text-xs">الأصدقاء</span>
+                </Button>
+                 <Button variant="ghost" className="h-12 w-full rounded-lg flex-col gap-1 text-muted-foreground" disabled>
+                     <PlaySquare className="h-6 w-6" />
+                      <span className="text-xs">الفيديو</span>
+                </Button>
+                 <Button variant="ghost" className="h-12 w-full rounded-lg flex-col gap-1 text-muted-foreground" disabled>
+                     <User className="h-6 w-6" />
+                      <span className="text-xs">الملف الشخصي</span>
+                </Button>
+                 <Button variant="ghost" className="h-12 w-full rounded-lg flex-col gap-1 text-muted-foreground" disabled>
+                     <Bell className="h-6 w-6" />
+                     <span className="text-xs">الإشعارات</span>
+                </Button>
+             </div>
+        </div>
         
-        <div className="flex flex-1 items-center justify-end gap-2">
-           <Button variant="ghost" size="icon" className="md:hidden" asChild>
-            <Link href="/home/search">
-              <Search className="h-5 w-5" />
-              <span className="sr-only">بحث</span>
-            </Link>
-          </Button>
+        {/* Right Section - Profile & Notifications */}
+        <div className="flex items-center justify-end gap-2">
           <ThemeToggle />
+           <Button variant="ghost" size="icon" className="rounded-full" disabled>
+                <MessageSquare />
+                <span className="sr-only">Messages</span>
+            </Button>
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="icon" className="relative">
-                <Bell className="h-5 w-5" />
+              <Button variant="ghost" size="icon" className="relative rounded-full">
+                <Bell />
                 {mockNotifications.length > 0 && (
-                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
-                    {mockNotifications.length}
-                    </span>
+                    <span className="absolute top-0 right-0 flex h-3 w-3 items-center justify-center rounded-full bg-red-500 text-xs text-white" />
                 )}
                 <span className="sr-only">Notifications</span>
               </Button>
@@ -95,40 +128,42 @@ export function AppHeader() {
           </Popover>
 
           {isUserLoading ? (
-            <Skeleton className="h-9 w-9 rounded-full" />
+            <Skeleton className="h-10 w-10 rounded-full" />
           ) : user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                  <Avatar className="h-9 w-9">
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                  <Avatar className="h-10 w-10">
                     <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
                     <AvatarFallback>{user.displayName?.charAt(0) || 'U'}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.displayName}</p>
-                    <p className="text-xs leading-none text-muted-foreground">@{username}</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
+              <DropdownMenuContent className="w-64" align="end" forceMount>
                 <DropdownMenuItem asChild>
                   <Link href={`/home/profile/${username}`}>
-                    <User className="ms-2 h-4 w-4" />
-                    <span>الملف الشخصي</span>
+                    <div className="flex items-center gap-3">
+                         <Avatar className="h-12 w-12">
+                            <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
+                            <AvatarFallback>{user.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <p className="text-base font-semibold leading-none">{user.displayName}</p>
+                            <p className="text-sm leading-none text-muted-foreground">عرض ملفك الشخصي</p>
+                        </div>
+                    </div>
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                  <DropdownMenuItem asChild>
                   <Link href="/home/settings">
-                    <Settings className="ms-2 h-4 w-4" />
-                    <span>الإعدادات</span>
+                    <Settings className="ms-2 text-muted-foreground" />
+                    <span>الإعدادات والخصوصية</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="cursor-pointer">
-                    <LogOut className="ms-2 h-4 w-4" />
+                    <LogOut className="ms-2 text-muted-foreground" />
                     <span>تسجيل الخروج</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -143,5 +178,3 @@ export function AppHeader() {
     </header>
   );
 }
-
-    
