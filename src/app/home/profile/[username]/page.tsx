@@ -23,7 +23,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from 'next/navigation';
-import { getUserByUsername, followUser, unfollowUser, checkIfFollowing } from "@/services/user-service";
+import { getUserByUsername, followUser, unfollowUser, checkIfFollowing, getCurrentUserProfile } from "@/services/user-service";
 
 const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Date | null => {
     if (!timestamp) return null;
@@ -61,8 +61,15 @@ export default function ProfilePage() {
 
   const usernameFromUrl = useMemo(() => {
     const username = Array.isArray(params.username) ? params.username[0] : params.username;
+    // CRITICAL FIX: Always convert to lowercase for lookup
     return username ? decodeURIComponent(username).toLowerCase() : null;
   }, [params.username]);
+
+  const isCurrentUserProfile = useMemo(() => {
+      if(!currentUser || !profileUser) return false;
+      return currentUser.uid === profileUser.id;
+  }, [currentUser, profileUser]);
+
 
   const fetchProfileData = useCallback(async () => {
     if (!usernameFromUrl || !firestore) return;
@@ -78,11 +85,13 @@ export default function ProfilePage() {
     if (user && currentUser) {
         const followingStatus = await checkIfFollowing(user.id);
         setIsFollowing(followingStatus);
-        setIsFollowStatusLoading(false);
-
-        const isOwnProfile = currentUser.uid === user.id;
-        if (isOwnProfile || followingStatus) {
-            try {
+    }
+    setIsFollowStatusLoading(false);
+    
+    if(user) {
+        const isOwnProfile = currentUser?.uid === user.id;
+        if(isOwnProfile || isFollowing) {
+             try {
                 const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", user.id), orderBy("createdAt", "desc"));
                 const snapshot = await getDocs(postsQuery);
                 const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
@@ -92,24 +101,18 @@ export default function ProfilePage() {
                 setUserPosts([]);
             }
         } else {
-             setUserPosts([]);
+            setUserPosts([]);
         }
-    } else {
-        setUserPosts([]);
     }
-    
     setPostsLoading(false);
 
-  }, [usernameFromUrl, firestore, currentUser]);
+
+  }, [usernameFromUrl, firestore, currentUser, isFollowing]);
 
   useEffect(() => {
-    // We only need to wait for firestore to be available
-    if (firestore) {
-        fetchProfileData();
-    }
-  }, [firestore, fetchProfileData]);
+    fetchProfileData();
+  }, [fetchProfileData]);
   
-  const isCurrentUserProfile = currentUser?.uid === profileUser?.id;
   const canViewContent = isCurrentUserProfile || isFollowing;
 
   const handleFollowToggle = async () => {
@@ -125,9 +128,9 @@ export default function ProfilePage() {
           await followUser(profileUser.id);
           setIsFollowing(true);
       }
-      // Manually refetch profile data to update follower counts
-      const updatedUser = await getUserByUsername(usernameFromUrl);
-      setProfileUser(updatedUser);
+       // Refetch profile data to update follower counts
+       const updatedUser = await getUserByUsername(usernameFromUrl);
+       setProfileUser(updatedUser);
     } catch (e) {
       console.error("Error toggling follow:", e)
     } finally {

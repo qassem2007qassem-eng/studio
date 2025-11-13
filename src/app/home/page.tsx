@@ -1,6 +1,7 @@
 
 "use client";
 
+import { AppHeader } from "@/components/app-header-mobile";
 import { PostCard } from "@/components/post-card";
 import { StoriesCarousel } from "@/components/stories-carousel";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
@@ -28,6 +29,7 @@ export default function HomePage() {
 
   return (
     <>
+      <AppHeader />
       <StoriesCarousel />
       <Separator />
       <CreatePostTrigger />
@@ -45,5 +47,3 @@ export default function HomePage() {
     </>
   );
 }
-
-    
