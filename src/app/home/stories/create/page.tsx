@@ -11,7 +11,7 @@ import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, initializeFirebase } from "@/firebase";
 import { collection, serverTimestamp, addDoc } from "firebase/firestore";
-import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { type User as UserType } from "@/lib/types";
 import { getCurrentUserProfile } from "@/services/user-service";
@@ -25,7 +25,7 @@ export default function CreateStoryPage() {
     const { toast } = useToast();
     const router = useRouter();
 
-    const { firestore } = initializeFirebase();
+    const { firestore, storage } = initializeFirebase();
     const { user } = useUser();
     const [userData, setUserData] = useState<UserType | null>(null);
 
@@ -51,7 +51,7 @@ export default function CreateStoryPage() {
     };
 
     const handleCreateStory = async () => {
-        if (!storyImage || !user || !firestore || !userData) {
+        if (!storyImage || !user || !firestore || !storage || !userData) {
             toast({
                 title: "خطأ",
                 description: "الرجاء اختيار صورة وتسجيل الدخول أولاً.",
@@ -62,7 +62,6 @@ export default function CreateStoryPage() {
 
         setIsLoading(true);
         try {
-            const storage = getStorage();
             const storyRef = ref(storage, `stories/${user.uid}/${Date.now()}`);
             const snapshot = await uploadString(storyRef, storyImage, 'data_url');
             const downloadURL = await getDownloadURL(snapshot.ref);

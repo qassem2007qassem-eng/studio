@@ -26,7 +26,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, initializeFirebase } from '@/firebase';
 import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
 import {
   doc,
@@ -39,7 +39,7 @@ import {
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 function RegisterForm() {
   const searchParams = useSearchParams();
@@ -60,8 +60,7 @@ function RegisterForm() {
   const [usernameError, setUsernameError] = useState<string | null>(null);
 
 
-  const auth = useAuth();
-  const firestore = useFirestore();
+  const { auth, firestore, storage } = initializeFirebase();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -165,7 +164,6 @@ function RegisterForm() {
 
       let photoURL = "";
       if (formData.avatar) {
-        const storage = getStorage();
         const avatarRef = ref(storage, `avatars/${user.uid}`);
         const snapshot = await uploadString(
           avatarRef,

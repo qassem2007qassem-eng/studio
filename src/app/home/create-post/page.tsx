@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useUser, initializeFirebase } from '@/firebase';
 import { collection, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
-import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { type User as UserType } from '@/lib/types';
 import { getCurrentUserProfile } from '@/services/user-service';
@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 
 
 export default function CreatePostPage() {
-  const { firestore } = initializeFirebase();
+  const { firestore, storage } = initializeFirebase();
   const { user, isUserLoading } = useUser();
   const [userData, setUserData] = useState<UserType | null>(null);
   const [content, setContent] = useState('');
@@ -68,7 +68,7 @@ export default function CreatePostPage() {
 
 
   const handleCreatePost = async () => {
-    if ((!content.trim() && postImages.length === 0) || !user || !firestore || !userData) {
+    if ((!content.trim() && postImages.length === 0) || !user || !firestore || !storage || !userData) {
       toast({
         title: 'خطأ',
         description: 'لا يمكنك إنشاء منشور فارغ.',
@@ -81,7 +81,6 @@ export default function CreatePostPage() {
     try {
       const imageUrls: string[] = [];
       if (postImages.length > 0) {
-        const storage = getStorage();
         for (const image of postImages) {
            const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
            const snapshot = await uploadString(imageRef, image, 'data_url');

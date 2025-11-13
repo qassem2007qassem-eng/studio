@@ -13,7 +13,7 @@ import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useUser, initializeFirebase } from "@/firebase";
 import { updateProfile as updateAuthProfile } from "firebase/auth";
-import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type User as UserType } from "@/lib/types";
 import { getCurrentUserProfile, updateProfile } from "@/services/user-service";
@@ -22,7 +22,7 @@ import { getCurrentUserProfile, updateProfile } from "@/services/user-service";
 export default function SettingsPage() {
     const { toast } = useToast();
     const { user, isUserLoading } = useUser();
-    const { auth } = initializeFirebase();
+    const { auth, storage } = initializeFirebase();
 
     const [userData, setUserData] = useState<UserType | null>(null);
     const [name, setName] = useState("");
@@ -58,13 +58,12 @@ export default function SettingsPage() {
     }, [user, isUserLoading]);
 
     const handleSaveChanges = async () => {
-        if (!user || !userData || !auth) return;
+        if (!user || !userData || !auth || !storage) return;
 
         setIsSaving(true);
         try {
             let newAvatarUrl = userData.avatarUrl;
             if (avatarUrl && avatarUrl !== userData.avatarUrl && avatarUrl.startsWith('data:image')) {
-                const storage = getStorage();
                 const avatarRef = ref(storage, `avatars/${user.uid}`);
                 const snapshot = await uploadString(avatarRef, avatarUrl, 'data_url');
                 newAvatarUrl = await getDownloadURL(snapshot.ref);
@@ -72,7 +71,6 @@ export default function SettingsPage() {
 
             let newCoverUrl = userData.coverUrl;
             if (coverUrl && coverUrl !== userData.coverUrl && coverUrl.startsWith('data:image')) {
-                const storage = getStorage();
                 const coverRef = ref(storage, `covers/${user.uid}`);
                 const snapshot = await uploadString(coverRef, coverUrl, 'data_url');
                 newCoverUrl = await getDownloadURL(snapshot.ref);
