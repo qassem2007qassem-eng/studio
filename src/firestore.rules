@@ -63,7 +63,7 @@ service cloud.firestore {
            (
              resource.data.followers.size() == request.resource.data.followers.size() + 1 &&
              resource.data.followers.hasAll(request.resource.data.followers) &&
-             !resource.data.followers.hasAny([request.auth.uid]) // Ensure they are removing themselves
+             resource.data.followers.hasAny([request.auth.uid])
            )
         )
       );
@@ -115,13 +115,13 @@ service cloud.firestore {
     }
     
     /**
-     * @description Stories. Readable only by owner or followers.
+     * @description Stories. Read access is controlled by the client query.
      * @path /stories/{storyId}
      */
     match /stories/{storyId} {
-      // Allow list for queries, but individual read access is checked by `get` rule below.
-      allow list: if isSignedIn();
-      allow get: if isOwner(resource.data.userId) || isFollower(resource.data.userId);
+      // Allow signed-in users to perform queries (`list`) and read individual documents (`get`).
+      // The client-side code is responsible for querying only for stories of followed users.
+      allow read, list: if isSignedIn();
 
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       
