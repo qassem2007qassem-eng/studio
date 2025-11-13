@@ -11,13 +11,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
-import { useUser } from "@/firebase";
+import { useUser, initializeFirebase } from "@/firebase";
 import { updateProfile as updateAuthProfile } from "firebase/auth";
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type User as UserType } from "@/lib/types";
 import { getCurrentUserProfile, updateProfile } from "@/services/user-service";
-import { initializeFirebase } from "@/firebase";
 
 
 export default function SettingsPage() {

@@ -9,13 +9,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { ImageIcon, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
-import { useUser } from "@/firebase";
+import { useUser, initializeFirebase } from "@/firebase";
 import { collection, serverTimestamp, addDoc } from "firebase/firestore";
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { type User as UserType } from "@/lib/types";
 import { getCurrentUserProfile } from "@/services/user-service";
-import { initializeFirebase } from '@/firebase';
 
 
 export default function CreateStoryPage() {
@@ -151,5 +150,3 @@ export default function CreateStoryPage() {
         </Card>
     );
 }
-
-    

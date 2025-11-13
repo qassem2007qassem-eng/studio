@@ -14,13 +14,12 @@ import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { useUser } from '@/firebase';
+import { useUser, initializeFirebase } from '@/firebase';
 import { collection, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { type User as UserType } from '@/lib/types';
 import { getCurrentUserProfile } from '@/services/user-service';
-import { initializeFirebase } from '@/firebase';
 import { cn } from '@/lib/utils';
 
 
