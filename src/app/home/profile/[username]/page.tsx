@@ -3,6 +3,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { onSnapshot } from 'firebase/firestore';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +12,7 @@ import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Loader2 } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, getDocs, limit, doc, writeBatch, serverTimestamp, deleteDoc, orderBy } from "firebase/firestore";
+import { collection, query, where, getDocs, limit, doc, writeBatch, serverTimestamp, increment, orderBy } from "firebase/firestore";
 import { useEffect, useState, useMemo } from "react";
 import { type User, type Post, type Follow } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,6 +34,8 @@ export default function ProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followDocId, setFollowDocId] = useState<string | null>(null);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
   // Effect to fetch the profile user based on username
   useEffect(() => {
@@ -49,9 +52,11 @@ export default function ProfilePage() {
 
     getDocs(userQuery).then(querySnapshot => {
       if (!querySnapshot.empty) {
-        const userData = querySnapshot.docs[0].data() as User;
-        const userId = querySnapshot.docs[0].id;
-        setProfileUser({ ...userData, id: userId });
+        const userDoc = querySnapshot.docs[0];
+        const userData = userDoc.data() as User;
+        setProfileUser({ ...userData, id: userDoc.id });
+        setFollowerCount(userData.followerCount || 0);
+        setFollowingCount(userData.followingCount || 0);
       } else {
         setProfileUser(null);
       }
@@ -65,14 +70,27 @@ export default function ProfilePage() {
   }, [usernameFromUrl, firestore]);
 
 
-  // Effect to check follow status
+  // Effect to check follow status and listen for follower/following count changes on the profile user
   useEffect(() => {
-      if (!currentUser || !profileUser || currentUser.uid === profileUser.id || !firestore) {
+      if (!currentUser || !profileUser || !firestore) {
         setIsFollowing(false);
         setFollowDocId(null);
         return;
       };
       
+      const profileUserRef = doc(firestore, 'users', profileUser.id);
+      const userUnsubscribe = onSnapshot(profileUserRef, (doc) => {
+        if(doc.exists()) {
+          const userData = doc.data() as User;
+          setFollowerCount(userData.followerCount || 0);
+          setFollowingCount(userData.followingCount || 0);
+        }
+      });
+      
+      if (currentUser.uid === profileUser.id) {
+          return () => userUnsubscribe();
+      }
+
       setIsFollowLoading(true);
       const followsRef = collection(firestore, 'follows');
       const followQuery = query(followsRef, 
@@ -81,7 +99,7 @@ export default function ProfilePage() {
           limit(1)
       );
 
-      const unsubscribe = onSnapshot(followQuery, (snapshot) => {
+      const followUnsubscribe = onSnapshot(followQuery, (snapshot) => {
           if (!snapshot.empty) {
               setIsFollowing(true);
               setFollowDocId(snapshot.docs[0].id);
@@ -92,12 +110,13 @@ export default function ProfilePage() {
           setIsFollowLoading(false);
       }, (err) => {
           console.error("Error checking follow status:", err);
-          setIsFollowing(false);
-          setFollowDocId(null);
           setIsFollowLoading(false);
       });
       
-      return () => unsubscribe();
+      return () => {
+        userUnsubscribe();
+        followUnsubscribe();
+      };
   }, [currentUser, profileUser, firestore]);
 
   const userPostsQuery = useMemoFirebase(() => {
@@ -106,15 +125,6 @@ export default function ProfilePage() {
   }, [firestore, profileUser]);
 
   const { data: userPosts, isLoading: postsLoading } = useCollection<Post>(userPostsQuery);
-  
-  // Memoize follower/following counts
-  const { followerCount, followingCount } = useMemo(() => {
-      return {
-          followerCount: profileUser?.followerCount || 0,
-          followingCount: profileUser?.followingCount || 0,
-      }
-  }, [profileUser]);
-
 
   const isCurrentUserProfile = currentUser?.uid === profileUser?.id;
 
@@ -138,7 +148,6 @@ export default function ProfilePage() {
       // --- Follow Logic ---
       const newFollowRef = doc(collection(firestore, 'follows'));
       batch.set(newFollowRef, {
-        id: newFollowRef.id,
         followerId: currentUser.uid,
         followeeId: profileUser.id,
         createdAt: serverTimestamp()
@@ -152,6 +161,7 @@ export default function ProfilePage() {
     } catch(error) {
         console.error("Failed to toggle follow", error);
     } finally {
+        // The onSnapshot listener will update the state, so we don't need to do it here.
         setIsFollowLoading(false);
     }
   };
@@ -277,3 +287,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    

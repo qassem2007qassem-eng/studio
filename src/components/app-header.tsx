@@ -57,14 +57,14 @@ export function AppHeader() {
             <Link href="/home">
                 <Logo />
             </Link>
-            <div className="hidden sm:flex items-center gap-2">
+            <div className="flex items-center gap-2">
                  <Button variant="ghost" size="icon" className="rounded-full" asChild>
                     <Link href="/home/search">
                         <Search />
                         <span className="sr-only">Search</span>
                     </Link>
                 </Button>
-                <Button variant="ghost" size="icon" className="rounded-full" disabled>
+                <Button variant="ghost" size="icon" className="rounded-full" onClick={() => router.push('/home/create-post')}>
                     <PlusCircle />
                     <span className="sr-only">Create</span>
                 </Button>
@@ -89,9 +89,11 @@ export function AppHeader() {
                      <PlaySquare className="h-6 w-6" />
                       <span className="text-xs">الفيديو</span>
                 </Button>
-                 <Button variant="ghost" className="h-12 w-full rounded-lg flex-col gap-1 text-muted-foreground" disabled>
-                     <User className="h-6 w-6" />
-                      <span className="text-xs">الملف الشخصي</span>
+                 <Button variant="ghost" className="h-12 w-full rounded-lg flex-col gap-1 text-muted-foreground" asChild>
+                     <Link href={`/home/profile/${username}`}>
+                        <User className="h-6 w-6" />
+                        <span className="text-xs">الملف الشخصي</span>
+                    </Link>
                 </Button>
                  <Button variant="ghost" className="h-12 w-full rounded-lg flex-col gap-1 text-muted-foreground" disabled>
                      <Bell className="h-6 w-6" />
@@ -103,10 +105,6 @@ export function AppHeader() {
         {/* Right Section - Profile & Notifications */}
         <div className="flex items-center justify-end gap-2">
           <ThemeToggle />
-           <Button variant="ghost" size="icon" className="rounded-full" disabled>
-                <MessageSquare />
-                <span className="sr-only">Messages</span>
-            </Button>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" className="relative rounded-full">
@@ -178,3 +176,5 @@ export function AppHeader() {
     </header>
   );
 }
+
+    
