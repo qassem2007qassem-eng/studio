@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Loader2 } from "lucide-react";
-import { CreatePostForm } from "@/components/create-post-form";
+import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, getDocs, limit, doc, writeBatch, serverTimestamp, deleteDoc, orderBy } from "firebase/firestore";
 import { useEffect, useState, useMemo } from "react";
@@ -242,7 +242,7 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
       
-      {isCurrentUserProfile && <CreatePostForm />}
+      {isCurrentUserProfile && <CreatePostTrigger />}
 
       <Tabs defaultValue="posts" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
