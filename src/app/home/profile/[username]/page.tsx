@@ -25,7 +25,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Loader2, Lock } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
-import { useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { useUser, useCollection, useMemoFirebase, useFirebase } from "@/firebase";
 import { useEffect, useState, useMemo } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,7 +34,7 @@ import { useFirestore } from "@/firebase/provider";
 
 export default function ProfilePage() {
   const params = useParams();
-  const firestore = useFirestore();
+  const { firestore } = useFirebase();
   const { user: currentUser } = useUser();
   
   const usernameFromUrl = useMemo(() => {

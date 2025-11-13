@@ -52,7 +52,7 @@ service cloud.firestore {
      * @allow create, update, delete: Only the user themselves can manage their profile.
      */
     match /users/{userId} {
-      allow get: if true; // Allows fetching a document to check existence and basic public data.
+      allow get: if isSignedIn(); // Allows fetching any user document to see public info
       allow list: if isSignedIn(); // Allow querying/listing for signed-in users (for search).
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if isOwner(userId) && request.resource.data.id == resource.data.id;
