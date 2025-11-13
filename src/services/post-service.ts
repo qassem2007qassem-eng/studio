@@ -14,7 +14,8 @@ import {
   where,
   orderBy,
   limit,
-  Timestamp
+  Timestamp,
+  getDoc
 } from 'firebase/firestore';
 import {
   getStorage,
@@ -134,14 +135,20 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     const q = query(
         postsCollection,
         where('authorId', '==', profileUserId),
-        where('privacy', 'in', privacyFilters),
-        orderBy('createdAt', 'desc'),
-        limit(20)
+        where('privacy', 'in', privacyFilters)
     );
 
     try {
         const snapshot = await getDocs(q);
         const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+        
+        // Sort manually in code
+        posts.sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+            return dateB - dateA;
+        });
+
         return posts;
     } catch (e) {
         console.error("Error fetching user posts:", e);
