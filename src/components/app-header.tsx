@@ -39,7 +39,7 @@ export function AppHeader() {
     router.push('/login');
   };
   
-  const username = user?.email?.split('@')[0];
+  const username = user?.email?.split('@')[0]?.toLowerCase();
 
 
   return (
@@ -115,7 +115,7 @@ export function AppHeader() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href={`/home/profile/${username?.toLowerCase()}`}>
+                  <Link href={`/home/profile/${username}`}>
                     <User className="ms-2 h-4 w-4" />
                     <span>الملف الشخصي</span>
                   </Link>

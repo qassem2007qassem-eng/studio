@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useFirebase, useUser, addDocumentNonBlocking } from "@/firebase";
-import { collection } from "firebase/firestore";
+import { collection, serverTimestamp } from "firebase/firestore";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -19,25 +19,25 @@ export function CreatePostForm() {
   const { toast } = useToast();
 
   const handleCreatePost = async () => {
-    if (!content.trim() || !user) {
+    if (!content.trim() || !user || !firestore) {
       return;
     }
     setIsLoading(true);
 
-    const postsCollection = collection(firestore, 'posts');
-    const postData = {
-      author: {
-        name: user.displayName || 'مستخدم',
-        username: user.email?.split('@')[0] || 'user',
-        avatarUrl: user.photoURL || `https://i.pravatar.cc/150?u=${user.uid}`,
-      },
-      authorId: user.uid,
-      content: content.trim(),
-      createdAt: new Date().toISOString(),
-      likeIds: [],
-    };
-
     try {
+      const postsCollection = collection(firestore, 'posts');
+      const postData = {
+        author: {
+          name: user.displayName || 'مستخدم',
+          username: user.email?.split('@')[0] || 'user',
+          avatarUrl: user.photoURL || `https://i.pravatar.cc/150?u=${user.uid}`,
+        },
+        authorId: user.uid,
+        content: content.trim(),
+        createdAt: new Date().toISOString(),
+        likeIds: [],
+      };
+
       await addDocumentNonBlocking(postsCollection, postData);
       setContent("");
       toast({
@@ -101,3 +101,5 @@ export function CreatePostForm() {
     </Card>
   );
 }
+
+    

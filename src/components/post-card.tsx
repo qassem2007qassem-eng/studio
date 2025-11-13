@@ -41,7 +41,7 @@ const CommentsDialog = ({ post }: { post: Post }) => {
     const [newComment, setNewComment] = useState("");
 
     const commentsCollection = useMemoFirebase(() => {
-        if (!post) return null;
+        if (!post || !firestore) return null;
         return collection(firestore, 'posts', post.id, 'comments');
     }, [firestore, post]);
 
@@ -128,7 +128,10 @@ export function PostCard({ post }: PostCardProps) {
     setLikeCount(post.likeIds?.length || 0);
   }, [post, user]);
 
-  const postRef = useMemo(() => doc(firestore, 'posts', post.id), [firestore, post.id]);
+  const postRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return doc(firestore, 'posts', post.id)
+  }, [firestore, post.id]);
 
   const handleLike = () => {
     if (!user || !postRef) return;
@@ -142,7 +145,11 @@ export function PostCard({ post }: PostCardProps) {
     });
   };
 
-  const commentsCount = useCollection(useMemoFirebase(() => collection(firestore, 'posts', post.id, 'comments'), [firestore, post.id]));
+  const commentsCount = useCollection(useMemoFirebase(() => {
+    if (!firestore) return null;
+    return collection(firestore, 'posts', post.id, 'comments')
+  }, [firestore, post.id]));
+
   const commentCount = commentsCount.data?.length ?? 0;
 
   return (

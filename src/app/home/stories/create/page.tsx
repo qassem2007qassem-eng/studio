@@ -37,7 +37,7 @@ export default function CreateStoryPage() {
     };
 
     const handleCreateStory = async () => {
-        if (!storyImage || !user) {
+        if (!storyImage || !user || !firestore) {
             toast({
                 title: "خطأ",
                 description: "الرجاء اختيار صورة وتسجيل الدخول أولاً.",
@@ -136,3 +136,5 @@ export default function CreateStoryPage() {
         </Card>
     );
 }
+
+    

@@ -11,15 +11,18 @@ import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Loader2 } from "lucide-react";
 import { CreatePostForm } from "@/components/create-post-form";
 import { useUser, useCollection, useMemoFirebase, useFirebase } from "@/firebase";
-import { collection, query, where, getFirestore, getDocs, limit, doc, writeBatch, serverTimestamp, deleteDoc, orderBy } from "firebase/firestore";
-import { useEffect, useState } from "react";
+import { collection, query, where, getDocs, limit, doc, writeBatch, serverTimestamp, deleteDoc, orderBy } from "firebase/firestore";
+import { useEffect, useState, useMemo } from "react";
 import { type User, type Post, type Follow } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from 'next/navigation';
 
 export default function ProfilePage() {
   const params = useParams();
-  const usernameFromUrl = Array.isArray(params.username) ? params.username[0] : params.username;
+  const usernameFromUrl = useMemo(() => {
+    const username = Array.isArray(params.username) ? params.username[0] : params.username;
+    return username?.toLowerCase() || '';
+  }, [params.username]);
   
   const { user: currentUser } = useUser();
   const { firestore } = useFirebase();
@@ -36,7 +39,7 @@ export default function ProfilePage() {
     
     setIsUserLoading(true);
     const usersRef = collection(firestore, 'users');
-    const userQuery = query(usersRef, where("username", "==", usernameFromUrl.toLowerCase()), limit(1));
+    const userQuery = query(usersRef, where("username", "==", usernameFromUrl), limit(1));
 
     getDocs(userQuery).then(querySnapshot => {
       if (!querySnapshot.empty) {
@@ -78,13 +81,13 @@ export default function ProfilePage() {
               setFollowDocId(null);
           }
           setIsFollowLoading(false);
-      });
+      }).catch(() => setIsFollowLoading(false));
   }, [currentUser, profileUser, firestore]);
 
   const postsCollection = useMemoFirebase(() => {
-    if (!profileUser || !firestore) return null;
+    if (!firestore) return null;
     return collection(firestore, 'posts');
-  }, [firestore, profileUser]);
+  }, [firestore]);
 
   const userPostsQuery = useMemoFirebase(() => {
     if (!postsCollection || !profileUser) return null;
@@ -105,13 +108,6 @@ export default function ProfilePage() {
       // --- Unfollow Logic ---
       const followRef = doc(firestore, 'follows', followDocId);
       batch.delete(followRef);
-      
-      const userToUnfollowRef = doc(firestore, 'users', profileUser.id);
-      batch.update(userToUnfollowRef, { followerCount: (profileUser.followerCount || 1) - 1 });
-      
-      const currentUserRef = doc(firestore, 'users', currentUser.uid);
-      const currentUserData = (await getDocs(query(collection(firestore, 'users'), where('id', '==', currentUser.uid), limit(1)))).docs[0]?.data();
-      batch.update(currentUserRef, { followingCount: (currentUserData?.followingCount || 1) - 1 });
 
       await batch.commit();
 
@@ -128,13 +124,6 @@ export default function ProfilePage() {
         followeeId: profileUser.id,
         createdAt: serverTimestamp()
       });
-
-      const userToFollowRef = doc(firestore, 'users', profileUser.id);
-      batch.update(userToFollowRef, { followerCount: (profileUser.followerCount || 0) + 1 });
-      
-      const currentUserRef = doc(firestore, 'users', currentUser.uid);
-      const currentUserData = (await getDocs(query(collection(firestore, 'users'), where('id', '==', currentUser.uid), limit(1)))).docs[0]?.data();
-      batch.update(currentUserRef, { followingCount: (currentUserData?.followingCount || 0) + 1 });
 
       await batch.commit();
 

@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
-import { useUser, useAuth, useFirestore, useFirebase, updateDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirebase, updateDocumentNonBlocking } from "@/firebase";
 import { updateProfile } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
@@ -22,8 +22,7 @@ import { type User as UserType } from "@/lib/types";
 export default function SettingsPage() {
     const { toast } = useToast();
     const { user, isUserLoading } = useUser();
-    const auth = useAuth();
-    const { firestore } = useFirebase();
+    const { auth, firestore } = useFirebase();
 
     const [userData, setUserData] = useState<UserType | null>(null);
     const [name, setName] = useState("");
@@ -36,7 +35,7 @@ export default function SettingsPage() {
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        if (user) {
+        if (user && firestore) {
             const userDocRef = doc(firestore, 'users', user.uid);
             getDoc(userDocRef).then(docSnap => {
                 if (docSnap.exists()) {
@@ -56,12 +55,10 @@ export default function SettingsPage() {
     }, [user, isUserLoading, firestore]);
 
     const handleSaveChanges = async () => {
-        if (!user || !userData) return;
+        if (!user || !userData || !firestore || !auth) return;
 
         setIsSaving(true);
         try {
-            const userDocRef = doc(firestore, "users", user.uid);
-
             let newAvatarUrl = userData.avatarUrl;
             if (avatarUrl && avatarUrl !== userData.avatarUrl) {
                 const storage = getStorage();
@@ -78,11 +75,12 @@ export default function SettingsPage() {
                 newCoverUrl = await getDownloadURL(snapshot.ref);
             }
             
-            await updateProfile(user, {
+            await updateProfile(auth.currentUser!, {
                 displayName: name,
                 photoURL: newAvatarUrl
             });
 
+            const userDocRef = doc(firestore, "users", user.uid);
             const updatedUserData: Partial<UserType> = {
                 name: name,
                 username: username,
