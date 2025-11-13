@@ -15,7 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useUser, initializeFirebase } from '@/firebase';
-import { collection, serverTimestamp, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, serverTimestamp, addDoc, type Timestamp } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { type User as UserType } from '@/lib/types';
@@ -75,7 +75,9 @@ export default function CreatePostPage() {
       });
       return;
     }
+    
     const profile = await getCurrentUserProfile();
+
     if (!user || !profile) {
        toast({
         title: 'خطأ',
