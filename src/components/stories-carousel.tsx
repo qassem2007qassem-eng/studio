@@ -13,7 +13,7 @@ import { useFirebase } from "@/firebase/provider";
 import { type Story } from "@/lib/types";
 
 export function StoriesCarousel() {
-    const { user } = useUser();
+    const { user, isUserLoading } = useUser();
     const { firestore } = useFirebase();
 
     const storiesCollection = useMemoFirebase(() => {
@@ -22,10 +22,11 @@ export function StoriesCarousel() {
     }, [firestore]);
 
     const storiesQuery = useMemoFirebase(() => {
-        if (!storiesCollection) return null;
+        // Do not run the query until auth state is determined and a user is present.
+        if (!storiesCollection || isUserLoading || !user) return null;
         const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
         return query(storiesCollection, where("createdAt", ">=", twentyFourHoursAgo), orderBy("createdAt", "desc"));
-    }, [storiesCollection]);
+    }, [storiesCollection, isUserLoading, user]);
 
     const { data: stories, isLoading } = useCollection<Story>(storiesQuery);
 
@@ -94,3 +95,4 @@ export function StoriesCarousel() {
     </Carousel>
   );
 }
+

@@ -88,7 +88,7 @@ service cloud.firestore {
         allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
         allow update: if isSignedIn() && (
             (resource.data.authorId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'imageUrl', 'updatedAt'])) ||
-            (request.resource.data.keys().hasOnly(['likeIds']) && request.resource.data.likeIds.hasAny(request.auth.uid) || !request.resource.data.likeIds.hasAny(request.auth.uid))
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeIds'])
         );
         allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
     }
