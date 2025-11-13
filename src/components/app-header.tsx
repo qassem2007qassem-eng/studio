@@ -115,7 +115,7 @@ export function AppHeader() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href={`/home/profile/${username}`}>
+                  <Link href={`/home/profile/${username?.toLowerCase()}`}>
                     <User className="ms-2 h-4 w-4" />
                     <span>الملف الشخصي</span>
                   </Link>
@@ -143,3 +143,5 @@ export function AppHeader() {
     </header>
   );
 }
+
+    

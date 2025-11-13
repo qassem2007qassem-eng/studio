@@ -88,7 +88,7 @@ const CommentsDialog = ({ post }: { post: Post }) => {
                         </Avatar>
                         <div className="flex-1">
                             <div className="bg-muted p-3 rounded-lg">
-                                <Link href={`/home/profile/${comment.authorId}`} className="font-semibold text-sm hover:underline">
+                                <Link href={`/home/profile/${comment.author.username?.toLowerCase()}`} className="font-semibold text-sm hover:underline">
                                     {comment.author.name}
                                 </Link>
                                 <p className="text-sm">{comment.content}</p>
@@ -155,7 +155,7 @@ export function PostCard({ post }: PostCardProps) {
                 <AvatarFallback>{post.author.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="grid gap-0.5">
-                <Link href={`/home/profile/${post.authorId}`} className="font-semibold hover:underline">
+                <Link href={`/home/profile/${post.author.username?.toLowerCase()}`} className="font-semibold hover:underline">
                 {post.author.name}
                 </Link>
                 <p className="text-xs text-muted-foreground">@{post.author.username} · {post.createdAt ? new Date(post.createdAt).toLocaleString() : ''}</p>
@@ -217,3 +217,5 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
+
+    

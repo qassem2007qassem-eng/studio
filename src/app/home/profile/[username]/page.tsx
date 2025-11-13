@@ -19,7 +19,7 @@ import { useParams } from 'next/navigation';
 
 export default function ProfilePage() {
   const params = useParams();
-  const username = Array.isArray(params.username) ? params.username[0] : params.username;
+  const usernameFromUrl = Array.isArray(params.username) ? params.username[0] : params.username;
   
   const { user: currentUser } = useUser();
   const { firestore } = useFirebase();
@@ -29,14 +29,14 @@ export default function ProfilePage() {
 
   // Effect to fetch the profile user based on username
   useEffect(() => {
-    if (!username || !firestore) {
+    if (!usernameFromUrl || !firestore) {
       setIsUserLoading(false);
       return;
     };
     
     setIsUserLoading(true);
     const usersRef = collection(firestore, 'users');
-    const userQuery = query(usersRef, where("username", "==", username?.toLowerCase()), limit(1));
+    const userQuery = query(usersRef, where("username", "==", usernameFromUrl.toLowerCase()), limit(1));
 
     getDocs(userQuery).then(querySnapshot => {
       if (!querySnapshot.empty) {
@@ -50,7 +50,7 @@ export default function ProfilePage() {
         setIsUserLoading(false);
     });
 
-  }, [username, firestore]);
+  }, [usernameFromUrl, firestore]);
 
 
   const [isFollowing, setIsFollowing] = useState(false);
@@ -61,6 +61,7 @@ export default function ProfilePage() {
   useEffect(() => {
       if (!currentUser || !profileUser || currentUser.uid === profileUser.id || !firestore) return;
       
+      setIsFollowLoading(true);
       const followsRef = collection(firestore, 'follows');
       const followQuery = query(followsRef, 
           where("followerId", "==", currentUser.uid), 
@@ -76,6 +77,7 @@ export default function ProfilePage() {
               setIsFollowing(false);
               setFollowDocId(null);
           }
+          setIsFollowLoading(false);
       });
   }, [currentUser, profileUser, firestore]);
 
@@ -98,15 +100,19 @@ export default function ProfilePage() {
 
     setIsFollowLoading(true);
     const batch = writeBatch(firestore);
-    const userToFollowRef = doc(firestore, 'users', profileUser.id);
-    const currentUserRef = doc(firestore, 'users', currentUser.uid);
     
     if (isFollowing && followDocId) {
       // --- Unfollow Logic ---
       const followRef = doc(firestore, 'follows', followDocId);
       batch.delete(followRef);
-      // Not relying on server-side increments for this example
       
+      const userToUnfollowRef = doc(firestore, 'users', profileUser.id);
+      batch.update(userToUnfollowRef, { followerCount: (profileUser.followerCount || 1) - 1 });
+      
+      const currentUserRef = doc(firestore, 'users', currentUser.uid);
+      const currentUserData = (await getDocs(query(collection(firestore, 'users'), where('id', '==', currentUser.uid), limit(1)))).docs[0]?.data();
+      batch.update(currentUserRef, { followingCount: (currentUserData?.followingCount || 1) - 1 });
+
       await batch.commit();
 
       setIsFollowing(false);
@@ -122,7 +128,14 @@ export default function ProfilePage() {
         followeeId: profileUser.id,
         createdAt: serverTimestamp()
       });
+
+      const userToFollowRef = doc(firestore, 'users', profileUser.id);
+      batch.update(userToFollowRef, { followerCount: (profileUser.followerCount || 0) + 1 });
       
+      const currentUserRef = doc(firestore, 'users', currentUser.uid);
+      const currentUserData = (await getDocs(query(collection(firestore, 'users'), where('id', '==', currentUser.uid), limit(1)))).docs[0]?.data();
+      batch.update(currentUserRef, { followingCount: (currentUserData?.followingCount || 0) + 1 });
+
       await batch.commit();
 
       setIsFollowing(true);
