@@ -73,8 +73,9 @@ export default function LoginPage() {
       if (!userCredential.user.emailVerified) {
          toast({
           title: 'لم يتم التحقق من البريد الإلكتروني',
-          description: 'لقد تم إرسال رابط تحقق إلى بريدك الإلكتروني. الرجاء التحقق منه لتسجيل الدخول.',
+          description: 'لقد تم إرسال رابط تحقق إلى بريدك الإلكتروني. الرجاء التحقق منه لتسجيل الدخول. قد يكون في مجلد الرسائل غير المرغوب فيها.',
           variant: 'destructive',
+          duration: 9000,
         });
         setIsLoading(false);
         return;
@@ -108,26 +109,28 @@ export default function LoginPage() {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       
-      // Check if user exists in Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
-        // User already has a profile, go to home
         router.push('/home');
       } else {
-        // First time Google sign-in, redirect to registration to choose username
         router.push(`/register?name=${encodeURIComponent(user.displayName || '')}&email=${encodeURIComponent(user.email || '')}&avatar=${encodeURIComponent(user.photoURL || '')}`);
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Google sign-in error:", error);
+      let description = "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.";
+      if(error.code === 'auth/operation-not-allowed') {
+        description = "تسجيل الدخول عبر جوجل غير مفعل حالياً. الرجاء الاتصال بالدعم."
+      }
       toast({
         title: "خطأ في تسجيل الدخول عبر Google",
-        description: "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.",
+        description: description,
         variant: "destructive"
       });
-      setIsGoogleLoading(false);
+    } finally {
+        setIsGoogleLoading(false);
     }
   };
 

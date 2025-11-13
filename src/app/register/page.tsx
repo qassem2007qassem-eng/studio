@@ -76,7 +76,7 @@ function RegisterForm() {
         email: email,
         avatar: avatar || null,
       }));
-      setStep(3); // Skip to DOB step if coming from Google sign-in
+      setStep(3);
     }
   }, [searchParams]);
 
@@ -149,7 +149,21 @@ function RegisterForm() {
       );
       const user = userCredential.user;
 
-      await sendEmailVerification(user);
+      try {
+        await sendEmailVerification(user);
+      } catch (verificationError) {
+         console.error("Failed to send verification email:", verificationError);
+         toast({
+            title: "فشل إرسال بريد التحقق",
+            description: "لم نتمكن من إرسال بريد التحقق. الرجاء التأكد من صحة بريدك الإلكتروني والمحاولة مرة أخرى.",
+            variant: "destructive"
+         });
+         // Optionally, you could delete the user account here if email is mandatory
+         // await user.delete();
+         setIsLoading(false);
+         return;
+      }
+
 
       let photoURL = `https://i.pravatar.cc/150?u=${user.uid}`;
       if (formData.avatar) {
@@ -186,7 +200,8 @@ function RegisterForm() {
       
       toast({
         title: "تم إرسال رابط التحقق",
-        description: "لقد أرسلنا رابط تحقق إلى بريدك الإلكتروني. الرجاء النقر عليه ثم تسجيل الدخول.",
+        description: "لقد أرسلنا رابط تحقق إلى بريدك الإلكتروني. الرجاء النقر عليه ثم تسجيل الدخول. (قد يكون في الرسائل غير المرغوب فيها)",
+        duration: 9000,
       });
       router.push('/login');
 
@@ -456,4 +471,3 @@ export default function RegisterPage() {
         </Suspense>
     );
 }
-
