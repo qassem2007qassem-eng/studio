@@ -1,65 +1,113 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useUser, useFirebase } from '@/firebase';
+import { useState, useEffect } from 'react';
+import { useUser } from '@/firebase';
 import { type User } from '@/lib/types';
-import { getAllUsers, followUser, unfollowUser } from '@/services/user-service';
+import { getUsers, followUser, unfollowUser, getCurrentUserProfile } from '@/services/user-service';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Loader2, UserPlus, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
+import { type DocumentSnapshot } from 'firebase/firestore';
 
 export default function FriendsPage() {
   const { user: currentUser, isUserLoading: isCurrentUserLoading } = useUser();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
+  const [isFollowingMap, setIsFollowingMap] = useState<Record<string, boolean>>({});
+  
+  const [lastVisible, setLastVisible] = useState<DocumentSnapshot | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      setIsLoading(true);
-      const allUsers = await getAllUsers();
-      if (currentUser) {
-        const filteredUsers = allUsers.filter(u => u.id !== currentUser.uid);
+
+  const fetchInitialUsers = async () => {
+    setIsLoading(true);
+    const { users: initialUsers, lastVisible: newLastVisible, hasMore: newHasMore } = await getUsers(20);
+    
+    if (currentUserProfile) {
+        const filteredUsers = initialUsers.filter(u => u.id !== currentUserProfile.id);
         setUsers(filteredUsers);
         
-        // Pre-compute following status
-        const followingIds = currentUser.following || [];
+        const followingIds = currentUserProfile.following || [];
         const map: Record<string, boolean> = {};
-        allUsers.forEach(u => {
+        filteredUsers.forEach(u => {
           map[u.id] = followingIds.includes(u.id);
         });
-        setFollowingMap(map);
+        setIsFollowingMap(map);
+    } else {
+       setUsers(initialUsers);
+    }
+    
+    setLastVisible(newLastVisible);
+    setHasMore(newHasMore);
+    setIsLoading(false);
+  };
 
-      } else {
-        setUsers(allUsers);
-      }
-      setIsLoading(false);
-    };
-
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+        if (currentUser) {
+            const profile = await getCurrentUserProfile();
+            setCurrentUserProfile(profile);
+        }
+    }
     if (!isCurrentUserLoading) {
-        fetchUsers();
+        fetchCurrentUser();
     }
   }, [currentUser, isCurrentUserLoading]);
+
+  useEffect(() => {
+      if(!isCurrentUserLoading) {
+        fetchInitialUsers();
+      }
+  }, [isCurrentUserLoading, currentUserProfile]);
+
+  const handleLoadMore = async () => {
+    if (!hasMore || isLoadingMore) return;
+    setIsLoadingMore(true);
+
+    const { users: newUsers, lastVisible: newLastVisible, hasMore: newHasMore } = await getUsers(20, lastVisible);
+    
+    const filteredNewUsers = newUsers.filter(u => u.id !== currentUser?.uid);
+    setUsers(prevUsers => [...prevUsers, ...filteredNewUsers]);
+
+    if (currentUserProfile) {
+      const followingIds = currentUserProfile.following || [];
+      const newMap = { ...isFollowingMap };
+      filteredNewUsers.forEach(u => {
+        newMap[u.id] = followingIds.includes(u.id);
+      });
+      setIsFollowingMap(newMap);
+    }
+
+    setLastVisible(newLastVisible);
+    setHasMore(newHasMore);
+    setIsLoadingMore(false);
+  };
 
   const handleFollowToggle = async (targetUserId: string) => {
     if (!currentUser) return;
     
-    setFollowingMap(prev => ({ ...prev, [targetUserId]: !prev[targetUserId] }));
+    setIsFollowingMap(prev => ({ ...prev, [targetUserId]: !prev[targetUserId] }));
 
     try {
-      if (followingMap[targetUserId]) {
+      if (isFollowingMap[targetUserId]) {
         await unfollowUser(targetUserId);
       } else {
         await followUser(targetUserId);
       }
+      // Re-fetch current user profile to get updated following list
+      const profile = await getCurrentUserProfile();
+      setCurrentUserProfile(profile);
+
     } catch (error) {
       console.error("Failed to toggle follow", error);
       // Revert on error
-      setFollowingMap(prev => ({ ...prev, [targetUserId]: !prev[targetUserId] }));
+      setIsFollowingMap(prev => ({ ...prev, [targetUserId]: !prev[targetUserId] }));
     }
   };
 
@@ -87,7 +135,7 @@ export default function FriendsPage() {
               <Link href={`/home/profile/${user.username.toLowerCase()}`} className="flex items-center gap-4 flex-1">
                 <Avatar className="h-12 w-12">
                   <AvatarImage src={user.avatarUrl} alt={user.name} />
-                  <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                  <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div>
                   <p className="font-semibold">{user.name}</p>
@@ -97,11 +145,11 @@ export default function FriendsPage() {
               {currentUser && (
                 <Button 
                     onClick={() => handleFollowToggle(user.id)}
-                    variant={followingMap[user.id] ? 'secondary' : 'default'}
+                    variant={isFollowingMap[user.id] ? 'secondary' : 'default'}
                     size="sm"
                     className="w-28"
                 >
-                  {followingMap[user.id] ? (
+                  {isFollowingMap[user.id] ? (
                     <><UserCheck className="h-4 w-4 me-2" /> متابَع</>
                   ) : (
                     <><UserPlus className="h-4 w-4 me-2" /> متابعة</>
@@ -112,6 +160,13 @@ export default function FriendsPage() {
           ))
         )}
       </CardContent>
+      {hasMore && (
+        <CardFooter>
+            <Button onClick={handleLoadMore} disabled={isLoadingMore} className="w-full">
+                {isLoadingMore ? <Loader2 className="animate-spin" /> : "تحميل المزيد"}
+            </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 }

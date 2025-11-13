@@ -17,10 +17,14 @@ import {
   where,
   getDocs,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  orderBy,
+  limit,
+  startAfter
 } from 'firebase/firestore';
 
 import { initializeFirebase } from '@/firebase';
+import { type User } from '@/lib/types';
 
 // Initialize firebase services
 const { auth, firestore } = initializeFirebase();
@@ -33,7 +37,7 @@ const createUserProfile = async (user, username, fullName, avatarUrl) => {
       id: user.uid,
       username: username.toLowerCase(),
       name: fullName,
-      email: user.email,
+      email: user.email, // This should be the unique one with timestamp
       avatarUrl: avatarUrl || `https://i.pravatar.cc/150?u=${user.uid}`,
       coverUrl: `https://picsum.photos/seed/${user.uid}/1080/400`,
       bio: "",
@@ -48,7 +52,7 @@ const createUserProfile = async (user, username, fullName, avatarUrl) => {
 };
 
 // ✅ جلب بيانات المستخدم الحالي
-const getCurrentUserProfile = async () => {
+const getCurrentUserProfile = async (): Promise<User | null> => {
   const user = auth.currentUser;
   if (!user) {
     console.log("No user logged in");
@@ -60,7 +64,7 @@ const getCurrentUserProfile = async () => {
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() };
+      return { id: docSnap.id, ...docSnap.data() } as User;
     } else {
       console.log("User profile not found!");
       return null;
@@ -70,6 +74,7 @@ const getCurrentUserProfile = async () => {
     return null;
   }
 };
+
 
 // ✅ جلب بيانات مستخدم آخر بالاسم
 const getUserByUsername = async (username) => {
@@ -176,7 +181,7 @@ const checkIfFollowing = async (targetUserId) => {
   if (!currentUser) return false;
 
   try {
-    const userDoc = await getUserById(currentUser.uid);
+    const userDoc = await getCurrentUserProfile();
     return (userDoc?.following || []).includes(targetUserId);
   } catch (error) {
     console.error("Error checking follow status:", error);
@@ -198,23 +203,33 @@ const updateProfile = async (updates) => {
   }
 };
 
-// ✅ جلب جميع المستخدمين
-const getAllUsers = async () => {
+// ✅ جلب دفعة من المستخدمين مع الترقيم
+const getUsers = async (pageSize = 20, lastVisible = null) => {
   try {
     const usersRef = collection(firestore, "users");
-    const querySnapshot = await getDocs(usersRef);
+    let q;
+    if (lastVisible) {
+      q = query(usersRef, orderBy("createdAt", "desc"), startAfter(lastVisible), limit(pageSize));
+    } else {
+      q = query(usersRef, orderBy("createdAt", "desc"), limit(pageSize));
+    }
+
+    const querySnapshot = await getDocs(q);
     const users = [];
-    
     querySnapshot.forEach((doc) => {
       users.push({ id: doc.id, ...doc.data() });
     });
-    
-    return users;
+
+    const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
+    const hasMore = querySnapshot.docs.length === pageSize;
+
+    return { users, lastVisible: newLastVisible, hasMore };
   } catch (error) {
-    console.error("Error getting all users:", error);
-    return [];
+    console.error("Error getting users:", error);
+    return { users: [], lastVisible: null, hasMore: false };
   }
 };
+
 
 // ✅ جلب المتابِعين
 const getFollowers = async (userId) => {
@@ -258,7 +273,7 @@ export {
   unfollowUser,
   checkIfFollowing,
   updateProfile,
-  getAllUsers,
+  getUsers,
   getFollowers,
   getFollowing
 };
