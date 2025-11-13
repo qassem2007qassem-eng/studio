@@ -1,3 +1,4 @@
+
 'use client'
 
 import Image from "next/image";
@@ -9,7 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Loader2 } from "lucide-react";
 import { CreatePostForm } from "@/components/create-post-form";
-import { useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { useUser, useCollection, useMemoFirebase, useFirebase } from "@/firebase";
 import { collection, query, where, getFirestore, getDocs, limit, doc, writeBatch, serverTimestamp, deleteDoc, orderBy } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { type User, type Post, type Follow } from "@/lib/types";
@@ -58,7 +59,7 @@ export default function ProfilePage() {
 
   // Effect to check follow status
   useEffect(() => {
-      if (!currentUser || !profileUser || currentUser.uid === profileUser.id) return;
+      if (!currentUser || !profileUser || currentUser.uid === profileUser.id || !firestore) return;
       
       const followsRef = collection(firestore, 'follows');
       const followQuery = query(followsRef, 
@@ -79,7 +80,7 @@ export default function ProfilePage() {
   }, [currentUser, profileUser, firestore]);
 
   const postsCollection = useMemoFirebase(() => {
-    if (!profileUser) return null;
+    if (!profileUser || !firestore) return null;
     return collection(firestore, 'posts');
   }, [firestore, profileUser]);
 
@@ -93,7 +94,7 @@ export default function ProfilePage() {
   const isCurrentUserProfile = currentUser?.uid === profileUser?.id;
 
   const handleFollowToggle = async () => {
-    if (!currentUser || !profileUser || isFollowLoading || isCurrentUserProfile) return;
+    if (!currentUser || !profileUser || isFollowLoading || isCurrentUserProfile || !firestore) return;
 
     setIsFollowLoading(true);
     const batch = writeBatch(firestore);
@@ -104,13 +105,13 @@ export default function ProfilePage() {
       // --- Unfollow Logic ---
       const followRef = doc(firestore, 'follows', followDocId);
       batch.delete(followRef);
-      batch.update(userToFollowRef, { followerCount: -1 });
-      batch.update(currentUserRef, { followingCount: -1 });
+      // Not relying on server-side increments for this example
       
       await batch.commit();
 
       setIsFollowing(false);
       setFollowDocId(null);
+      setProfileUser(prev => prev ? { ...prev, followerCount: (prev.followerCount || 1) - 1 } : null);
 
     } else {
       // --- Follow Logic ---
@@ -121,13 +122,12 @@ export default function ProfilePage() {
         followeeId: profileUser.id,
         createdAt: serverTimestamp()
       });
-      batch.update(userToFollowRef, { followerCount: 1 });
-      batch.update(currentUserRef, { followingCount: 1 });
-
+      
       await batch.commit();
 
       setIsFollowing(true);
       setFollowDocId(newFollowRef.id);
+      setProfileUser(prev => prev ? { ...prev, followerCount: (prev.followerCount || 0) + 1 } : null);
     }
     setIsFollowLoading(false);
   };
@@ -248,3 +248,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    
