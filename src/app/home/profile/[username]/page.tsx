@@ -13,8 +13,8 @@ import {
   writeBatch, 
   serverTimestamp, 
   increment, 
-  orderBy, 
-  getDoc
+  getDoc,
+  orderBy
 } from 'firebase/firestore';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,7 +35,7 @@ export default function ProfilePage() {
   const { user: currentUser } = useUser();
   
   const [profileUser, setProfileUser] = useState<User | null>(null);
-  const [isUserLoading, setIsUserLoading] = useState(true);
+  const [isProfileUserLoading, setIsProfileUserLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowStatusLoading, setIsFollowStatusLoading] = useState(true);
 
@@ -47,11 +47,11 @@ export default function ProfilePage() {
   // Effect to fetch the profile user's data based on the username in the URL
   useEffect(() => {
     if (!firestore || !usernameFromUrl) {
-      setIsUserLoading(false);
+      setIsProfileUserLoading(false);
       return;
     }
 
-    setIsUserLoading(true);
+    setIsProfileUserLoading(true);
     const usersRef = collection(firestore, 'users');
     const userQuery = query(usersRef, where("username", "==", usernameFromUrl), limit(1));
 
@@ -62,11 +62,11 @@ export default function ProfilePage() {
       } else {
         setProfileUser(null);
       }
-      setIsUserLoading(false);
+      setIsProfileUserLoading(false);
     }, (error) => {
       console.error("Error fetching user:", error);
       setProfileUser(null);
-      setIsUserLoading(false);
+      setIsProfileUserLoading(false);
     });
 
     return () => unsubscribe();
@@ -147,7 +147,7 @@ export default function ProfilePage() {
   };
 
 
-  if (isUserLoading) {
+  if (isProfileUserLoading) {
     return (
         <div className="space-y-6">
             <Card className="overflow-hidden">
