@@ -11,7 +11,7 @@ export interface User {
   bio?: string;
   dob?: string;
   gender?: string;
-  createdAt: string | Timestamp;
+  createdAt: string | Timestamp | Date;
   postCount: number;
   followerCount: number;
   followingCount: number;
@@ -27,7 +27,7 @@ export interface Comment {
       avatarUrl?: string;
   };
   content: string;
-  createdAt: string | Timestamp;
+  createdAt: string | Timestamp | Date;
 }
 
 export interface Post {
@@ -40,7 +40,7 @@ export interface Post {
   };
   content: string;
   imageUrl?: string;
-  createdAt: string | Timestamp;
+  createdAt: string | Timestamp | Date;
   likeIds?: string[];
 }
 

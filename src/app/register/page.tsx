@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useAuth, setDocumentNonBlocking } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc } from 'firebase/firestore';
+import { doc, serverTimestamp } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -89,7 +89,7 @@ export default function RegisterPage() {
                 name: formData.fullName,
                 dob: formData.dob ? format(formData.dob, 'yyyy-MM-dd') : null,
                 gender: formData.gender,
-                createdAt: new Date().toISOString(),
+                createdAt: serverTimestamp(),
                 bio: "",
                 avatarUrl: photoURL,
                 coverUrl: `https://picsum.photos/seed/${user.uid}/1080/400`,

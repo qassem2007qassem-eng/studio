@@ -28,12 +28,25 @@ import {
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { useFirebase, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
-import { arrayRemove, arrayUnion, collection, doc, increment, orderBy, query, serverTimestamp } from "firebase/firestore";
+import { arrayRemove, arrayUnion, collection, doc, increment, orderBy, query, serverTimestamp, Timestamp } from "firebase/firestore";
 
 
 interface PostCardProps {
   post: Post;
 }
+
+const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Date | null => {
+    if (!timestamp) return null;
+    if (timestamp instanceof Timestamp) {
+        return timestamp.toDate();
+    }
+    if (timestamp instanceof Date) {
+        return timestamp;
+    }
+    const date = new Date(timestamp);
+    return isNaN(date.getTime()) ? null : date;
+};
+
 
 const CommentsDialog = ({ post }: { post: Post }) => {
     const { firestore } = useFirebase();
@@ -80,23 +93,26 @@ const CommentsDialog = ({ post }: { post: Post }) => {
         <ScrollArea className="h-72 w-full pr-4">
             <div className="space-y-4">
                 {isLoading && <p>تحميل التعليقات...</p>}
-                {comments && comments.length > 0 ? comments.map(comment => (
-                    <div key={comment.id} className="flex items-start gap-3">
-                        <Avatar className="h-8 w-8">
-                            <AvatarImage src={comment.author.avatarUrl} alt={comment.author.name} />
-                            <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                            <div className="bg-muted p-3 rounded-lg">
-                                <Link href={`/home/profile/${comment.author.username?.toLowerCase()}`} className="font-semibold text-sm hover:underline">
-                                    {comment.author.name}
-                                </Link>
-                                <p className="text-sm">{comment.content}</p>
+                {comments && comments.length > 0 ? comments.map(comment => {
+                    const commentDate = safeToDate(comment.createdAt);
+                    return (
+                        <div key={comment.id} className="flex items-start gap-3">
+                            <Avatar className="h-8 w-8">
+                                <AvatarImage src={comment.author.avatarUrl} alt={comment.author.name} />
+                                <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                                <div className="bg-muted p-3 rounded-lg">
+                                    <Link href={`/home/profile/${comment.author.username?.toLowerCase()}`} className="font-semibold text-sm hover:underline">
+                                        {comment.author.name}
+                                    </Link>
+                                    <p className="text-sm">{comment.content}</p>
+                                </div>
+                                {commentDate && <p className="text-xs text-muted-foreground mt-1">{commentDate.toLocaleString()}</p>}
                             </div>
-                            {comment.createdAt && <p className="text-xs text-muted-foreground mt-1">{(comment.createdAt as any).toDate().toLocaleString()}</p>}
                         </div>
-                    </div>
-                )) : (
+                    )
+                }) : (
                     !isLoading && <p className="text-center text-muted-foreground">لا توجد تعليقات بعد. كن أول من يعلق!</p>
                 )}
             </div>
@@ -153,7 +169,7 @@ export function PostCard({ post }: PostCardProps) {
   const { data: comments } = useCollection(commentsCollectionQuery);
 
   const commentCount = comments?.length ?? 0;
-  const postCreatedAt = post.createdAt as any;
+  const postDate = safeToDate(post.createdAt);
 
   return (
     <Dialog>
@@ -168,7 +184,7 @@ export function PostCard({ post }: PostCardProps) {
                 <Link href={`/home/profile/${post.author.username?.toLowerCase()}`} className="font-semibold hover:underline">
                 {post.author.name}
                 </Link>
-                <p className="text-xs text-muted-foreground">@{post.author.username} · {postCreatedAt ? postCreatedAt.toDate().toLocaleString() : ''}</p>
+                <p className="text-xs text-muted-foreground">@{post.author.username} · {postDate ? postDate.toLocaleString() : ''}</p>
             </div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -227,5 +243,3 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
-
-    
