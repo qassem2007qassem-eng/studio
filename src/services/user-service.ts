@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -55,7 +56,8 @@ const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<U
 
   try {
     const docRef = doc(firestore, "users", user.uid);
-    const docSnap = await getDocFromServer(docRef); // Always fetch from server for refresh
+    // Use getDoc which prioritizes cache but falls back to server
+    const docSnap = options.forceRefresh ? await getDocFromServer(docRef) : await getDoc(docRef);
     
     if (docSnap.exists()) {
       currentUserProfileCache = { id: docSnap.id, ...docSnap.data() } as User;
