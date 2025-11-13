@@ -10,59 +10,69 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Loader2 } from "lucide-react";
 import { CreatePostForm } from "@/components/create-post-form";
-import { useUser, useCollection, useMemoFirebase, useFirebase } from "@/firebase";
+import { useUser, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, getDocs, limit, doc, writeBatch, serverTimestamp, deleteDoc, orderBy } from "firebase/firestore";
 import { useEffect, useState, useMemo } from "react";
 import { type User, type Post, type Follow } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from 'next/navigation';
+import { useFirestore } from "@/firebase/provider";
 
 export default function ProfilePage() {
   const params = useParams();
   const usernameFromUrl = useMemo(() => {
     const username = Array.isArray(params.username) ? params.username[0] : params.username;
-    return username?.toLowerCase() || '';
+    // Decode URI component and convert to lower case
+    return username ? decodeURIComponent(username).toLowerCase() : '';
   }, [params.username]);
   
   const { user: currentUser } = useUser();
-  const { firestore } = useFirebase();
+  const firestore = useFirestore();
 
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followDocId, setFollowDocId] = useState<string | null>(null);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
 
   // Effect to fetch the profile user based on username
   useEffect(() => {
     if (!usernameFromUrl || !firestore) {
       setIsUserLoading(false);
       return;
-    };
+    }
     
     setIsUserLoading(true);
+    setProfileUser(null); // Reset profile user on username change
+
     const usersRef = collection(firestore, 'users');
     const userQuery = query(usersRef, where("username", "==", usernameFromUrl), limit(1));
 
     getDocs(userQuery).then(querySnapshot => {
       if (!querySnapshot.empty) {
-        setProfileUser({ id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as User);
+        const userData = querySnapshot.docs[0].data() as User;
+        const userId = querySnapshot.docs[0].id;
+        setProfileUser({ ...userData, id: userId });
       } else {
         setProfileUser(null);
       }
-      setIsUserLoading(false);
-    }).catch(() => {
+    }).catch((error) => {
+        console.error("Error fetching user:", error);
         setProfileUser(null);
+    }).finally(() => {
         setIsUserLoading(false);
     });
 
   }, [usernameFromUrl, firestore]);
 
 
-  const [isFollowing, setIsFollowing] = useState(false);
-  const [followDocId, setFollowDocId] = useState<string | null>(null);
-  const [isFollowLoading, setIsFollowLoading] = useState(false);
-
   // Effect to check follow status
   useEffect(() => {
-      if (!currentUser || !profileUser || currentUser.uid === profileUser.id || !firestore) return;
+      if (!currentUser || !profileUser || currentUser.uid === profileUser.id || !firestore) {
+        setIsFollowing(false);
+        setFollowDocId(null);
+        return;
+      };
       
       setIsFollowLoading(true);
       const followsRef = collection(firestore, 'follows');
@@ -80,8 +90,13 @@ export default function ProfilePage() {
               setIsFollowing(false);
               setFollowDocId(null);
           }
-          setIsFollowLoading(false);
-      }).catch(() => setIsFollowLoading(false));
+      }).catch(err => {
+        console.error("Error checking follow status:", err);
+        setIsFollowing(false);
+        setFollowDocId(null);
+      }).finally(() => {
+        setIsFollowLoading(false);
+      });
   }, [currentUser, profileUser, firestore]);
 
   const postsCollection = useMemoFirebase(() => {
@@ -102,34 +117,27 @@ export default function ProfilePage() {
     if (!currentUser || !profileUser || isFollowLoading || isCurrentUserProfile || !firestore) return;
 
     setIsFollowLoading(true);
-    const batch = writeBatch(firestore);
     
     if (isFollowing && followDocId) {
       // --- Unfollow Logic ---
       const followRef = doc(firestore, 'follows', followDocId);
-      batch.delete(followRef);
-
-      await batch.commit();
-
+      await deleteDoc(followRef);
+      
       setIsFollowing(false);
       setFollowDocId(null);
-      setProfileUser(prev => prev ? { ...prev, followerCount: (prev.followerCount || 1) - 1 } : null);
 
     } else {
       // --- Follow Logic ---
       const newFollowRef = doc(collection(firestore, 'follows'));
-      batch.set(newFollowRef, {
+      await writeBatch(firestore).set(newFollowRef, {
         id: newFollowRef.id,
         followerId: currentUser.uid,
         followeeId: profileUser.id,
         createdAt: serverTimestamp()
-      });
-
-      await batch.commit();
+      }).commit();
 
       setIsFollowing(true);
       setFollowDocId(newFollowRef.id);
-      setProfileUser(prev => prev ? { ...prev, followerCount: (prev.followerCount || 0) + 1 } : null);
     }
     setIsFollowLoading(false);
   };
@@ -142,14 +150,23 @@ export default function ProfilePage() {
                 <Skeleton className="h-48 w-full" />
                 <CardContent className="p-4 relative">
                     <Skeleton className="absolute -mt-16 h-28 w-28 rounded-full border-4 border-card"/>
-                    <div className="mt-16 space-y-4">
+                    <div className="flex justify-end pt-2">
+                      <Skeleton className="h-10 w-32" />
+                    </div>
+                    <div className="mt-4 space-y-4">
                         <Skeleton className="h-8 w-1/4" />
                         <Skeleton className="h-4 w-1/6" />
                         <Skeleton className="h-10 w-full" />
+                         <div className="flex gap-6">
+                            <Skeleton className="h-5 w-20" />
+                            <Skeleton className="h-5 w-20" />
+                            <Skeleton className="h-5 w-20" />
+                        </div>
                     </div>
                 </CardContent>
             </Card>
-            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-40 w-full" />
         </div>
     )
   }
@@ -213,13 +230,13 @@ export default function ProfilePage() {
           </div>
           <div className="mt-4 flex gap-6 text-sm text-muted-foreground">
             <div>
-              <span className="font-bold text-foreground">{followingCount}</span> Following
+              <span className="font-bold text-foreground">{followingCount}</span> متابِع
             </div>
             <div>
-              <span className="font-bold text-foreground">{followerCount}</span> Followers
+              <span className="font-bold text-foreground">{followerCount}</span> متابَع
             </div>
              <div>
-              <span className="font-bold text-foreground">{userPosts?.length || 0}</span> Posts
+              <span className="font-bold text-foreground">{userPosts?.length || 0}</span> منشور
             </div>
           </div>
         </CardContent>
@@ -250,5 +267,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    
