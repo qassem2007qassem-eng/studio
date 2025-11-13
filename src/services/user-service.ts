@@ -2,9 +2,7 @@
 'use client';
 
 import { 
-  getAuth,
-  createUserWithEmailAndPassword, 
-  updateProfile as updateAuthProfile 
+  getAuth
 } from 'firebase/auth';
 import { 
   getFirestore,
@@ -18,19 +16,22 @@ import {
   query,
   where,
   getDocs,
-  deleteDoc
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 
 import { initializeFirebase } from '@/firebase';
 
+// Initialize firebase services
 const { auth, firestore } = initializeFirebase();
 
 // ✅ إنشاء ملف تعريف مستخدم جديد
 const createUserProfile = async (user, username, fullName, avatarUrl) => {
   try {
-    await setDoc(doc(firestore, "users", user.uid), {
+    const userDocRef = doc(firestore, "users", user.uid);
+    await setDoc(userDocRef, {
       id: user.uid,
-      username: username,
+      username: username.toLowerCase(),
       name: fullName,
       email: user.email,
       avatarUrl: avatarUrl || `https://i.pravatar.cc/150?u=${user.uid}`,
@@ -72,9 +73,10 @@ const getCurrentUserProfile = async () => {
 
 // ✅ جلب بيانات مستخدم آخر بالاسم
 const getUserByUsername = async (username) => {
+  if (!username) return null;
   try {
     const usersRef = collection(firestore, "users");
-    const q = query(usersRef, where("username", "==", username));
+    const q = query(usersRef, where("username", "==", username.toLowerCase()));
     const querySnapshot = await getDocs(q);
     
     if (!querySnapshot.empty) {
@@ -99,7 +101,7 @@ const getUserById = async (userId) => {
     if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() };
     } else {
-      console.log("User not found!");
+      console.log("User not found by ID!");
       return null;
     }
   } catch (error) {
@@ -118,19 +120,17 @@ const followUser = async (targetUserId) => {
 
   try {
     const batch = writeBatch(firestore);
-    const targetUserDoc = await getUserById(targetUserId);
-    const currentUserDoc = await getUserById(currentUser.uid);
     
     // Add to current user's following list
     const currentUserRef = doc(firestore, "users", currentUser.uid);
     batch.update(currentUserRef, {
-        following: [...(currentUserDoc.following || []), targetUserId]
+        following: arrayUnion(targetUserId)
     });
     
     // Add to target user's followers list
     const targetUserRef = doc(firestore, "users", targetUserId);
     batch.update(targetUserRef, {
-        followers: [...(targetUserDoc.followers || []), currentUser.uid]
+        followers: arrayUnion(currentUser.uid)
     });
     
     await batch.commit();
@@ -150,19 +150,17 @@ const unfollowUser = async (targetUserId) => {
 
   try {
     const batch = writeBatch(firestore);
-    const targetUserDoc = await getUserById(targetUserId);
-    const currentUserDoc = await getUserById(currentUser.uid);
 
     // Remove from current user's following list
     const currentUserRef = doc(firestore, "users", currentUser.uid);
     batch.update(currentUserRef, {
-        following: (currentUserDoc.following || []).filter(id => id !== targetUserId)
+        following: arrayRemove(targetUserId)
     });
 
     // Remove from target user's followers list
     const targetUserRef = doc(firestore, "users", targetUserId);
      batch.update(targetUserRef, {
-        followers: (targetUserDoc.followers || []).filter(id => id !== currentUser.uid)
+        followers: arrayRemove(currentUser.uid)
     });
     
     await batch.commit();
@@ -179,7 +177,7 @@ const checkIfFollowing = async (targetUserId) => {
 
   try {
     const userDoc = await getUserById(currentUser.uid);
-    return (userDoc.following || []).includes(targetUserId);
+    return (userDoc?.following || []).includes(targetUserId);
   } catch (error) {
     console.error("Error checking follow status:", error);
     return false;
@@ -222,13 +220,12 @@ const getAllUsers = async () => {
 const getFollowers = async (userId) => {
   try {
     const userDoc = await getUserById(userId);
-    const followerIds = userDoc.followers || [];
-    const followers = [];
-    for (const id of followerIds) {
-        const followerData = await getUserById(id);
-        if(followerData) followers.push(followerData);
-    }
-    return followers;
+    if (!userDoc || !userDoc.followers) return [];
+
+    const followerPromises = userDoc.followers.map(id => getUserById(id));
+    const followers = await Promise.all(followerPromises);
+    
+    return followers.filter(Boolean); // Filter out any nulls
   } catch (error) {
     console.error("Error getting followers:", error);
     return [];
@@ -239,13 +236,12 @@ const getFollowers = async (userId) => {
 const getFollowing = async (userId) => {
   try {
     const userDoc = await getUserById(userId);
-    const followingIds = userDoc.following || [];
-    const following = [];
-    for (const id of followingIds) {
-        const followingData = await getUserById(id);
-        if(followingData) following.push(followingData);
-    }
-    return following;
+    if (!userDoc || !userDoc.following) return [];
+
+    const followingPromises = userDoc.following.map(id => getUserById(id));
+    const following = await Promise.all(followingPromises);
+
+    return following.filter(Boolean); // Filter out any nulls
   } catch (error) {
     console.error("Error getting following:", error);
     return [];

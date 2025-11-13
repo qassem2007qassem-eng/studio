@@ -26,32 +26,31 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Logo } from '@/components/logo';
 import { ThemeToggle } from './theme-toggle';
-import { useUser, useAuth, useFirebase } from '@/firebase';
+import { useUser, useAuth } from '@/firebase';
 import { Skeleton } from './ui/skeleton';
 import { useRouter } from 'next/navigation';
-import { Separator } from './ui/separator';
-import { doc, getDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { type User as UserType } from '@/lib/types';
+import { getCurrentUserProfile } from '@/services/user-service';
 
 
 export function AppHeader() {
   const { user, isUserLoading } = useUser();
-  const { firestore } = useFirebase();
   const auth = useAuth();
   const router = useRouter();
   const [userData, setUserData] = useState<UserType | null>(null);
 
   useEffect(() => {
-    if(user && firestore) {
-      const userDocRef = doc(firestore, 'users', user.uid);
-      getDoc(userDocRef).then((doc) => {
-        if(doc.exists()) {
-          setUserData(doc.data() as UserType);
+    if(user) {
+      getCurrentUserProfile().then((profile) => {
+        if(profile) {
+          setUserData(profile as UserType);
         }
       })
+    } else {
+      setUserData(null);
     }
-  }, [user, firestore])
+  }, [user]);
 
 
   const mockNotifications: any[] = [];
@@ -139,8 +138,8 @@ export function AppHeader() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
-                    <AvatarFallback>{user.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                    <AvatarImage src={userData.avatarUrl || undefined} alt={userData.name || ''} />
+                    <AvatarFallback>{userData.name?.charAt(0) || 'U'}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
@@ -149,11 +148,11 @@ export function AppHeader() {
                   <Link href={username ? `/home/profile/${username}` : '/home'}>
                     <div className="flex items-center gap-3">
                          <Avatar className="h-12 w-12">
-                            <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
-                            <AvatarFallback>{user.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                            <AvatarImage src={userData.avatarUrl || undefined} alt={userData.name || ''} />
+                            <AvatarFallback>{userData.name?.charAt(0) || 'U'}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <p className="text-base font-semibold leading-none">{user.displayName}</p>
+                            <p className="text-base font-semibold leading-none">{userData.name}</p>
                             <p className="text-sm leading-none text-muted-foreground">عرض ملفك الشخصي</p>
                         </div>
                     </div>

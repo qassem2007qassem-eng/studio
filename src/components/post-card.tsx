@@ -33,17 +33,14 @@ import {
     arrayUnion, 
     collection, 
     doc, 
-    increment, 
     orderBy, 
     query, 
     serverTimestamp, 
     Timestamp, 
-    getDoc,
     addDoc,
     updateDoc
 } from "firebase/firestore";
 import { getCurrentUserProfile } from "@/services/user-service";
-
 
 interface PostCardProps {
   post: Post;
@@ -68,7 +65,6 @@ const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Da
     }
 };
 
-
 const CommentsDialog = ({ post }: { post: Post }) => {
     const { firestore } = useFirebase();
     const { user } = useUser();
@@ -76,14 +72,14 @@ const CommentsDialog = ({ post }: { post: Post }) => {
     const [userData, setUserData] = useState<UserType | null>(null);
 
     useEffect(() => {
-        if(user && firestore) {
+        if(user) {
             getCurrentUserProfile().then(profile => {
                 if(profile) {
                     setUserData(profile as UserType);
                 }
             })
         }
-    }, [user, firestore]);
+    }, [user]);
 
     const commentsCollection = useMemoFirebase(() => {
         if (!post || !firestore) return null;
@@ -155,9 +151,9 @@ const CommentsDialog = ({ post }: { post: Post }) => {
                 placeholder="اكتب تعليقاً..."
                 value={newComment}
                 onChange={e => setNewComment(e.target.value)}
-                disabled={!user}
+                disabled={!user || !userData}
             />
-            <Button type="submit" disabled={!user || !newComment.trim()}>نشر</Button>
+            <Button type="submit" disabled={!user || !newComment.trim() || !userData}>نشر</Button>
         </form>
       </div>
     </DialogContent>
@@ -190,6 +186,11 @@ export function PostCard({ post }: PostCardProps) {
 
     updateDoc(postRef, {
         likeIds: newIsLiked ? arrayUnion(user.uid) : arrayRemove(user.uid)
+    }).catch(err => {
+        console.error("Failed to update like status", err);
+        // Revert UI on error
+        setIsLiked(!newIsLiked);
+        setLikeCount(prev => !newIsLiked ? prev + 1 : prev - 1);
     });
   };
 

@@ -21,9 +21,8 @@ import {
 } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useFirebase, useUser } from '@/firebase';
-import { collection, serverTimestamp, doc, getDoc, addDoc } from 'firebase/firestore';
+import { collection, serverTimestamp, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Separator } from '@/components/ui/separator';
 import { type User as UserType } from '@/lib/types';
 import { getCurrentUserProfile } from '@/services/user-service';
 
@@ -49,6 +48,11 @@ export default function CreatePostPage() {
 
   const handleCreatePost = async () => {
     if (!content.trim() || !user || !firestore || !userData) {
+      toast({
+        title: 'خطأ',
+        description: 'لا يمكنك إنشاء منشور بدون محتوى أو بيانات مستخدم.',
+        variant: 'destructive',
+      });
       return;
     }
     setIsLoading(true);
@@ -75,6 +79,7 @@ export default function CreatePostPage() {
       });
       router.push('/home');
     } catch (error) {
+      console.error(error);
       toast({
         title: 'خطأ',
         description: 'لم نتمكن من نشر منشورك. حاول مرة أخرى.',
@@ -85,16 +90,18 @@ export default function CreatePostPage() {
     }
   };
 
-  if (!user) {
+  if (!user || !userData) {
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>الرجاء تسجيل الدخول</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <p>يجب عليك تسجيل الدخول لإنشاء منشور.</p>
-            </CardContent>
-        </Card>
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
+            <Card className="w-full max-w-sm">
+                <CardHeader>
+                    <CardTitle className="text-center">الرجاء تسجيل الدخول</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-center">يجب عليك تسجيل الدخول لإنشاء منشور.</p>
+                </CardContent>
+            </Card>
+        </div>
     );
   }
 
@@ -113,16 +120,16 @@ export default function CreatePostPage() {
             <main className="flex-1 p-4 space-y-4">
                  <div className="flex items-start gap-3">
                     <Avatar>
-                        <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
-                        <AvatarFallback>{user.displayName?.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={userData.avatarUrl || undefined} alt={userData.name || ''} />
+                        <AvatarFallback>{userData.name?.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
-                        <p className="font-semibold">{user.displayName}</p>
+                        <p className="font-semibold">{userData.name}</p>
                         <p className="text-sm text-muted-foreground">عام</p>
                     </div>
                 </div>
                 <Textarea
-                    placeholder={`بماذا تفكر يا ${user.displayName?.split(' ')[0] || ''}؟`}
+                    placeholder={`بماذا تفكر يا ${userData.name?.split(' ')[0] || ''}؟`}
                     className="w-full h-48 bg-transparent border-none focus-visible:ring-0 text-xl"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
