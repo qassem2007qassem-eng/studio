@@ -25,7 +25,6 @@ export default function CreateStoryPage() {
     const { toast } = useToast();
     const router = useRouter();
 
-    const { firestore, storage } = initializeFirebase();
     const { user } = useUser();
     const [userData, setUserData] = useState<UserType | null>(null);
 
@@ -51,7 +50,8 @@ export default function CreateStoryPage() {
     };
 
     const handleCreateStory = async () => {
-        if (!storyImage || !user || !firestore || !storage || !userData) {
+        const { firestore, storage } = initializeFirebase();
+        if (!storyImage || !user || !userData) {
             toast({
                 title: "خطأ",
                 description: "الرجاء اختيار صورة وتسجيل الدخول أولاً.",
@@ -142,7 +142,7 @@ export default function CreateStoryPage() {
                 />
             </CardContent>
             <CardFooter>
-                <Button onClick={handleCreateStory} disabled={isLoading || !storyImage} className="w-full">
+                <Button onClick={handleCreateStory} disabled={isLoading || !storyImage}>
                     {isLoading ? <Loader2 className="animate-spin" /> : "نشر القصة"}
                 </Button>
             </CardFooter>

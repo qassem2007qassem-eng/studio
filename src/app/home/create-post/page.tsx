@@ -24,7 +24,6 @@ import { cn } from '@/lib/utils';
 
 
 export default function CreatePostPage() {
-  const { firestore, storage } = initializeFirebase();
   const { user, isUserLoading } = useUser();
   const [userData, setUserData] = useState<UserType | null>(null);
   const [content, setContent] = useState('');
@@ -68,10 +67,19 @@ export default function CreatePostPage() {
 
 
   const handleCreatePost = async () => {
-    if ((!content.trim() && postImages.length === 0) || !user || !firestore || !storage || !userData) {
+    const { firestore, storage } = initializeFirebase();
+    if (!content.trim() && postImages.length === 0) {
       toast({
         title: 'خطأ',
         description: 'لا يمكنك إنشاء منشور فارغ.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (!user || !userData) {
+       toast({
+        title: 'خطأ',
+        description: 'الرجاء تسجيل الدخول أولاً.',
         variant: 'destructive',
       });
       return;

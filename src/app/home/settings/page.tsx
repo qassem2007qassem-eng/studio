@@ -22,8 +22,7 @@ import { getCurrentUserProfile, updateProfile } from "@/services/user-service";
 export default function SettingsPage() {
     const { toast } = useToast();
     const { user, isUserLoading } = useUser();
-    const { auth, storage } = initializeFirebase();
-
+    
     const [userData, setUserData] = useState<UserType | null>(null);
     const [name, setName] = useState("");
     const [username, setUsername] = useState("");
@@ -58,7 +57,8 @@ export default function SettingsPage() {
     }, [user, isUserLoading]);
 
     const handleSaveChanges = async () => {
-        if (!user || !userData || !auth || !storage) return;
+        const { auth, storage } = initializeFirebase();
+        if (!user || !userData) return;
 
         setIsSaving(true);
         try {
