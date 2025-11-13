@@ -14,7 +14,8 @@ import {
   increment, 
   getDoc,
   onSnapshot,
-  orderBy
+  orderBy,
+  Timestamp
 } from 'firebase/firestore';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,11 +24,30 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Loader2, Lock } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
-import { useUser, useCollection, useMemoFirebase, useFirebase } from "@/firebase";
+import { useUser, useFirebase } from "@/firebase";
 import { useEffect, useState, useMemo } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from 'next/navigation';
+
+const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Date | null => {
+    if (!timestamp) return null;
+    if (timestamp instanceof Timestamp) {
+        return timestamp.toDate();
+    }
+    if (timestamp instanceof Date) {
+        return timestamp;
+    }
+    try {
+        const date = new Date(timestamp);
+        if (isNaN(date.getTime())) {
+            return null;
+        }
+        return date;
+    } catch (e) {
+        return null;
+    }
+};
 
 export default function ProfilePage() {
   const params = useParams();
@@ -48,13 +68,10 @@ export default function ProfilePage() {
     return username ? decodeURIComponent(username).toLowerCase() : null;
   }, [params.username]);
 
-  // Effect to fetch the profile user's data based on the username in the URL
+  // Step 1: Fetch the profile user's data based on the username in the URL
   useEffect(() => {
     if (!firestore || !usernameFromUrl) {
-      if(!usernameFromUrl) {
-        setIsProfileUserLoading(false);
-        setProfileUser(null);
-      }
+      setIsProfileUserLoading(false);
       return;
     }
 
@@ -79,14 +96,11 @@ export default function ProfilePage() {
     return () => unsubscribe();
   }, [firestore, usernameFromUrl]);
 
-  // Effect to check follow status, depends on currentUser and profileUser
+  const isCurrentUserProfile = currentUser?.uid === profileUser?.id;
+  
+  // Step 2: Check follow status, depends on currentUser and profileUser
   useEffect(() => {
-    if (!currentUser || !profileUser || !firestore) {
-        setIsFollowStatusLoading(false);
-        return;
-    }
-     if (currentUser.uid === profileUser.id) {
-        setIsFollowing(false);
+    if (!currentUser || !profileUser || !firestore || isCurrentUserProfile) {
         setIsFollowStatusLoading(false);
         return;
     }
@@ -104,18 +118,18 @@ export default function ProfilePage() {
     });
 
     return () => unsubscribe();
-  }, [currentUser, profileUser, firestore]);
-
-  const isCurrentUserProfile = currentUser?.uid === profileUser?.id;
+  }, [currentUser, profileUser, firestore, isCurrentUserProfile]);
+  
   const canViewContent = isCurrentUserProfile || isFollowing;
 
-  // Effect to fetch user's posts, depends on profileUser and canViewContent
+  // Step 3: Fetch user's posts, depends on profileUser and canViewContent
   useEffect(() => {
     if (!firestore || !profileUser || !canViewContent) {
         setPostsLoading(false);
         setUserPosts([]);
         return;
     }
+
     setPostsLoading(true);
     const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id), orderBy("createdAt", "desc"));
     
@@ -164,9 +178,8 @@ export default function ProfilePage() {
         await batch.commit();
     } catch(error) {
         console.error("Failed to toggle follow", error);
-    } finally {
-       // isFollowStatusLoading will be set to false by the onSnapshot listener
-    }
+    } 
+    // No finally block to set loading to false, the onSnapshot listener will handle it.
   };
 
   if (isProfileUserLoading) {
@@ -251,7 +264,7 @@ export default function ProfilePage() {
           </div>
           <div className="mt-4 space-y-1">
             <h1 className="text-2xl font-bold font-headline">{profileUser.name}</h1>
-            <p className="text-sm text-muted-foreground">@{profileUser.username}</p>
+            <p className="text-sm text-muted-foreground">@{profileUser.username.toLowerCase()}</p>
             {canViewContent ? (
                  <p className="pt-2">{profileUser.bio || "لا يوجد نبذة تعريفية."}</p>
             ) : (

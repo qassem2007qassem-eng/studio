@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Heart, MessageCircle, MoreHorizontal, Share2, Flag } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
-import { type Post, type Comment } from "@/lib/types";
+import { type Post, type Comment, type User as UserType } from "@/lib/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -43,8 +43,15 @@ const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Da
     if (timestamp instanceof Date) {
         return timestamp;
     }
-    const date = new Date(timestamp);
-    return isNaN(date.getTime()) ? null : date;
+    try {
+        const date = new Date(timestamp);
+        if (isNaN(date.getTime())) {
+            return null;
+        }
+        return date;
+    } catch (e) {
+        return null;
+    }
 };
 
 
@@ -52,13 +59,13 @@ const CommentsDialog = ({ post }: { post: Post }) => {
     const { firestore } = useFirebase();
     const { user } = useUser();
     const [newComment, setNewComment] = useState("");
-    const [userData, setUserData] = useState<any>(null);
+    const [userData, setUserData] = useState<UserType | null>(null);
 
     useEffect(() => {
         if(user && firestore) {
             getDoc(doc(firestore, 'users', user.uid)).then(doc => {
                 if(doc.exists()) {
-                    setUserData(doc.data());
+                    setUserData(doc.data() as UserType);
                 }
             })
         }
@@ -195,7 +202,7 @@ export function PostCard({ post }: PostCardProps) {
                 <Link href={`/home/profile/${post.author.username?.toLowerCase()}`} className="font-semibold hover:underline">
                 {post.author.name}
                 </Link>
-                <p className="text-xs text-muted-foreground">@{post.author.username} · {postDate ? postDate.toLocaleString() : ''}</p>
+                <p className="text-xs text-muted-foreground">@{post.author.username?.toLowerCase()} · {postDate ? postDate.toLocaleString() : ''}</p>
             </div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>

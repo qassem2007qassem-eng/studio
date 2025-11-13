@@ -63,7 +63,7 @@ export function AppHeader() {
     router.push('/login');
   };
   
-  const username = userData?.username;
+  const username = userData?.username?.toLowerCase();
 
 
   return (
@@ -101,7 +101,7 @@ export function AppHeader() {
                       <span className="text-xs">الفيديو</span>
                 </Button>
                  <Button variant="ghost" className="h-12 w-full rounded-lg flex-col gap-1 text-muted-foreground" asChild>
-                     <Link href={`/home/profile/${username}`}>
+                     <Link href={username ? `/home/profile/${username}` : '/home'}>
                         <User className="h-6 w-6" />
                         <span className="text-xs">الملف الشخصي</span>
                     </Link>
@@ -146,7 +146,7 @@ export function AppHeader() {
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-64" align="end" forceMount>
                 <DropdownMenuItem asChild>
-                  <Link href={`/home/profile/${username}`}>
+                  <Link href={username ? `/home/profile/${username}` : '/home'}>
                     <div className="flex items-center gap-3">
                          <Avatar className="h-12 w-12">
                             <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />

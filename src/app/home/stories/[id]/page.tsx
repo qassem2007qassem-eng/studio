@@ -22,8 +22,15 @@ const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Da
     if (timestamp instanceof Date) {
         return timestamp;
     }
-    const date = new Date(timestamp);
-    return isNaN(date.getTime()) ? null : date;
+    try {
+        const date = new Date(timestamp);
+        if (isNaN(date.getTime())) {
+            return null;
+        }
+        return date;
+    } catch (e) {
+        return null;
+    }
 };
 
 
@@ -159,7 +166,7 @@ export default function StoryPage() {
                             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                          </Avatar>
                          <div>
-                            <Link href={`/home/profile/${user.username}`} className="font-bold text-white text-sm hover:underline">
+                            <Link href={`/home/profile/${user.username.toLowerCase()}`} className="font-bold text-white text-sm hover:underline">
                                 {story.user.name}
                             </Link>
                             <p className="text-xs text-gray-300">{storyDate?.toLocaleString()}</p>
