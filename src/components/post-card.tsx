@@ -28,7 +28,7 @@ import {
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { useFirebase, useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase";
-import { arrayRemove, arrayUnion, collection, doc, increment, orderBy, query } from "firebase/firestore";
+import { arrayRemove, arrayUnion, collection, doc, increment, orderBy, query, serverTimestamp } from "firebase/firestore";
 
 
 interface PostCardProps {
@@ -52,21 +52,21 @@ const CommentsDialog = ({ post }: { post: Post }) => {
 
     const { data: comments, isLoading } = useCollection<Comment>(commentsQuery);
 
-    const handleAddComment = (e: React.FormEvent) => {
+    const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();
         if (newComment.trim() && user && commentsCollection) {
-            const commentData = {
+             const commentData = {
+                authorId: user.uid,
+                postId: post.id,
                 author: {
                     name: user.displayName || 'مستخدم',
                     username: user.email?.split('@')[0] || 'user',
                     avatarUrl: user.photoURL || `https://i.pravatar.cc/150?u=${user.uid}`,
                 },
                 content: newComment.trim(),
-                createdAt: new Date().toISOString(),
-                authorId: user.uid,
-                postId: post.id,
+                createdAt: serverTimestamp(),
             };
-            addDocumentNonBlocking(commentsCollection, commentData);
+            await addDocumentNonBlocking(commentsCollection, commentData);
             setNewComment("");
         }
     };
@@ -93,7 +93,7 @@ const CommentsDialog = ({ post }: { post: Post }) => {
                                 </Link>
                                 <p className="text-sm">{comment.content}</p>
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">{new Date(comment.createdAt).toLocaleString()}</p>
+                            {comment.createdAt && <p className="text-xs text-muted-foreground mt-1">{(comment.createdAt as any).toDate().toLocaleString()}</p>}
                         </div>
                     </div>
                 )) : (
@@ -145,12 +145,15 @@ export function PostCard({ post }: PostCardProps) {
     });
   };
 
-  const commentsCount = useCollection(useMemoFirebase(() => {
+  const commentsCollectionQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'posts', post.id, 'comments')
-  }, [firestore, post.id]));
+  }, [firestore, post.id]);
 
-  const commentCount = commentsCount.data?.length ?? 0;
+  const { data: comments } = useCollection(commentsCollectionQuery);
+
+  const commentCount = comments?.length ?? 0;
+  const postCreatedAt = post.createdAt as any;
 
   return (
     <Dialog>
@@ -165,7 +168,7 @@ export function PostCard({ post }: PostCardProps) {
                 <Link href={`/home/profile/${post.author.username?.toLowerCase()}`} className="font-semibold hover:underline">
                 {post.author.name}
                 </Link>
-                <p className="text-xs text-muted-foreground">@{post.author.username} · {post.createdAt ? new Date(post.createdAt).toLocaleString() : ''}</p>
+                <p className="text-xs text-muted-foreground">@{post.author.username} · {postCreatedAt ? postCreatedAt.toDate().toLocaleString() : ''}</p>
             </div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>

@@ -30,37 +30,36 @@ import { useEffect, useState, useMemo } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from 'next/navigation';
-import { useFirestore } from "@/firebase/provider";
 
 export default function ProfilePage() {
   const params = useParams();
   const { firestore } = useFirebase();
   const { user: currentUser } = useUser();
   
-  const usernameFromUrl = useMemo(() => {
-    const username = Array.isArray(params.username) ? params.username[0] : params.username;
-    return username ? decodeURIComponent(username).toLowerCase() : '';
-  }, [params.username]);
-
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowStatusLoading, setIsFollowStatusLoading] = useState(true);
 
-  // Effect to fetch the profile user's data
+  const usernameFromUrl = useMemo(() => {
+    const username = Array.isArray(params.username) ? params.username[0] : params.username;
+    return username ? decodeURIComponent(username).toLowerCase() : null;
+  }, [params.username]);
+
+  // Effect to fetch the profile user's data based on the username in the URL
   useEffect(() => {
-    if (!usernameFromUrl || !firestore) {
+    if (!firestore || !usernameFromUrl) {
       setIsUserLoading(false);
       return;
     }
-    
+
     setIsUserLoading(true);
     const usersRef = collection(firestore, 'users');
     const userQuery = query(usersRef, where("username", "==", usernameFromUrl), limit(1));
 
-    const unsubscribe = onSnapshot(userQuery, (querySnapshot) => {
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0];
+    const unsubscribe = onSnapshot(userQuery, (snapshot) => {
+      if (!snapshot.empty) {
+        const userDoc = snapshot.docs[0];
         setProfileUser({ id: userDoc.id, ...userDoc.data() } as User);
       } else {
         setProfileUser(null);
@@ -73,11 +72,16 @@ export default function ProfilePage() {
     });
 
     return () => unsubscribe();
-  }, [usernameFromUrl, firestore]);
+  }, [firestore, usernameFromUrl]);
 
   // Effect to check follow status
   useEffect(() => {
-    if (!currentUser || !profileUser || currentUser.uid === profileUser.id) {
+    if (!currentUser || !profileUser || !firestore) {
+        setIsFollowStatusLoading(false);
+        return;
+    }
+     if (currentUser.uid === profileUser.id) {
+        setIsFollowing(false);
         setIsFollowStatusLoading(false);
         return;
     }
@@ -86,8 +90,8 @@ export default function ProfilePage() {
     const followDocId = `${currentUser.uid}_${profileUser.id}`;
     const followRef = doc(firestore, 'follows', followDocId);
 
-    const unsubscribe = onSnapshot(followRef, (doc) => {
-        setIsFollowing(doc.exists());
+    const unsubscribe = onSnapshot(followRef, (docSnap) => {
+        setIsFollowing(docSnap.exists());
         setIsFollowStatusLoading(false);
     }, (error) => {
         console.error("Error checking follow status:", error);
@@ -119,28 +123,28 @@ export default function ProfilePage() {
 
     const batch = writeBatch(firestore);
 
-    if (isFollowing) {
-      // --- Unfollow Logic ---
-      batch.delete(followRef);
-      batch.update(currentUserRef, { followingCount: increment(-1) });
-      batch.update(profileUserRef, { followerCount: increment(-1) });
-    } else {
-      // --- Follow Logic ---
-      batch.set(followRef, {
-        followerId: currentUser.uid,
-        followeeId: profileUser.id,
-        createdAt: serverTimestamp()
-      });
-      batch.update(currentUserRef, { followingCount: increment(1) });
-      batch.update(profileUserRef, { followerCount: increment(1) });
-    }
-
     try {
+        const followDoc = await getDoc(followRef);
+        if (followDoc.exists()) {
+            // Unfollow
+            batch.delete(followRef);
+            batch.update(currentUserRef, { followingCount: increment(-1) });
+            batch.update(profileUserRef, { followerCount: increment(-1) });
+        } else {
+            // Follow
+            batch.set(followRef, {
+                followerId: currentUser.uid,
+                followeeId: profileUser.id,
+                createdAt: serverTimestamp()
+            });
+            batch.update(currentUserRef, { followingCount: increment(1) });
+            batch.update(profileUserRef, { followerCount: increment(1) });
+        }
         await batch.commit();
     } catch(error) {
         console.error("Failed to toggle follow", error);
     } finally {
-        // onSnapshot will handle the state update
+       // isFollowStatusLoading will be set to false by the onSnapshot listener
     }
   };
 
@@ -282,3 +286,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    

@@ -28,10 +28,10 @@ export default function HomePage() {
 
   return (
     <>
-      <CreatePostTrigger />
-      <Separator />
       <StoriesCarousel />
-      <div className="space-y-4">
+      <Separator />
+      <CreatePostTrigger />
+      <div className="space-y-4 pt-6">
         {isLoading && (
           <>
             <Skeleton className="h-48 w-full" />
@@ -45,3 +45,5 @@ export default function HomePage() {
     </>
   );
 }
+
+    
