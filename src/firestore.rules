@@ -1,0 +1,142 @@
+
+/**
+ * @fileoverview Firestore Security Rules for the Syrian Student Hub application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a follower-based privacy model where applicable.
+ *
+ * Data Structure & Rules Summary:
+ * - /users/{userId}: User profiles. Users can update their own data.
+ *   Follow logic is handled by allowing users to modify the 'followers' array of others,
+ *   but only to add/remove their own UID.
+ * - /posts/{postId}: Posts can be public or restricted. Write access is for the author.
+ * - /stories/{storyId}: Stories are restricted to followers of the author.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Checks if the user is signed in.
+     * @return {boolean} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the request is made by the owner of the resource.
+     * @param {string} userId The user ID to compare with the request's auth UID.
+     * @return {boolean} True if the user is the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if a user is following another user.
+     * @param {string} userId The ID of the user whose followers list to check.
+     * @return {boolean} True if the requesting user is in the target user's followers list.
+     */
+    function isFollower(userId) {
+        return isSignedIn() && get(/databases/$(database)/documents/users/$(userId)).data.followers.hasAny([request.auth.uid]);
+    }
+    
+    /**
+     * @description User profiles. Read access is conditional.
+     * @path /users/{userId}
+     */
+    match /users/{userId} {
+      allow read, list: if isSignedIn();
+      
+      // Allow a user to update their own document completely.
+      // Also, allow any signed-in user to modify the 'followers' list
+      // only to add or remove their own UID. This enables follow/unfollow.
+      allow update: if isOwner(userId) || (
+        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers']) &&
+        (
+           (
+             request.resource.data.followers.size() == resource.data.followers.size() + 1 &&
+             request.resource.data.followers.hasAll(resource.data.followers) &&
+             request.resource.data.followers.hasAny([request.auth.uid])
+           ) ||
+           (
+             resource.data.followers.size() == request.resource.data.followers.size() + 1 &&
+             resource.data.followers.hasAll(request.resource.data.followers) &&
+             !resource.data.followers.hasAny([request.auth.uid]) // Ensure they are removing themselves
+           )
+        )
+      );
+
+      allow create: if isOwner(userId);
+      allow delete: if false; // Generally, don't allow users to delete their accounts from the client.
+    }
+    
+    /**
+     * @description Posts. Publicly readable for now.
+     * @path /posts/{postId}
+     */
+    match /posts/{postId} {
+        allow get, list: if true;
+        allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid;
+        allow update: if isSignedIn() && (
+            (resource.data.authorId == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'imageUrls', 'updatedAt', 'privacy', 'commenting'])) ||
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likeIds'])
+        );
+        allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+    }
+
+    /**
+     * @description Comments. Publicly readable.
+     * @path /posts/{postId}/comments/{commentId}
+     */
+    match /posts/{postId}/comments/{commentId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && request.resource.data.authorId == request.auth.uid && request.resource.data.postId == postId;
+      allow update: if isSignedIn() && resource.data.authorId == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+    }
+
+    /**
+     * @description User-specific notifications.
+     * @path /users/{userId}/notifications/{notificationId}
+     */
+    match /users/{userId}/notifications/{notificationId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    /**
+     * @description Reports. Write-only for signed-in users.
+     * @path /reports/{reportId}
+     */
+    match /reports/{reportId} {
+      allow read, list, update, delete: if false;
+      allow create: if isSignedIn();
+    }
+    
+    /**
+     * @description Stories. Readable only by owner or followers.
+     * @path /stories/{storyId}
+     */
+    match /stories/{storyId} {
+      // Allow list for queries, but individual read access is checked by `get` rule below.
+      allow list: if isSignedIn();
+      allow get: if isOwner(resource.data.userId) || isFollower(resource.data.userId);
+
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      
+      // Allow updates only for viewers and likes from signed-in users.
+      allow update: if isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewers', 'likeIds']);
+      
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    /**
+     * @description User-specific summaries.
+     * @path /users/{userId}/summaries/{summaryId}
+     */
+    match /users/{userId}/summaries/{summaryId} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}
