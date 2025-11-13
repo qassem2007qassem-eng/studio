@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { PlusCircle, MessageSquarePlus } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import { ThemeToggle } from './theme-toggle';
@@ -19,13 +19,9 @@ export function AppHeader() {
         </Link>
         <div className="flex items-center justify-end gap-2">
           <ThemeToggle />
-          <Button variant="ghost" size="icon" onClick={() => router.push('/home/create-post')}>
-              <PlusCircle />
-              <span className="sr-only">Create Post</span>
-          </Button>
            <Button variant="ghost" size="icon" disabled>
-              <MessageSquarePlus />
-              <span className="sr-only">Messages</span>
+              <Bell />
+              <span className="sr-only">Notifications</span>
           </Button>
         </div>
       </div>

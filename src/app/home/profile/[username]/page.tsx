@@ -23,7 +23,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from 'next/navigation';
-import { getUserByUsername, followUser, unfollowUser, checkIfFollowing, getCurrentUserProfile } from "@/services/user-service";
+import { getUserByUsername, followUser, unfollowUser, checkIfFollowing } from "@/services/user-service";
 
 const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Date | null => {
     if (!timestamp) return null;
@@ -61,7 +61,6 @@ export default function ProfilePage() {
 
   const usernameFromUrl = useMemo(() => {
     const username = Array.isArray(params.username) ? params.username[0] : params.username;
-    // CRITICAL FIX: Always convert to lowercase for lookup
     return username ? decodeURIComponent(username).toLowerCase() : null;
   }, [params.username]);
 
@@ -70,49 +69,58 @@ export default function ProfilePage() {
       return currentUser.uid === profileUser.id;
   }, [currentUser, profileUser]);
 
-
   const fetchProfileData = useCallback(async () => {
     if (!usernameFromUrl || !firestore) return;
 
     setIsProfileUserLoading(true);
-    setPostsLoading(true);
-    setIsFollowStatusLoading(true);
-
     const user = await getUserByUsername(usernameFromUrl);
     setProfileUser(user);
     setIsProfileUserLoading(false);
-
-    if (user && currentUser) {
+    
+    if(user && currentUser) {
+        setIsFollowStatusLoading(true);
         const followingStatus = await checkIfFollowing(user.id);
         setIsFollowing(followingStatus);
+        setIsFollowStatusLoading(false);
+    } else {
+        setIsFollowStatusLoading(false);
     }
-    setIsFollowStatusLoading(false);
-    
-    if(user) {
-        const isOwnProfile = currentUser?.uid === user.id;
-        if(isOwnProfile || isFollowing) {
-             try {
-                const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", user.id), orderBy("createdAt", "desc"));
-                const snapshot = await getDocs(postsQuery);
-                const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-                setUserPosts(posts);
-            } catch (e) {
-                console.error("Error fetching posts:", e);
-                setUserPosts([]);
-            }
-        } else {
-            setUserPosts([]);
-        }
+  }, [usernameFromUrl, firestore, currentUser]);
+
+  const fetchPosts = useCallback(async () => {
+    if (!profileUser || !firestore) return;
+
+    const canView = isCurrentUserProfile || isFollowing;
+    if (!canView) {
+        setUserPosts([]);
+        setPostsLoading(false);
+        return;
     }
-    setPostsLoading(false);
 
-
-  }, [usernameFromUrl, firestore, currentUser, isFollowing]);
+    setPostsLoading(true);
+    try {
+        const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id), orderBy("createdAt", "desc"));
+        const snapshot = await getDocs(postsQuery);
+        const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+        setUserPosts(posts);
+    } catch (e) {
+        console.error("Error fetching posts:", e);
+        setUserPosts([]);
+    } finally {
+        setPostsLoading(false);
+    }
+  }, [profileUser, firestore, isCurrentUserProfile, isFollowing]);
 
   useEffect(() => {
     fetchProfileData();
   }, [fetchProfileData]);
-  
+
+  useEffect(() => {
+    if(!isProfileUserLoading && profileUser){
+      fetchPosts();
+    }
+  }, [isProfileUserLoading, profileUser, fetchPosts]);
+
   const canViewContent = isCurrentUserProfile || isFollowing;
 
   const handleFollowToggle = async () => {
@@ -128,7 +136,6 @@ export default function ProfilePage() {
           await followUser(profileUser.id);
           setIsFollowing(true);
       }
-       // Refetch profile data to update follower counts
        const updatedUser = await getUserByUsername(usernameFromUrl);
        setProfileUser(updatedUser);
     } catch (e) {

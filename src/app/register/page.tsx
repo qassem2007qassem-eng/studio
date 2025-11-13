@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useAuth } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -61,14 +61,30 @@ export default function RegisterPage() {
 
     const handleCreateAccount = async () => {
         setIsLoading(true);
-        const email = `${formData.username.toLowerCase()}@syrianstudenthub.com`;
-        
+
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, formData.password);
+            // 1. Check if username is already taken
+            const usersRef = collection(firestore, "users");
+            const q = query(usersRef, where("username", "==", formData.username.toLowerCase()));
+            const querySnapshot = await getDocs(q);
+
+            if (!querySnapshot.empty) {
+                toast({
+                    title: "خطأ في إنشاء الحساب",
+                    description: "اسم المستخدم هذا مستخدم بالفعل. الرجاء اختيار اسم آخر.",
+                    variant: "destructive",
+                });
+                setIsLoading(false);
+                return;
+            }
+
+            // 2. Create user with a unique email and the provided password
+            const uniqueEmail = `${formData.username.toLowerCase()}_${Date.now()}@syrianstudenthub.com`;
+            const userCredential = await createUserWithEmailAndPassword(auth, uniqueEmail, formData.password);
             const user = userCredential.user;
             
+            // 3. Upload avatar if it exists
             let photoURL = `https://i.pravatar.cc/150?u=${user.uid}`;
-
             if (formData.avatar) {
                 const storage = getStorage();
                 const avatarRef = ref(storage, `avatars/${user.uid}`);
@@ -76,16 +92,18 @@ export default function RegisterPage() {
                 photoURL = await getDownloadURL(snapshot.ref);
             }
 
+            // 4. Update Firebase Auth profile
             await updateProfile(user, {
                 displayName: formData.fullName,
                 photoURL: photoURL
             });
             
+            // 5. Create user document in Firestore
             const userDocRef = doc(firestore, "users", user.uid);
             const userData = {
                 id: user.uid,
                 username: formData.username.toLowerCase(),
-                email: user.email,
+                email: user.email, // Store the unique email
                 name: formData.fullName,
                 dob: formData.dob ? format(formData.dob, 'yyyy-MM-dd') : null,
                 gender: formData.gender,
@@ -109,9 +127,7 @@ export default function RegisterPage() {
         } catch (error: any) {
             setIsLoading(false);
             let description = "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.";
-            if (error.code === 'auth/email-already-in-use') {
-                description = 'اسم المستخدم هذا مستخدم بالفعل. الرجاء اختيار اسم آخر.';
-            } else if (error.code === 'auth/weak-password') {
+            if (error.code === 'auth/weak-password') {
                 description = 'كلمة المرور ضعيفة جدًا. يجب أن تتكون من 6 أحرف على الأقل.';
             }
             toast({

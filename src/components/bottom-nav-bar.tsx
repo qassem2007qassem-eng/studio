@@ -3,16 +3,19 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, User, Users, Bell, Settings } from 'lucide-react';
+import { Home, User, Users, PlusCircle, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/firebase';
 import { useEffect, useState } from 'react';
 import { type User as UserType } from '@/lib/types';
 import { getCurrentUserProfile } from '@/services/user-service';
 import { Skeleton } from './ui/skeleton';
+import { Button } from './ui/button';
+import { useRouter } from 'next/navigation';
 
 export function BottomNavBar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isUserLoading } = useUser();
   const [userData, setUserData] = useState<UserType | null>(null);
 
@@ -31,8 +34,8 @@ export function BottomNavBar() {
   const navItems = [
     { href: '/home', icon: Home, label: 'الرئيسية' },
     { href: '/home/friends', icon: Users, label: 'الأصدقاء' },
+    { href: '/home/create-post', icon: PlusCircle, label: 'إنشاء', isSpecial: true },
     { href: `/home/profile/${username}`, icon: User, label: 'حسابي', requiresAuth: true },
-    { href: '/home/notifications', icon: Bell, label: 'الإشعارات', disabled: true },
     { href: '/home/settings', icon: Settings, label: 'الإعدادات', requiresAuth: true },
   ];
 
@@ -62,6 +65,22 @@ export function BottomNavBar() {
             if (item.requiresAuth && !username) return null;
 
             const isActive = pathname === item.href;
+            
+            if (item.isSpecial) {
+              return (
+                <div key={item.href} className="flex justify-center">
+                   <Button 
+                      size="lg" 
+                      className="h-14 w-14 rounded-full shadow-lg"
+                      onClick={() => router.push(item.href)}
+                    >
+                      <item.icon className="h-8 w-8" />
+                      <span className="sr-only">{item.label}</span>
+                   </Button>
+                </div>
+              )
+            }
+
             return (
               <Link
                 key={item.href}
