@@ -19,11 +19,12 @@ import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Loader2, Lock } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser, useFirebase } from "@/firebase";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from 'next/navigation';
 import { getUserByUsername, followUser, unfollowUser, checkIfFollowing } from "@/services/user-service";
+import { formatDistanceToNow } from "@/lib/utils";
 
 const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Date | null => {
     if (!timestamp) return null;
@@ -99,10 +100,10 @@ export default function ProfilePage() {
         setIsFollowing(followingStatus);
         setIsFollowStatusLoading(false);
     };
-    if (profileUser) {
+    if (profileUser && !isCurrentUserLoading) {
         checkFollow();
     }
-  }, [currentUser, profileUser, isCurrentUserProfile]);
+  }, [currentUser, profileUser, isCurrentUserProfile, isCurrentUserLoading]);
 
 
   const canViewContent = useMemo(() => {
@@ -302,5 +303,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    

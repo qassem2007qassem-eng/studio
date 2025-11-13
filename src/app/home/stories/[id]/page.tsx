@@ -8,9 +8,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useDoc, useCollection, useMemoFirebase, useFirebase } from "@/firebase";
-import { doc, collection, query, where, Timestamp, orderBy } from "firebase/firestore";
-import { type Story, type User } from "@/lib/types";
+import { useCollection, useMemoFirebase, useFirebase } from "@/firebase";
+import { collection, query, where, Timestamp, orderBy } from "firebase/firestore";
+import { type Story } from "@/lib/types";
+import { formatDistanceToNow } from "@/lib/utils";
 
 const STORY_DURATION = 10000; // 10 seconds per story
 
@@ -73,7 +74,7 @@ export default function StoryPage() {
     // This effect handles the timer and auto-advancing stories
     useEffect(() => {
         if (currentStoryIndex === -1 || !storyPlaylist) {
-            if(!playlistLoading) router.push('/home');
+            if(!playlistLoading && storyId) router.push('/home'); // Go home if story not found or expired
             return;
         }
         
@@ -91,7 +92,7 @@ export default function StoryPage() {
             clearInterval(progressInterval);
             clearTimeout(storyTimeout);
         };
-    }, [currentStoryIndex, storyPlaylist, playlistLoading, router]);
+    }, [currentStoryIndex, storyPlaylist, playlistLoading, router, storyId]);
 
     const handleNextStory = () => {
         if (storyPlaylist && currentStoryIndex < storyPlaylist.length - 1) {
@@ -114,10 +115,9 @@ export default function StoryPage() {
     }
     
     const story = storyPlaylist?.[currentStoryIndex];
-    const user = story?.user;
-
-    if (!story || !user) {
-        // This can happen briefly while redirecting
+    
+    if (!story || !story.user) {
+        // This can happen briefly while redirecting or if data is inconsistent
         return null;
     }
 
@@ -162,14 +162,14 @@ export default function StoryPage() {
                     <div className="flex items-center justify-between">
                        <div className="flex items-center gap-3">
                          <Avatar className="h-10 w-10 border-2 border-white">
-                            <AvatarImage src={user.avatarUrl} alt={user.name} />
-                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                            <AvatarImage src={story.user.avatarUrl} alt={story.user.name} />
+                            <AvatarFallback>{story.user.name.charAt(0)}</AvatarFallback>
                          </Avatar>
                          <div>
-                            <Link href={`/home/profile/${user.username.toLowerCase()}`} className="font-bold text-white text-sm hover:underline">
+                            <Link href={`/home/profile/${story.user.username.toLowerCase()}`} className="font-bold text-white text-sm hover:underline">
                                 {story.user.name}
                             </Link>
-                            <p className="text-xs text-gray-300">{storyDate?.toLocaleString()}</p>
+                            <p className="text-xs text-gray-300">{storyDate ? formatDistanceToNow(storyDate) : ''}</p>
                          </div>
                        </div>
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" asChild>

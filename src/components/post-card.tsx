@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
+import { cn, formatDistanceToNow } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +41,7 @@ import {
     updateDoc
 } from "firebase/firestore";
 import { getCurrentUserProfile } from "@/services/user-service";
+import { Skeleton } from "./ui/skeleton";
 
 interface PostCardProps {
   post: Post;
@@ -136,7 +137,7 @@ const CommentsDialog = ({ post }: { post: Post }) => {
                                     </Link>
                                     <p className="text-sm">{comment.content}</p>
                                 </div>
-                                {commentDate && <p className="text-xs text-muted-foreground mt-1">{commentDate.toLocaleString()}</p>}
+                                {commentDate && <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(commentDate)}</p>}
                             </div>
                         </div>
                     )
@@ -164,16 +165,16 @@ export function PostCard({ post }: PostCardProps) {
   const { user } = useUser();
   const { firestore } = useFirebase();
   
-  const [isLiked, setIsLiked] = useState(user && post.likeIds?.includes(user.uid));
-  const [likeCount, setLikeCount] = useState(post.likeIds?.length || 0);
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
 
   useEffect(() => {
-    setIsLiked(user && post.likeIds?.includes(user.uid));
+    setIsLiked(!!user && !!post.likeIds?.includes(user.uid));
     setLikeCount(post.likeIds?.length || 0);
   }, [post, user]);
 
   const postRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !post.id) return null;
     return doc(firestore, 'posts', post.id)
   }, [firestore, post.id]);
 
@@ -195,7 +196,7 @@ export function PostCard({ post }: PostCardProps) {
   };
 
   const commentsCollectionQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !post.id) return null;
     return collection(firestore, 'posts', post.id, 'comments')
   }, [firestore, post.id]);
 
@@ -204,6 +205,10 @@ export function PostCard({ post }: PostCardProps) {
   const commentCount = comments?.length ?? 0;
   const postDate = safeToDate(post.createdAt);
 
+  if (!post || !post.author) {
+    return <Card><CardContent><Skeleton className="h-24 w-full" /></CardContent></Card>;
+  }
+
   return (
     <Dialog>
         <Card>
@@ -211,13 +216,13 @@ export function PostCard({ post }: PostCardProps) {
             <div className="flex items-center gap-3">
             <Avatar>
                 <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
-                <AvatarFallback>{post.author.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{post.author.name?.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="grid gap-0.5">
                 <Link href={`/home/profile/${post.author.username?.toLowerCase()}`} className="font-semibold hover:underline">
                 {post.author.name}
                 </Link>
-                <p className="text-xs text-muted-foreground">@{post.author.username?.toLowerCase()} · {postDate ? postDate.toLocaleString() : ''}</p>
+                <p className="text-xs text-muted-foreground">@{post.author.username?.toLowerCase()} · {postDate ? formatDistanceToNow(postDate) : ''}</p>
             </div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
