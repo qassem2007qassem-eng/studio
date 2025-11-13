@@ -47,7 +47,7 @@ export default function ProfilePage() {
   // Effect to fetch the profile user's data based on the username in the URL
   useEffect(() => {
     if (!firestore || !usernameFromUrl) {
-      setIsProfileUserLoading(false);
+      if(!usernameFromUrl) setIsProfileUserLoading(false);
       return;
     }
 

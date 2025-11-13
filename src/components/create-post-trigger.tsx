@@ -1,19 +1,36 @@
+
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useUser } from "@/firebase";
+import { useFirebase, useUser } from "@/firebase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { type User as UserType } from "@/lib/types";
+import { doc, getDoc } from "firebase/firestore";
 
 export function CreatePostTrigger() {
   const { user } = useUser();
+  const { firestore } = useFirebase();
   const router = useRouter();
+  const [userData, setUserData] = useState<UserType | null>(null);
 
-  if (!user) {
+  useEffect(() => {
+    if (user && firestore) {
+      const userDocRef = doc(firestore, 'users', user.uid);
+      getDoc(userDocRef).then((doc) => {
+        if (doc.exists()) {
+          setUserData(doc.data() as UserType);
+        }
+      });
+    }
+  }, [user, firestore]);
+
+  if (!user || !userData) {
     return null;
   }
 
-  const username = user.email?.split('@')[0]?.toLowerCase();
+  const username = userData.username;
 
   return (
     <div className="flex items-center gap-3 p-4 bg-card rounded-lg border">
@@ -34,3 +51,5 @@ export function CreatePostTrigger() {
     </div>
   );
 }
+
+    

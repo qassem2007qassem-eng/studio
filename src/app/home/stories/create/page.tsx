@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,9 +10,10 @@ import { ImageIcon, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { useFirebase, useUser, addDocumentNonBlocking } from "@/firebase";
-import { collection, serverTimestamp } from "firebase/firestore";
+import { collection, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import { getStorage, ref, uploadString, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
+import { type User as UserType } from "@/lib/types";
 
 export default function CreateStoryPage() {
     const [storyImage, setStoryImage] = useState<string | null>(null);
@@ -24,6 +25,18 @@ export default function CreateStoryPage() {
 
     const { firestore } = useFirebase();
     const { user } = useUser();
+    const [userData, setUserData] = useState<UserType | null>(null);
+
+    useEffect(() => {
+        if (user && firestore) {
+            const userDocRef = doc(firestore, 'users', user.uid);
+            getDoc(userDocRef).then((doc) => {
+                if (doc.exists()) {
+                    setUserData(doc.data() as UserType);
+                }
+            });
+        }
+    }, [user, firestore]);
 
     const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -37,7 +50,7 @@ export default function CreateStoryPage() {
     };
 
     const handleCreateStory = async () => {
-        if (!storyImage || !user || !firestore) {
+        if (!storyImage || !user || !firestore || !userData) {
             toast({
                 title: "خطأ",
                 description: "الرجاء اختيار صورة وتسجيل الدخول أولاً.",
@@ -58,9 +71,9 @@ export default function CreateStoryPage() {
             const storyData = {
                 userId: user.uid,
                 user: {
-                    name: user.displayName || 'مستخدم',
-                    username: user.email?.split('@')[0] || 'user',
-                    avatarUrl: user.photoURL || '',
+                    name: userData.name,
+                    username: userData.username,
+                    avatarUrl: userData.avatarUrl,
                 },
                 contentUrl: downloadURL,
                 caption: storyText,

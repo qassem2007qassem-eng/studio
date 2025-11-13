@@ -27,15 +27,34 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Logo } from '@/components/logo';
 import { ThemeToggle } from './theme-toggle';
-import { useUser, useAuth } from '@/firebase';
+import { useUser, useAuth, useFirebase } from '@/firebase';
 import { Skeleton } from './ui/skeleton';
 import { useRouter } from 'next/navigation';
 import { Separator } from './ui/separator';
+import { doc, getDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { type User as UserType } from '@/lib/types';
+
 
 export function AppHeader() {
   const { user, isUserLoading } = useUser();
+  const { firestore } = useFirebase();
   const auth = useAuth();
   const router = useRouter();
+  const [userData, setUserData] = useState<UserType | null>(null);
+
+  useEffect(() => {
+    if(user && firestore) {
+      const userDocRef = doc(firestore, 'users', user.uid);
+      getDoc(userDocRef).then((doc) => {
+        if(doc.exists()) {
+          setUserData(doc.data() as UserType);
+        }
+      })
+    }
+  }, [user, firestore])
+
+
   const mockNotifications: any[] = [];
 
   const handleLogout = () => {
@@ -45,7 +64,7 @@ export function AppHeader() {
     router.push('/login');
   };
   
-  const username = user?.email?.split('@')[0]?.toLowerCase();
+  const username = userData?.username;
 
 
   return (
@@ -124,9 +143,9 @@ export function AppHeader() {
             </PopoverContent>
           </Popover>
 
-          {isUserLoading ? (
+          {isUserLoading || (user && !userData) ? (
             <Skeleton className="h-10 w-10 rounded-full" />
-          ) : user ? (
+          ) : user && userData ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">

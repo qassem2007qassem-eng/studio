@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ImageIcon,
@@ -21,20 +21,34 @@ import {
 } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useFirebase, useUser, addDocumentNonBlocking } from '@/firebase';
-import { collection, serverTimestamp } from 'firebase/firestore';
+import { collection, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { type User as UserType } from '@/lib/types';
+
 
 export default function CreatePostPage() {
   const { firestore } = useFirebase();
   const { user } = useUser();
+  const [userData, setUserData] = useState<UserType | null>(null);
   const [content, setContent] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
+  useEffect(() => {
+    if (user && firestore) {
+      const userDocRef = doc(firestore, 'users', user.uid);
+      getDoc(userDocRef).then((doc) => {
+        if (doc.exists()) {
+          setUserData(doc.data() as UserType);
+        }
+      });
+    }
+  }, [user, firestore]);
+
   const handleCreatePost = async () => {
-    if (!content.trim() || !user || !firestore) {
+    if (!content.trim() || !user || !firestore || !userData) {
       return;
     }
     setIsLoading(true);
@@ -43,9 +57,9 @@ export default function CreatePostPage() {
       const postsCollection = collection(firestore, 'posts');
       const postData = {
         author: {
-          name: user.displayName || 'مستخدم',
-          username: user.email?.split('@')[0]?.toLowerCase() || 'user',
-          avatarUrl: user.photoURL || `https://i.pravatar.cc/150?u=${user.uid}`,
+          name: userData.name,
+          username: userData.username,
+          avatarUrl: userData.avatarUrl,
         },
         authorId: user.uid,
         content: content.trim(),
@@ -136,3 +150,5 @@ export default function CreatePostPage() {
     </div>
   );
 }
+
+    

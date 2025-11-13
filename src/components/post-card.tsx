@@ -60,7 +60,7 @@ const CommentsDialog = ({ post }: { post: Post }) => {
                 postId: post.id,
                 author: {
                     name: user.displayName || 'مستخدم',
-                    username: user.email?.split('@')[0] || 'user',
+                    username: user.email?.split('@')[0].toLowerCase() || 'user',
                     avatarUrl: user.photoURL || `https://i.pravatar.cc/150?u=${user.uid}`,
                 },
                 content: newComment.trim(),
