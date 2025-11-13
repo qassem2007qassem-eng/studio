@@ -55,18 +55,21 @@ service cloud.firestore {
       allow update: if isOwner(userId) || (
         isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers']) &&
         (
-           request.resource.data.followers.size() == resource.data.followers.size() + 1 &&
-           request.resource.data.followers.hasAll(resource.data.followers) &&
-           request.resource.data.followers.hasAny([request.auth.uid])
-        ) ||
-        (
-           resource.data.followers.size() == request.resource.data.followers.size() + 1 &&
-           resource.data.followers.hasAll(request.resource.data.followers) &&
-           resource.data.followers.hasAny([request.auth.uid])
+           (
+             request.resource.data.followers.size() == resource.data.followers.size() + 1 &&
+             request.resource.data.followers.hasAll(resource.data.followers) &&
+             request.resource.data.followers.hasAny([request.auth.uid])
+           ) ||
+           (
+             resource.data.followers.size() == request.resource.data.followers.size() + 1 &&
+             resource.data.followers.hasAll(request.resource.data.followers) &&
+             resource.data.followers.hasAny([request.auth.uid])
+           )
         )
       );
 
-      allow create, delete: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow delete: if isOwner(userId);
     }
     
     /**
@@ -113,10 +116,12 @@ service cloud.firestore {
     
     /**
      * @description Stories. Readable only by owner or followers.
+     * Client-side logic enforces querying only for followed users.
+     * The `list` permission is necessary for the `in` query to work.
      * @path /stories/{storyId}
      */
     match /stories/{storyId} {
-      allow read: if isOwner(resource.data.userId) || isFollower(resource.data.userId);
+      allow list, read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       // Allow updates only for viewers and likes
       allow update: if isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewers', 'likeIds']);

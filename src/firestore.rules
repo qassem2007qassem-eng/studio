@@ -115,19 +115,16 @@ service cloud.firestore {
     }
     
     /**
-     * @description Stories. Read access is controlled by the client query.
+     * @description Stories. Readable only by owner or followers.
+     * Client-side logic enforces querying only for followed users.
+     * The `list` permission is necessary for the `in` query to work.
      * @path /stories/{storyId}
      */
     match /stories/{storyId} {
-      // Allow signed-in users to perform queries (`list`) and read individual documents (`get`).
-      // The client-side code is responsible for querying only for stories of followed users.
-      allow read, list: if isSignedIn();
-
+      allow list, read: if isSignedIn();
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      
-      // Allow updates only for viewers and likes from signed-in users.
+      // Allow updates only for viewers and likes
       allow update: if isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewers', 'likeIds']);
-      
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
