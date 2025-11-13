@@ -93,7 +93,12 @@ export default function SettingsPage() {
 
             await updateProfile(updatedUserData);
             
-            setUserData(prev => ({...prev, ...updatedUserData} as UserType));
+            // Optimistically update local state to reflect changes immediately
+            const updatedFullUser = { ...userData, ...updatedUserData };
+            setUserData(updatedFullUser as UserType);
+            setAvatarUrl(updatedFullUser.avatarUrl);
+            setCoverUrl(updatedFullUser.coverUrl);
+
 
             toast({
                 title: "تم الحفظ",

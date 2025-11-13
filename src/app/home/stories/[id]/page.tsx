@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useCollection, useMemoFirebase, useFirebase } from "@/firebase";
 import { collection, query, where, Timestamp, orderBy } from "firebase/firestore";
 import { type Story } from "@/lib/types";
-import { formatDistanceToNow } from "@/lib/utils";
+import { formatDistanceToNow, cn } from "@/lib/utils";
 
 const STORY_DURATION = 10000; // 10 seconds per story
 
@@ -73,8 +73,10 @@ export default function StoryPage() {
 
     // This effect handles the timer and auto-advancing stories
     useEffect(() => {
-        if (currentStoryIndex === -1 || !storyPlaylist) {
-            if(!playlistLoading && storyId) router.push('/home'); // Go home if story not found or expired
+        if (currentStoryIndex === -1 || !storyPlaylist || playlistLoading) {
+             if(!playlistLoading && storyId && !storyPlaylist?.find(s => s.id === storyId)) {
+                router.push('/home'); // Go home if story not found or expired
+             }
             return;
         }
         
@@ -117,7 +119,6 @@ export default function StoryPage() {
     const story = storyPlaylist?.[currentStoryIndex];
     
     if (!story || !story.user) {
-        // This can happen briefly while redirecting or if data is inconsistent
         return null;
     }
 
@@ -134,15 +135,23 @@ export default function StoryPage() {
                 <ChevronLeft className="h-8 w-8" />
             </Button>
             
-            <div className="relative aspect-[9/16] w-full max-w-md h-full max-h-[90vh] rounded-2xl overflow-hidden bg-muted">
-                <Image
-                    src={story.contentUrl}
-                    alt={`Story by ${story.user.name}`}
-                    fill
-                    className="object-cover"
-                    priority
-                    key={story.id}
-                />
+            <div className={cn("relative aspect-[9/16] w-full max-w-md h-full max-h-[90vh] rounded-2xl overflow-hidden flex items-center justify-center", story.type === 'text' ? story.backgroundColor : 'bg-muted')}>
+                {story.type === 'image' && story.contentUrl && (
+                    <Image
+                        src={story.contentUrl}
+                        alt={`Story by ${story.user.name}`}
+                        fill
+                        className="object-cover"
+                        priority
+                        key={story.id}
+                    />
+                )}
+                {story.type === 'text' && (
+                    <p className="text-white font-bold text-3xl text-center p-8">
+                        {story.text}
+                    </p>
+                )}
+
 
                 <div className="absolute top-0 left-0 right-0 p-4 z-10 bg-gradient-to-b from-black/50 to-transparent">
                     <div className="flex gap-1 mb-2">

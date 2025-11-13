@@ -38,7 +38,7 @@ export interface Post {
       avatarUrl?: string;
   };
   content: string;
-  imageUrls?: string[];
+  imageUrls: string[];
   createdAt: Timestamp;
   likeIds?: string[];
   updatedAt?: Timestamp;
@@ -52,8 +52,10 @@ export interface Story {
       username: string;
       avatarUrl?: string;
   };
-  contentUrl: string;
-  caption?: string;
+  type: 'image' | 'text';
+  contentUrl?: string; // For image stories
+  text?: string;         // For text stories
+  backgroundColor?: string; // For text stories
   createdAt: Timestamp;
   expiresAt: Timestamp;
   viewers: string[];

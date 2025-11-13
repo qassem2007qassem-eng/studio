@@ -91,13 +91,13 @@ export default function CreatePostPage() {
     try {
       const { firestore, storage } = initializeFirebase();
       
-      const imageUrls: string[] = [];
-      for (const image of postImages) {
-         const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
-         const snapshot = await uploadString(imageRef, image, 'data_url');
-         const downloadURL = await getDownloadURL(snapshot.ref);
-         imageUrls.push(downloadURL);
-      }
+      // Use Promise.all to upload all images in parallel
+      const imageUrls = await Promise.all(
+        postImages.map(image => {
+           const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
+           return uploadString(imageRef, image, 'data_url').then(snapshot => getDownloadURL(snapshot.ref));
+        })
+      );
 
       const postsCollection = collection(firestore, 'posts');
       
