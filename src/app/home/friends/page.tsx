@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '@/firebase';
 import { type User } from '@/lib/types';
 import { getUsers, followUser, unfollowUser, getCurrentUserProfile } from '@/services/user-service';
@@ -24,74 +24,63 @@ export default function FriendsPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
 
+  const buildFollowingMap = useCallback((profile: User | null, userList: User[]) => {
+    if (!profile) return {};
+    const followingIds = new Set(profile.following || []);
+    const map: Record<string, boolean> = {};
+    userList.forEach(u => {
+      map[u.id] = followingIds.has(u.id);
+    });
+    return map;
+  }, []);
 
-  const fetchInitialUsers = async () => {
+  const fetchInitialUsers = useCallback(async (profile: User) => {
     setIsLoading(true);
     const { users: initialUsers, lastVisible: newLastVisible, hasMore: newHasMore } = await getUsers(20);
     
-    // Always filter out the current user
     const filteredUsers = initialUsers.filter(u => u.id !== currentUser?.uid);
     setUsers(filteredUsers);
         
-    if (currentUserProfile) {
-        const followingIds = currentUserProfile.following || [];
-        const map: Record<string, boolean> = {};
-        filteredUsers.forEach(u => {
-          map[u.id] = followingIds.includes(u.id);
-        });
-        setIsFollowingMap(map);
-    }
+    setIsFollowingMap(buildFollowingMap(profile, filteredUsers));
     
     setLastVisible(newLastVisible);
     setHasMore(newHasMore);
     setIsLoading(false);
-  };
+  }, [currentUser?.uid, buildFollowingMap]);
 
   useEffect(() => {
-    const fetchCurrentUser = async () => {
+    const fetchCurrentUserAndUsers = async () => {
         if (currentUser) {
             const profile = await getCurrentUserProfile();
             setCurrentUserProfile(profile);
+            if(profile) {
+              await fetchInitialUsers(profile);
+            } else {
+              setIsLoading(false);
+            }
+        } else {
+          setIsLoading(false);
+          setUsers([]);
         }
     }
     if (!isCurrentUserLoading) {
-        fetchCurrentUser();
+        fetchCurrentUserAndUsers();
     }
-  }, [currentUser, isCurrentUserLoading]);
-
-  useEffect(() => {
-      if(!isCurrentUserLoading && currentUser) {
-        fetchInitialUsers();
-      }
-      if (!currentUser && !isCurrentUserLoading) {
-          setIsLoading(false);
-          setUsers([]);
-      }
-  // We remove currentUserProfile from dependency array to prevent re-fetching on follow/unfollow
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCurrentUserLoading, currentUser]);
+  }, [currentUser, isCurrentUserLoading, fetchInitialUsers]);
 
   const handleLoadMore = async () => {
-    if (!hasMore || isLoadingMore) return;
+    if (!hasMore || isLoadingMore || !currentUserProfile) return;
     setIsLoadingMore(true);
 
     const { users: newUsers, lastVisible: newLastVisible, hasMore: newHasMore } = await getUsers(20, lastVisible);
     
-    // Get IDs of users already in the list to prevent duplicates
     const existingUserIds = new Set(users.map(u => u.id));
-    // Filter out the current user and any duplicates
     const filteredNewUsers = newUsers.filter(u => u.id !== currentUser?.uid && !existingUserIds.has(u.id));
     
-    setUsers(prevUsers => [...prevUsers, ...filteredNewUsers]);
+    const updatedUsers = [...users, ...filteredNewUsers];
+    setUsers(updatedUsers);
 
-    if (currentUserProfile) {
-      const followingIds = currentUserProfile.following || [];
-      const newMap = { ...isFollowingMap };
-      filteredNewUsers.forEach(u => {
-        newMap[u.id] = followingIds.includes(u.id);
-      });
-      setIsFollowingMap(newMap);
-    }
+    setIsFollowingMap(buildFollowingMap(currentUserProfile, updatedUsers));
 
     setLastVisible(newLastVisible);
     setHasMore(newHasMore);
@@ -99,11 +88,12 @@ export default function FriendsPage() {
   };
 
   const handleFollowToggle = async (targetUserId: string) => {
-    if (!currentUser) return;
+    if (!currentUser || !currentUserProfile) return;
     
-    const isCurrentlyFollowing = isFollowingMap[targetUserId];
+    const isCurrentlyFollowing = !!isFollowingMap[targetUserId];
     
-    setIsFollowingMap(prev => ({ ...prev, [targetUserId]: !prev[targetUserId] }));
+    // Optimistic UI update
+    setIsFollowingMap(prev => ({ ...prev, [targetUserId]: !isCurrentlyFollowing }));
 
     try {
       if (isCurrentlyFollowing) {
@@ -114,6 +104,9 @@ export default function FriendsPage() {
       // Re-fetch current user profile to get updated following list
       const profile = await getCurrentUserProfile();
       setCurrentUserProfile(profile);
+
+      // Re-build the following map with the fresh profile data
+      setIsFollowingMap(buildFollowingMap(profile, users));
 
     } catch (error) {
       console.error("Failed to toggle follow", error);
