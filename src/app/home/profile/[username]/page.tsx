@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import Image from "next/image";
@@ -9,12 +8,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
-import { Settings, UserPlus } from "lucide-react";
+import { Settings, UserPlus, UserCheck, Loader2 } from "lucide-react";
 import { CreatePostForm } from "@/components/create-post-form";
-import { useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, getFirestore, getDocs, limit } from "firebase/firestore";
-import { useEffect, useState } from "react";
-import { type User, type Post } from "@/lib/types";
+import { useUser, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase";
+import { collection, query, where, getFirestore, getDocs, limit, doc, writeBatch, increment, deleteDoc } from "firebase/firestore";
+import { useEffect, useState, useMemo } from "react";
+import { type User, type Post, type Follow } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams } from 'next/navigation';
 
@@ -23,35 +22,68 @@ export default function ProfilePage() {
   const username = typeof params.username === 'string' ? params.username : '';
   const { user: currentUser } = useUser();
   const [profileUser, setProfileUser] = useState<User | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followDocId, setFollowDocId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
 
   const firestore = getFirestore();
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchUserAndFollowStatus = async () => {
       setIsLoading(true);
-      if (!username) {
+      if (!username || !firestore) {
         setIsLoading(false);
         return;
       };
-      const usersRef = collection(firestore, 'users');
-      const q = query(usersRef, where("username", "==", username), limit(1));
-      const querySnapshot = await getDocs(q);
-      
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0];
-        setProfileUser(userDoc.data() as User);
-      } else {
-        console.log("No such user!");
-        // Handle user not found, maybe redirect or show a "Not Found" page
+
+      try {
+        // Fetch user
+        const usersRef = collection(firestore, 'users');
+        const q = query(usersRef, where("username", "==", username), limit(1));
+        const userQuerySnapshot = await getDocs(q);
+        
+        let userToSet: User | null = null;
+        if (!userQuerySnapshot.empty) {
+          userToSet = userQuerySnapshot.docs[0].data() as User;
+          setProfileUser(userToSet);
+        } else {
+          console.log("No such user!");
+          setProfileUser(null);
+          setIsLoading(false);
+          return;
+        }
+
+        // Check follow status if a profile user and current user exist
+        if (currentUser && userToSet) {
+          const followsRef = collection(firestore, 'follows');
+          const followQuery = query(followsRef, 
+            where("followerId", "==", currentUser.uid), 
+            where("followeeId", "==", userToSet.id), 
+            limit(1)
+          );
+          const followQuerySnapshot = await getDocs(followQuery);
+
+          if (!followQuerySnapshot.empty) {
+            setIsFollowing(true);
+            setFollowDocId(followQuerySnapshot.docs[0].id);
+          } else {
+            setIsFollowing(false);
+            setFollowDocId(null);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user or follow status:", error);
+        setProfileUser(null);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
-    if (username) {
-        fetchUser();
+    if (username && firestore) {
+        fetchUserAndFollowStatus();
     }
-  }, [username, firestore]);
+  }, [username, firestore, currentUser]);
 
   const postsCollection = useMemoFirebase(() => {
     if (!profileUser) return null;
@@ -66,6 +98,55 @@ export default function ProfilePage() {
   const { data: userPosts, isLoading: postsLoading } = useCollection<Post>(userPostsQuery);
 
   const isCurrentUserProfile = currentUser?.uid === profileUser?.id;
+
+  const handleFollowToggle = async () => {
+    if (!currentUser || !profileUser || isFollowLoading) return;
+
+    setIsFollowLoading(true);
+
+    const batch = writeBatch(firestore);
+    const followerRef = doc(firestore, 'users', currentUser.uid);
+    const followeeRef = doc(firestore, 'users', profileUser.id);
+    
+    if (isFollowing && followDocId) {
+      // --- Unfollow Logic ---
+      const followRef = doc(firestore, 'follows', followDocId);
+      batch.delete(followRef);
+      batch.update(followerRef, { followingCount: increment(-1) });
+      batch.update(followeeRef, { followerCount: increment(-1) });
+      
+      try {
+        await batch.commit();
+        setIsFollowing(false);
+        setFollowDocId(null);
+        setProfileUser(prev => prev ? { ...prev, followerCount: prev.followerCount - 1 } : null);
+      } catch (error) {
+        console.error("Error unfollowing user: ", error);
+      }
+
+    } else {
+      // --- Follow Logic ---
+      const newFollowRef = doc(collection(firestore, 'follows'));
+      batch.set(newFollowRef, {
+        followerId: currentUser.uid,
+        followeeId: profileUser.id,
+        createdAt: new Date().toISOString()
+      });
+      batch.update(followerRef, { followingCount: increment(1) });
+      batch.update(followeeRef, { followerCount: increment(1) });
+
+      try {
+        await batch.commit();
+        setIsFollowing(true);
+        setFollowDocId(newFollowRef.id);
+        setProfileUser(prev => prev ? { ...prev, followerCount: prev.followerCount + 1 } : null);
+      } catch (error) {
+         console.error("Error following user: ", error);
+      }
+    }
+    setIsFollowLoading(false);
+  };
+
 
   if (isLoading) {
     return (
@@ -128,9 +209,9 @@ export default function ProfilePage() {
                     </Link>
                 </Button>
             ): (
-                <Button>
-                    <UserPlus className="h-4 w-4 me-2" />
-                    متابعة
+                <Button onClick={handleFollowToggle} disabled={isFollowLoading} variant={isFollowing ? 'secondary' : 'default'}>
+                    {isFollowLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 
+                     isFollowing ? <><UserCheck className="h-4 w-4 me-2" /> متابَع</> : <><UserPlus className="h-4 w-4 me-2" /> متابعة</>}
                 </Button> 
             )}
           </div>

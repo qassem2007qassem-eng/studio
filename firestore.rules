@@ -65,8 +65,8 @@ service cloud.firestore {
      * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false; // User listing is not permitted.
+      allow get: if true;
+      allow list: if isSignedIn();
       allow create: if isOwner(userId) && request.resource.data.id == userId;
       allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
@@ -110,20 +110,21 @@ service cloud.firestore {
       allow update: if isSignedIn() && resource.data.authorId == request.auth.uid;
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
     }
-
+    
     /**
-     * @description Allows anyone to create follow relationships.
+     * @description Allows signed-in users to manage their follow relationships.
      * @path /follows/{followId}
-     * @allow (create) Signed-in user creating a follow relationship.
-     * @deny (get, list, update, delete) Not allowed.
+     * @allow (list, get) Signed-in users can read follow relationships.
+     * @allow (create) Signed-in user where the followerId matches their own UID.
+     * @allow (delete) The user who initiated the follow (follower).
      */
     match /follows/{followId} {
-      allow get: if false;
-      allow list: if false;
-      allow create: if isSignedIn();
-      allow update: if false;
-      allow delete: if false;
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.followerId == request.auth.uid;
+        allow delete: if isSignedIn() && resource.data.followerId == request.auth.uid;
+        allow update: if false; // Generally, follow relationships are not updated, but created/deleted.
     }
+
 
     /**
      * @description Enforces user-ownership for notifications.
