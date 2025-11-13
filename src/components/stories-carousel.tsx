@@ -1,3 +1,4 @@
+
 'use client';
 
 import Image from "next/image";
@@ -11,7 +12,8 @@ import { collection, query, orderBy, where, Timestamp } from "firebase/firestore
 import { useFirebase } from "@/firebase/provider";
 import { type Story } from "@/lib/types";
 import { Skeleton } from "./ui/skeleton";
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
+import { getCurrentUserProfile } from "@/services/user-service";
 
 // Helper to group stories by userId
 const groupStoriesByUser = (stories: Story[]): { [userId: string]: Story[] } => {
@@ -31,22 +33,46 @@ const groupStoriesByUser = (stories: Story[]): { [userId: string]: Story[] } => 
 export function StoriesCarousel() {
     const { user, isUserLoading } = useUser();
     const { firestore } = useFirebase();
+    const [following, setFollowing] = useState<string[] | null>(null);
 
-    const storiesCollection = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return collection(firestore, 'stories');
-    }, [firestore]);
+    // 1. Fetch current user's following list
+    useEffect(() => {
+        if (user) {
+            getCurrentUserProfile().then(profile => {
+                // Add own ID to see own stories
+                const ownId = profile?.id || user.uid;
+                setFollowing([ownId, ...(profile?.following || [])]);
+            });
+        } else {
+            setFollowing([]);
+        }
+    }, [user]);
 
+    // 2. Build the query for stories based on the following list
     const storiesQuery = useMemoFirebase(() => {
-        if (!storiesCollection) return null;
+        if (!firestore || following === null || following.length === 0) return null;
+        
         const twentyFourHoursAgo = Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000);
-        return query(storiesCollection, where("createdAt", ">=", twentyFourHoursAgo), orderBy("createdAt", "desc"));
-    }, [storiesCollection]);
+        
+        // Firestore 'in' queries are limited to 30 items.
+        // For a scalable solution, this would need a different data model (e.g., a "timeline" subcollection).
+        // For now, we'll take the first 29 people they follow + self.
+        const queryableFollowing = following.slice(0, 30);
+
+        return query(
+            collection(firestore, 'stories'), 
+            where("createdAt", ">=", twentyFourHoursAgo),
+            where("userId", "in", queryableFollowing),
+            orderBy("createdAt", "desc")
+        );
+    }, [firestore, following]);
 
     const { data: stories, isLoading } = useCollection<Story>(storiesQuery);
 
     const groupedStories = useMemo(() => groupStoriesByUser(stories || []), [stories]);
     const storyGroups = useMemo(() => Object.values(groupedStories), [groupedStories]);
+    
+    const isDataLoading = isUserLoading || following === null || (following.length > 0 && isLoading);
 
     if (isUserLoading) {
         return (
@@ -97,7 +123,7 @@ export function StoriesCarousel() {
                       </Link>
                     </div>
                 </CarouselItem>
-                {isLoading ? (
+                {isDataLoading ? (
                      [...Array(4)].map((_, index) => (
                         <CarouselItem key={index} className="basis-1/3 md:basis-1/4 lg:basis-1/5 ps-2">
                             <div className="p-1">
@@ -108,6 +134,7 @@ export function StoriesCarousel() {
                 ) : storyGroups.map((userStories) => {
                     const firstStory = userStories[0];
                     if (!firstStory) return null;
+                    if (firstStory.userId === user.uid) return null; // Don't show own story in the list
 
                     // The link now points to the *first* story of that user group.
                     return (
@@ -124,7 +151,11 @@ export function StoriesCarousel() {
                                             data-ai-hint="story photo"
                                         />
                                     ) : (
-                                        <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600"></div>
+                                        <div className={cn("w-full h-full flex items-center justify-center", firstStory.backgroundColor)}>
+                                            <p className="text-white font-bold text-lg text-center p-2 break-words line-clamp-3">
+                                                {firstStory.text}
+                                            </p>
+                                        </div>
                                     )}
 
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />

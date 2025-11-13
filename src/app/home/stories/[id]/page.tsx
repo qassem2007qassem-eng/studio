@@ -6,10 +6,10 @@ import Link from "next/link";
 import { useRouter, useParams } from 'next/navigation';
 import { useState, useEffect, useMemo } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, ChevronLeft, ChevronRight } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, Heart, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useCollection, useMemoFirebase, useFirebase } from "@/firebase";
-import { collection, query, where, Timestamp, orderBy } from "firebase/firestore";
+import { useCollection, useMemoFirebase, useUser, useFirebase } from "@/firebase";
+import { collection, query, where, Timestamp, orderBy, doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { type Story } from "@/lib/types";
 import { formatDistanceToNow, cn } from "@/lib/utils";
 
@@ -38,6 +38,7 @@ const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Da
 export default function StoryPage() {
     const router = useRouter();
     const params = useParams();
+    const { user: currentUser } = useUser();
     const initialStoryId = typeof params.id === 'string' ? params.id : '';
 
     const { firestore } = useFirebase();
@@ -73,23 +74,46 @@ export default function StoryPage() {
     const [currentUserStoryGroup, setCurrentUserStoryGroup] = useState<Story[]>([]);
     const [currentStoryIndexInGroup, setCurrentStoryIndexInGroup] = useState(0);
 
+    const isOwner = currentUser?.uid === currentStory?.userId;
+    const [isLiked, setIsLiked] = useState(false);
+
     // Effect to set the initial story and its group
     useEffect(() => {
         if (initialStoryId && allStories) {
             const story = allStories.find(s => s.id === initialStoryId);
             if (story) {
-                const userGroup = groupedStories[story.userId];
+                const userGroup = groupedStories[story.userId] || [];
                 const storyIndex = userGroup.findIndex(s => s.id === initialStoryId);
                 
                 setCurrentStory(story);
                 setCurrentUserStoryGroup(userGroup);
-                setCurrentStoryIndexInGroup(storyIndex);
+                setCurrentStoryIndexInGroup(storyIndex >= 0 ? storyIndex : 0);
             } else {
                 // Story not found or expired, go home
                 router.push('/home');
             }
         }
     }, [initialStoryId, allStories, groupedStories, router]);
+
+    // Effect to mark story as viewed
+     useEffect(() => {
+        if (currentStory && currentUser && !isOwner) {
+            const storyRef = doc(firestore, 'stories', currentStory.id);
+            // Avoid marking as viewer if already in the list
+            if (!currentStory.viewers?.includes(currentUser.uid)) {
+                updateDoc(storyRef, {
+                    viewers: arrayUnion(currentUser.uid)
+                }).catch(console.error);
+            }
+        }
+    }, [currentStory, currentUser, isOwner, firestore]);
+    
+    // Effect to check if story is liked
+    useEffect(() => {
+        if(currentStory && currentUser) {
+            setIsLiked(currentStory.likeIds?.includes(currentUser.uid) || false);
+        }
+    }, [currentStory, currentUser]);
 
 
     const [progress, setProgress] = useState(0);
@@ -128,7 +152,11 @@ export default function StoryPage() {
             if (currentUserGroupIndex < userGroupIds.length - 1) {
                 const nextUserGroupId = userGroupIds[currentUserGroupIndex + 1];
                 const nextUserGroup = groupedStories[nextUserGroupId];
-                router.push(`/home/stories/${nextUserGroup[0].id}`);
+                if (nextUserGroup && nextUserGroup.length > 0) {
+                    router.push(`/home/stories/${nextUserGroup[0].id}`);
+                } else {
+                     router.push('/home');
+                }
             } else {
                 // End of all stories, go home
                 router.push('/home');
@@ -150,10 +178,28 @@ export default function StoryPage() {
             if (currentUserGroupIndex > 0) {
                 const prevUserGroupId = userGroupIds[currentUserGroupIndex - 1];
                 const prevUserGroup = groupedStories[prevUserGroupId];
-                router.push(`/home/stories/${prevUserGroup[prevUserGroup.length - 1].id}`);
+                if (prevUserGroup && prevUserGroup.length > 0) {
+                   router.push(`/home/stories/${prevUserGroup[prevUserGroup.length - 1].id}`);
+                }
             }
             // else: at the very first story, do nothing
         }
+    };
+
+    const handleLike = () => {
+        if (!currentStory || !currentUser) return;
+        const storyRef = doc(firestore, 'stories', currentStory.id);
+        
+        const newIsLiked = !isLiked;
+        setIsLiked(newIsLiked);
+
+        updateDoc(storyRef, {
+            likeIds: newIsLiked ? arrayUnion(currentUser.uid) : arrayRemove(currentUser.uid)
+        }).catch(err => {
+            console.error("Failed to update like status", err);
+            // Revert UI on error
+            setIsLiked(!newIsLiked);
+        });
     };
     
     if (playlistLoading || !currentStory) {
@@ -227,6 +273,21 @@ export default function StoryPage() {
                         </Button>
                     </div>
                 </div>
+
+                <div className="absolute bottom-4 left-4 z-10 flex items-center gap-4">
+                    {isOwner && (
+                        <div className="flex items-center gap-2 text-white text-sm font-semibold">
+                            <Eye className="h-5 w-5"/>
+                            <span>{currentStory.viewers?.length || 0}</span>
+                        </div>
+                    )}
+                    {!isOwner && (
+                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleLike}>
+                            <Heart className={cn("h-6 w-6", isLiked && "fill-red-500 text-red-500")} />
+                        </Button>
+                    )}
+                </div>
+
             </div>
 
              <Button variant="ghost" size="icon" className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 z-20" onClick={handleNextStory}>

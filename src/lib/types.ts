@@ -64,6 +64,7 @@ export interface Story {
   createdAt: Timestamp;
   expiresAt: Timestamp;
   viewers: string[];
+  likeIds?: string[];
 }
 
 export interface AppNotification {
@@ -73,5 +74,3 @@ export interface AppNotification {
   postContent?: string;
   createdAt: string;
 }
-
-    

@@ -3,15 +3,14 @@
  * @fileoverview Firestore Security Rules for the Syrian Student Hub application.
  *
  * Core Philosophy:
- * This ruleset enforces a follower-based privacy model. Users can only see full profile details
- * and posts of users they follow. Public profiles have limited visibility.
+ * This ruleset enforces a follower-based privacy model where applicable.
  *
  * Data Structure & Rules Summary:
- * - /users/{userId}: Stores user profiles.
- *   - GET: A user's own profile is always readable. Public, limited data is readable by anyone. Full data is readable only by followers.
- *   - LIST: Allowed for searching users by username.
- *   - WRITE: Only the owner can write to their own profile.
- * - /posts/{postId}: Stores posts. Read access is controlled by the author's privacy settings (not yet implemented, so public for now). Write access is restricted to the author.
+ * - /users/{userId}: User profiles. Users can update their own data.
+ *   Follow logic is handled by allowing users to modify the 'followers' array of others,
+ *   but only to add/remove their own UID.
+ * - /posts/{postId}: Posts can be public or restricted. Write access is for the author.
+ * - /stories/{storyId}: Stories are restricted to followers of the author.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -35,15 +34,39 @@ service cloud.firestore {
     }
 
     /**
+     * @description Checks if a user is following another user.
+     * @param {string} userId The ID of the user whose followers list to check.
+     * @return {boolean} True if the requesting user is in the target user's followers list.
+     */
+    function isFollower(userId) {
+        return isSignedIn() && get(/databases/$(database)/documents/users/$(userId)).data.followers.hasAny([request.auth.uid]);
+    }
+    
+    /**
      * @description User profiles. Read access is conditional.
      * @path /users/{userId}
-     * @allow get: Anyone can get a user document to check basic info.
-     * @allow list: Signed-in users can list/query users (e.g., for search).
-     * @allow create, update, delete: Only the user themselves can manage their profile.
      */
     match /users/{userId} {
       allow read, list: if isSignedIn();
-      allow write: if isOwner(userId);
+      
+      // Allow a user to update their own document completely.
+      // Also, allow any signed-in user to modify the 'followers' list
+      // only to add or remove their own UID. This enables follow/unfollow.
+      allow update: if isOwner(userId) || (
+        isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followers']) &&
+        (
+           request.resource.data.followers.size() == resource.data.followers.size() + 1 &&
+           request.resource.data.followers.hasAll(resource.data.followers) &&
+           request.resource.data.followers.hasAny([request.auth.uid])
+        ) ||
+        (
+           resource.data.followers.size() == request.resource.data.followers.size() + 1 &&
+           resource.data.followers.hasAll(request.resource.data.followers) &&
+           resource.data.followers.hasAny([request.auth.uid])
+        )
+      );
+
+      allow create, delete: if isOwner(userId);
     }
     
     /**
@@ -89,13 +112,15 @@ service cloud.firestore {
     }
     
     /**
-     * @description Stories. Publicly readable.
+     * @description Stories. Readable only by owner or followers.
      * @path /stories/{storyId}
      */
     match /stories/{storyId} {
-      allow read: if true;
+      allow read: if isOwner(resource.data.userId) || isFollower(resource.data.userId);
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Allow updates only for viewers and likes
+      allow update: if isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewers', 'likeIds']);
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     /**
