@@ -1,4 +1,3 @@
-
 'use client'
 
 import Image from "next/image";
@@ -11,7 +10,7 @@ import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Loader2 } from "lucide-react";
 import { CreatePostForm } from "@/components/create-post-form";
 import { useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, getFirestore, getDocs, limit, doc, writeBatch, increment, deleteDoc } from "firebase/firestore";
+import { collection, query, where, getFirestore, getDocs, limit, doc, writeBatch, serverTimestamp, deleteDoc, orderBy } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { type User, type Post, type Follow } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,71 +19,64 @@ import { useParams } from 'next/navigation';
 export default function ProfilePage() {
   const params = useParams();
   const username = Array.isArray(params.username) ? params.username[0] : params.username;
+  
   const { user: currentUser } = useUser();
+  const { firestore } = useFirebase();
+
   const [profileUser, setProfileUser] = useState<User | null>(null);
+  const [isUserLoading, setIsUserLoading] = useState(true);
+
+  // Effect to fetch the profile user based on username
+  useEffect(() => {
+    if (!username || !firestore) {
+      setIsUserLoading(false);
+      return;
+    };
+    
+    setIsUserLoading(true);
+    const usersRef = collection(firestore, 'users');
+    const userQuery = query(usersRef, where("username", "==", username?.toLowerCase()), limit(1));
+
+    getDocs(userQuery).then(querySnapshot => {
+      if (!querySnapshot.empty) {
+        setProfileUser({ id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as User);
+      } else {
+        setProfileUser(null);
+      }
+      setIsUserLoading(false);
+    }).catch(() => {
+        setProfileUser(null);
+        setIsUserLoading(false);
+    });
+
+  }, [username, firestore]);
+
+
   const [isFollowing, setIsFollowing] = useState(false);
   const [followDocId, setFollowDocId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
 
-  const firestore = getFirestore();
-
+  // Effect to check follow status
   useEffect(() => {
-    const fetchUserAndFollowStatus = async () => {
-      setIsLoading(true);
-      if (!username || !firestore) {
-        setIsLoading(false);
-        return;
-      };
+      if (!currentUser || !profileUser || currentUser.uid === profileUser.id) return;
+      
+      const followsRef = collection(firestore, 'follows');
+      const followQuery = query(followsRef, 
+          where("followerId", "==", currentUser.uid), 
+          where("followeeId", "==", profileUser.id), 
+          limit(1)
+      );
 
-      try {
-        // Fetch user
-        const usersRef = collection(firestore, 'users');
-        const q = query(usersRef, where("username", "==", username), limit(1));
-        const userQuerySnapshot = await getDocs(q);
-        
-        let userToSet: User | null = null;
-        if (!userQuerySnapshot.empty) {
-          const userDoc = userQuerySnapshot.docs[0];
-          userToSet = { id: userDoc.id, ...userDoc.data() } as User;
-          setProfileUser(userToSet);
-        } else {
-          console.log("No such user!");
-          setProfileUser(null);
-          setIsLoading(false);
-          return;
-        }
-
-        // Check follow status if a profile user and current user exist
-        if (currentUser && userToSet && currentUser.uid !== userToSet.id) {
-          const followsRef = collection(firestore, 'follows');
-          const followQuery = query(followsRef, 
-            where("followerId", "==", currentUser.uid), 
-            where("followeeId", "==", userToSet.id), 
-            limit(1)
-          );
-          const followQuerySnapshot = await getDocs(followQuery);
-
+      getDocs(followQuery).then(followQuerySnapshot => {
           if (!followQuerySnapshot.empty) {
-            setIsFollowing(true);
-            setFollowDocId(followQuerySnapshot.docs[0].id);
+              setIsFollowing(true);
+              setFollowDocId(followQuerySnapshot.docs[0].id);
           } else {
-            setIsFollowing(false);
-            setFollowDocId(null);
+              setIsFollowing(false);
+              setFollowDocId(null);
           }
-        }
-      } catch (error) {
-        console.error("Error fetching user or follow status:", error);
-        setProfileUser(null);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (username && firestore) {
-        fetchUserAndFollowStatus();
-    }
-  }, [username, firestore, currentUser]);
+      });
+  }, [currentUser, profileUser, firestore]);
 
   const postsCollection = useMemoFirebase(() => {
     if (!profileUser) return null;
@@ -93,7 +85,7 @@ export default function ProfilePage() {
 
   const userPostsQuery = useMemoFirebase(() => {
     if (!postsCollection || !profileUser) return null;
-    return query(postsCollection, where("authorId", "==", profileUser.id));
+    return query(postsCollection, where("authorId", "==", profileUser.id), orderBy("createdAt", "desc"));
   }, [postsCollection, profileUser]);
 
   const { data: userPosts, isLoading: postsLoading } = useCollection<Post>(userPostsQuery);
@@ -104,52 +96,44 @@ export default function ProfilePage() {
     if (!currentUser || !profileUser || isFollowLoading || isCurrentUserProfile) return;
 
     setIsFollowLoading(true);
-
     const batch = writeBatch(firestore);
-    const followerRef = doc(firestore, 'users', currentUser.uid);
-    const followeeRef = doc(firestore, 'users', profileUser.id);
+    const userToFollowRef = doc(firestore, 'users', profileUser.id);
+    const currentUserRef = doc(firestore, 'users', currentUser.uid);
     
     if (isFollowing && followDocId) {
       // --- Unfollow Logic ---
       const followRef = doc(firestore, 'follows', followDocId);
       batch.delete(followRef);
-      batch.update(followerRef, { followingCount: increment(-1) });
-      batch.update(followeeRef, { followerCount: increment(-1) });
+      batch.update(userToFollowRef, { followerCount: -1 });
+      batch.update(currentUserRef, { followingCount: -1 });
       
-      try {
-        await batch.commit();
-        setIsFollowing(false);
-        setFollowDocId(null);
-        setProfileUser(prev => prev ? { ...prev, followerCount: (prev.followerCount || 0) - 1 } : null);
-      } catch (error) {
-        console.error("Error unfollowing user: ", error);
-      }
+      await batch.commit();
+
+      setIsFollowing(false);
+      setFollowDocId(null);
 
     } else {
       // --- Follow Logic ---
       const newFollowRef = doc(collection(firestore, 'follows'));
       batch.set(newFollowRef, {
+        id: newFollowRef.id,
         followerId: currentUser.uid,
         followeeId: profileUser.id,
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp()
       });
-      batch.update(followerRef, { followingCount: increment(1) });
-      batch.update(followeeRef, { followerCount: increment(1) });
+      batch.update(userToFollowRef, { followerCount: 1 });
+      batch.update(currentUserRef, { followingCount: 1 });
 
-      try {
-        await batch.commit();
-        setIsFollowing(true);
-        setFollowDocId(newFollowRef.id);
-        setProfileUser(prev => prev ? { ...prev, followerCount: (prev.followerCount || 0) + 1 } : null);
-      } catch (error) {
-         console.error("Error following user: ", error);
-      }
+      await batch.commit();
+
+      setIsFollowing(true);
+      setFollowDocId(newFollowRef.id);
     }
     setIsFollowLoading(false);
   };
 
 
-  if (isLoading) {
+  if (isUserLoading) {
     return (
         <div className="space-y-6">
             <Card className="overflow-hidden">
@@ -181,6 +165,10 @@ export default function ProfilePage() {
           </Card>
       )
   }
+  
+  const followerCount = profileUser.followerCount || 0;
+  const followingCount = profileUser.followingCount || 0;
+
 
   return (
     <div className="space-y-6">
@@ -223,10 +211,10 @@ export default function ProfilePage() {
           </div>
           <div className="mt-4 flex gap-6 text-sm text-muted-foreground">
             <div>
-              <span className="font-bold text-foreground">{profileUser.followingCount || 0}</span> Following
+              <span className="font-bold text-foreground">{followingCount}</span> Following
             </div>
             <div>
-              <span className="font-bold text-foreground">{profileUser.followerCount || 0}</span> Followers
+              <span className="font-bold text-foreground">{followerCount}</span> Followers
             </div>
              <div>
               <span className="font-bold text-foreground">{userPosts?.length || 0}</span> Posts
@@ -260,5 +248,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    
