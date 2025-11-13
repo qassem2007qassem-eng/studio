@@ -9,7 +9,12 @@ import {
   deleteDoc,
   doc,
   writeBatch,
-  updateDoc
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
+  Timestamp
 } from 'firebase/firestore';
 import {
   getStorage,
@@ -20,6 +25,7 @@ import {
 } from 'firebase/storage';
 import { initializeFirebase } from '@/firebase';
 import { type Post, type PrivacySetting } from '@/lib/types';
+import { getCurrentUserProfile } from './user-service';
 
 const { auth } = initializeFirebase();
 
@@ -43,7 +49,6 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
 
   const { firestore, storage } = initializeFirebase();
   
-  // 1. Upload images to Firebase Storage in parallel
   const imageUrls = await Promise.all(
     input.imageBlobs.map(async (blob) => {
       const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
@@ -52,7 +57,6 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     })
   );
   
-  // 2. Create post document in Firestore
   const postsCollection = collection(firestore, 'posts');
   
   const postData: Omit<Post, 'id'> = {
@@ -60,7 +64,7 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     author: input.author,
     content: input.content,
     imageUrls,
-    createdAt: serverTimestamp() as any, // Cast because serverTimestamp is a sentinel
+    createdAt: serverTimestamp() as any,
     updatedAt: serverTimestamp() as any,
     likeIds: [],
     privacy: input.privacy,
@@ -81,30 +85,68 @@ export const deletePost = async (postId: string, imageUrls: string[]): Promise<v
     const { firestore, storage } = initializeFirebase();
 
     const postRef = doc(firestore, 'posts', postId);
-    const postSnap = await postRef.get();
+    const postSnap = await getDoc(postRef);
 
     if (!postSnap.exists() || postSnap.data().authorId !== user.uid) {
         throw new Error("Post not found or user not authorized to delete it.");
     }
     
     const batch = writeBatch(firestore);
-
-    // 1. Delete the post document from Firestore
     batch.delete(postRef);
-
-    // TODO: Need to delete comments and likes subcollections. This requires a Cloud Function for full cleanup.
-    // For now, we'll just delete the post document.
 
     await batch.commit();
 
-    // 2. Delete images from Storage after the database operation
     for (const url of imageUrls) {
         try {
             const imageRef = ref(storage, url);
             await deleteObject(imageRef);
         } catch (error: any) {
-            // Log error if an image fails to delete, but don't block the process
             console.error(`Failed to delete image ${url}:`, error);
         }
     }
 }
+
+/**
+ * Gets posts for a specific user, handling privacy rules.
+ * @param profileUserId The ID of the user whose posts are being requested.
+ * @param currentUserId The ID of the currently logged-in user (optional).
+ * @returns A promise that resolves to an array of posts.
+ */
+export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
+    const { firestore } = initializeFirebase();
+    const postsCollection = collection(firestore, 'posts');
+    
+    let privacyFilters: PrivacySetting[] = ['everyone'];
+
+    // If a user is logged in, check if they are viewing their own profile or if they follow the user.
+    if (currentUserId) {
+        if (currentUserId === profileUserId) {
+            privacyFilters = ['everyone', 'followers', 'only_me'];
+        } else {
+            // Check if the current user follows the profile user
+            const profileUser = await getCurrentUserProfile({ userId: profileUserId });
+            if (profileUser?.followers?.includes(currentUserId)) {
+                privacyFilters.push('followers');
+            }
+        }
+    }
+    
+    const q = query(
+        postsCollection,
+        where('authorId', '==', profileUserId),
+        where('privacy', 'in', privacyFilters),
+        orderBy('createdAt', 'desc'),
+        limit(20)
+    );
+
+    try {
+        const snapshot = await getDocs(q);
+        const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+        return posts;
+    } catch (e) {
+        console.error("Error fetching user posts:", e);
+        return [];
+    }
+};
+
+    

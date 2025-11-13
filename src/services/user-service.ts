@@ -20,9 +20,7 @@ import {
   arrayRemove,
   orderBy,
   limit,
-  startAfter,
-  getDocFromCache,
-  getDocFromServer
+  startAfter
 } from 'firebase/firestore';
 
 import { initializeFirebase } from '@/firebase';
@@ -38,40 +36,52 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 type GetProfileOptions = {
   forceRefresh?: boolean;
+  userId?: string;
 };
 
-// ✅ جلب بيانات المستخدم الحالي
+// ✅ جلب بيانات المستخدم الحالي أو أي مستخدم آخر
 const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<User | null> => {
-  const user = auth.currentUser;
-  if (!user) {
-    console.log("No user logged in");
-    currentUserProfileCache = null;
+  const targetUserId = options.userId || auth.currentUser?.uid;
+  if (!targetUserId) {
+    console.log("No user ID provided or user not logged in");
+    if (!options.userId) { // Clear cache only if we are fetching the current user
+        currentUserProfileCache = null;
+    }
     return null;
   }
 
-  const now = Date.now();
-  if (!options.forceRefresh && currentUserProfileCache && cacheTimestamp && (now - cacheTimestamp < CACHE_DURATION)) {
-    return currentUserProfileCache;
+  // If fetching the currently logged-in user, use caching
+  if (targetUserId === auth.currentUser?.uid) {
+    const now = Date.now();
+    if (!options.forceRefresh && currentUserProfileCache && cacheTimestamp && (now - cacheTimestamp < CACHE_DURATION)) {
+      return currentUserProfileCache;
+    }
   }
 
   try {
-    const docRef = doc(firestore, "users", user.uid);
-    // Use getDoc which prioritizes cache but falls back to server
-    const docSnap = options.forceRefresh ? await getDocFromServer(docRef) : await getDoc(docRef);
+    const docRef = doc(firestore, "users", targetUserId);
+    const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      currentUserProfileCache = { id: docSnap.id, ...docSnap.data() } as User;
-      cacheTimestamp = now;
-      return currentUserProfileCache;
+      const userProfile = { id: docSnap.id, ...docSnap.data() } as User;
+      // Update cache only if it's the current user
+      if (targetUserId === auth.currentUser?.uid) {
+        currentUserProfileCache = userProfile;
+        cacheTimestamp = Date.now();
+      }
+      return userProfile;
     } else {
       console.log("User profile not found!");
-      currentUserProfileCache = null;
+      if (targetUserId === auth.currentUser?.uid) {
+        currentUserProfileCache = null;
+      }
       return null;
     }
   } catch (error) {
     console.error("Error getting user profile:", error);
-    // On error, clear cache to force a retry next time
-    currentUserProfileCache = null; 
+    if (targetUserId === auth.currentUser?.uid) {
+        currentUserProfileCache = null; 
+    }
     return null;
   }
 };
@@ -156,18 +166,15 @@ const followUser = async (targetUserId: string): Promise<void> => {
     const currentUserRef = doc(db, "users", currentUser.uid);
     const targetUserRef = doc(db, "users", targetUserId);
 
-    // Add target to current user's following list
     batch.update(currentUserRef, {
       following: arrayUnion(targetUserId)
     });
 
-    // Add current user to target's followers list
     batch.update(targetUserRef, {
       followers: arrayUnion(currentUser.uid)
     });
 
     await batch.commit();
-    // Invalidate local cache after following
     await getCurrentUserProfile({ forceRefresh: true });
 };
 
@@ -185,18 +192,15 @@ const unfollowUser = async (targetUserId: string): Promise<void> => {
     const currentUserRef = doc(db, "users", currentUser.uid);
     const targetUserRef = doc(db, "users", targetUserId);
 
-    // Remove target from current user's following list
     batch.update(currentUserRef, {
         following: arrayRemove(targetUserId)
     });
 
-    // Remove current user from target's followers list
     batch.update(targetUserRef, {
         followers: arrayRemove(currentUser.uid)
     });
 
     await batch.commit();
-    // Invalidate local cache after unfollowing
     await getCurrentUserProfile({ forceRefresh: true });
 };
 
@@ -207,7 +211,7 @@ const checkIfFollowing = async (targetUserId: string, options: GetProfileOptions
   if (!currentUser) return false;
 
   try {
-    const userDoc = await getCurrentUserProfile(options); // Pass options to force refresh if needed
+    const userDoc = await getCurrentUserProfile(options); 
     return (userDoc?.following || []).includes(targetUserId);
   } catch (error) {
     console.error("Error checking follow status:", error);
@@ -224,11 +228,10 @@ const updateProfile = async (updates) => {
     const userRef = doc(firestore, "users", user.uid);
     await updateDoc(userRef, updates);
     console.log("Profile updated successfully!");
-    // Invalidate cache after profile update
     await getCurrentUserProfile({ forceRefresh: true });
   } catch (error) {
     console.error("Error updating profile:", error);
-    throw error; // Re-throw the error to be handled by the caller
+    throw error;
   }
 };
 
@@ -269,7 +272,7 @@ const getFollowers = async (userId) => {
     const followerPromises = userDoc.followers.map(id => getUserById(id));
     const followers = await Promise.all(followerPromises);
     
-    return followers.filter(Boolean); // Filter out any nulls
+    return followers.filter(Boolean);
   } catch (error) {
     console.error("Error getting followers:", error);
     return [];
@@ -285,14 +288,13 @@ const getFollowing = async (userId) => {
     const followingPromises = userDoc.following.map(id => getUserById(id));
     const following = await Promise.all(followingPromises);
 
-    return following.filter(Boolean); // Filter out any nulls
+    return following.filter(Boolean);
   } catch (error) {
     console.error("Error getting following:", error);
     return [];
   }
 };
 
-// 🔥 تصدير جميع الدوال
 export {
   createUserProfile,
   getCurrentUserProfile,
@@ -306,3 +308,5 @@ export {
   getFollowers,
   getFollowing
 };
+
+    

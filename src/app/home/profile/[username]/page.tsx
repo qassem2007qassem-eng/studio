@@ -1,14 +1,8 @@
+
 'use client'
 
 import Image from "next/image";
 import Link from "next/link";
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs,
-  Timestamp
-} from 'firebase/firestore';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,19 +10,19 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Loader2, Lock } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
-import { useUser, useFirebase } from "@/firebase";
+import { useUser } from "@/firebase";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams, useRouter } from 'next/navigation';
 import { getUserByUsername, followUser, unfollowUser, checkIfFollowing, getCurrentUserProfile } from "@/services/user-service";
+import { getPostsForUser } from "@/services/post-service";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ProfilePage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { firestore } = useFirebase();
   const { user: currentUser, isUserLoading: isCurrentUserLoading } = useUser();
   
   const [profileUser, setProfileUser] = useState<User | null>(null);
@@ -51,125 +45,93 @@ export default function ProfilePage() {
       return currentUser.uid === profileUser.id;
   }, [currentUser, profileUser]);
 
+  const fetchProfileUser = useCallback(async () => {
+    if (!usernameFromUrl) return;
+    setIsProfileUserLoading(true);
+    const user = await getUserByUsername(usernameFromUrl);
+    setProfileUser(user);
+    setIsProfileUserLoading(false);
+  }, [usernameFromUrl]);
 
-  // Effect for fetching the profile user's data
-  useEffect(() => {
-    const fetchProfileData = async () => {
-      if (!usernameFromUrl || !firestore) return;
-
-      setIsProfileUserLoading(true);
-      setProfileUser(null);
-      
-      const user = await getUserByUsername(usernameFromUrl);
-      setProfileUser(user);
-      
-      setIsProfileUserLoading(false);
-    };
-
-    fetchProfileData();
-  }, [usernameFromUrl, firestore]);
-
-  const checkFollow = useCallback(async () => {
-      if (!currentUser || !profileUser || isCurrentUserProfile) {
-          setIsFollowStatusLoading(false);
-          return;
-      }
-      setIsFollowStatusLoading(true);
-      // Force refresh to get the latest following list
-      const followingStatus = await checkIfFollowing(profileUser.id, { forceRefresh: true });
-      setIsFollowing(followingStatus);
+  const checkFollowStatus = useCallback(async () => {
+    if (!currentUser || !profileUser || isCurrentUserProfile) {
       setIsFollowStatusLoading(false);
+      return;
+    }
+    setIsFollowStatusLoading(true);
+    const followingStatus = await checkIfFollowing(profileUser.id);
+    setIsFollowing(followingStatus);
+    setIsFollowStatusLoading(false);
   }, [currentUser, profileUser, isCurrentUserProfile]);
 
-  // Effect for checking follow status, depends on profileUser
+  useEffect(() => {
+    fetchProfileUser();
+  }, [fetchProfileUser]);
+
   useEffect(() => {
     if (profileUser && !isCurrentUserLoading) {
-        checkFollow();
+      checkFollowStatus();
     }
-  }, [profileUser, isCurrentUserLoading, checkFollow]);
-
+  }, [profileUser, isCurrentUserLoading, checkFollowStatus]);
 
   const canViewContent = useMemo(() => {
-    if (isProfileUserLoading || isFollowStatusLoading) return false;
+    if (isProfileUserLoading) return false; // Wait for profile to load
     if (isCurrentUserProfile) return true;
     if (!profileUser?.isPrivate) return true;
+    // For private profiles, wait until follow status is confirmed
+    if (isFollowStatusLoading) return false; 
     return isFollowing;
   }, [isProfileUserLoading, isFollowStatusLoading, isCurrentUserProfile, isFollowing, profileUser]);
 
-  // Effect for fetching posts, depends on canViewContent
+
   useEffect(() => {
     const fetchPosts = async () => {
-      if (!profileUser || !firestore) return;
-
-      if (!canViewContent) {
-          setUserPosts([]);
-          setPostsLoading(false);
-          return;
+      if (!profileUser || !canViewContent) {
+        setUserPosts([]);
+        setPostsLoading(false);
+        return;
       }
-
       setPostsLoading(true);
-      try {
-          const postsQuery = query(collection(firestore, 'posts'), where("authorId", "==", profileUser.id));
-          const snapshot = await getDocs(postsQuery);
-          const postsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-          
-          // Filter posts based on privacy for non-owners
-          const visiblePosts = isCurrentUserProfile 
-            ? postsData
-            : postsData.filter(post => post.privacy === 'everyone' || (post.privacy === 'followers' && isFollowing));
-
-          // Sort posts on the client-side
-          visiblePosts.sort((a, b) => {
-            const dateA = a.createdAt?.toDate()?.getTime() || 0;
-            const dateB = b.createdAt?.toDate()?.getTime() || 0;
-            return dateB - dateA;
-          });
-
-          setUserPosts(visiblePosts);
-      } catch (e) {
-          console.error("Error fetching posts:", e);
-          setUserPosts([]);
-      } finally {
-          setPostsLoading(false);
-      }
+      const posts = await getPostsForUser(profileUser.id, currentUser?.uid);
+      setUserPosts(posts);
+      setPostsLoading(false);
     };
-    
-    if (profileUser && !isProfileUserLoading && !isFollowStatusLoading) {
-        fetchPosts();
-    }
-  }, [profileUser, firestore, canViewContent, isCurrentUserProfile, isFollowing, isProfileUserLoading, isFollowStatusLoading]);
 
- const handleFollowToggle = async () => {
+    // Only fetch posts once we know if we can view them
+    if (!isProfileUserLoading && !isFollowStatusLoading) {
+      fetchPosts();
+    }
+  }, [profileUser, canViewContent, currentUser?.uid, isProfileUserLoading, isFollowStatusLoading]);
+
+  const handleFollowToggle = async () => {
     if (!currentUser || !profileUser || isTogglingFollow || isCurrentUserProfile) return;
 
     setIsTogglingFollow(true);
     
     try {
       if (isFollowing) {
-          await unfollowUser(profileUser.id);
-          setIsFollowing(false);
-          toast({ title: `تم إلغاء متابعة ${profileUser.name}`});
+        await unfollowUser(profileUser.id);
+        setIsFollowing(false);
+        toast({ title: `تم إلغاء متابعة ${profileUser.name}`});
       } else {
-          await followUser(profileUser.id);
-          setIsFollowing(true);
-          toast({ title: `أنت تتابع الآن ${profileUser.name}`});
+        await followUser(profileUser.id);
+        setIsFollowing(true);
+        toast({ title: `أنت تتابع الآن ${profileUser.name}`});
       }
        // Re-fetch profile user to get updated follower count
        const updatedUser = await getUserByUsername(usernameFromUrl);
        setProfileUser(updatedUser);
+       
        // This ensures the current user's profile is also up-to-date for subsequent actions
        await getCurrentUserProfile({ forceRefresh: true }); 
-
     } catch (e) {
       console.error("Error toggling follow:", e);
       toast({ title: "حدث خطأ", description: "لم نتمكن من إتمام العملية. حاول مرة أخرى.", variant: "destructive" });
-      // Revert UI on error
       setIsFollowing(prev => !prev);
     } finally {
       setIsTogglingFollow(false);
     }
   };
-
 
   if (isProfileUserLoading || isCurrentUserLoading) {
     return (
@@ -215,7 +177,6 @@ export default function ProfilePage() {
   
   const followerCount = profileUser.followers?.length || 0;
   const followingCount = profileUser.following?.length || 0;
-
   const followButtonDisabled = isFollowStatusLoading || isTogglingFollow || isCurrentUserLoading;
 
   return (
@@ -253,7 +214,7 @@ export default function ProfilePage() {
           <div className="mt-4 space-y-1">
             <h1 className="text-2xl font-bold font-headline">{profileUser.name}</h1>
             <p className="text-sm text-muted-foreground">@{profileUser.username.toLowerCase()}</p>
-            {canViewContent || !profileUser.isPrivate ? (
+            {canViewContent ? (
                  <p className="pt-2">{profileUser.bio || "لا يوجد نبذة تعريفية."}</p>
             ) : (
                 <p className="pt-2 text-muted-foreground italic">تابع هذا المستخدم لعرض نبذته التعريفية.</p>
@@ -293,7 +254,7 @@ export default function ProfilePage() {
                 </Card>
            ) : postsLoading ? (
             <Skeleton className="h-40 w-full" />
-           ) : userPosts && userPosts.length > 0 ? (
+           ) : userPosts.length > 0 ? (
             userPosts.map(post => <PostCard key={post.id} post={post} />)
           ) : (
             <Card>
@@ -307,3 +268,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    
