@@ -47,7 +47,7 @@ service cloud.firestore {
      * @path /users/{userId}
      */
     match /users/{userId} {
-      allow read, list: if isSignedIn();
+      allow read, list: if true;
       
       // Allow a user to update their own document completely.
       // Also, allow any signed-in user to modify the 'followers' list
@@ -121,7 +121,7 @@ service cloud.firestore {
      * @path /stories/{storyId}
      */
     match /stories/{storyId} {
-      allow list, read: if isSignedIn();
+      allow list, read: if true;
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       // Allow updates only for viewers and likes
       allow update: if isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewers', 'likeIds']);
