@@ -31,7 +31,7 @@ import { initializeFirebase } from '@/firebase';
 import { type Post, type PrivacySetting } from '@/lib/types';
 import { getCurrentUserProfile } from './user-service';
 
-const { auth } = initializeFirebase();
+const { auth, firestore, storage } = initializeFirebase();
 
 type CreatePostInput = {
   content: string;
@@ -51,18 +51,15 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
   if (!user) {
     throw new Error('User not authenticated');
   }
-
-  const { firestore, storage } = initializeFirebase();
   
   let imageUrls: string[] = [];
   if (input.imageBlobs && input.imageBlobs.length > 0) {
-      imageUrls = await Promise.all(
-        input.imageBlobs.map(async (blob) => {
-          const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
-          await uploadString(imageRef, blob, 'data_url');
-          return getDownloadURL(imageRef);
-        })
-      );
+      const uploadPromises = input.imageBlobs.map(async (blob) => {
+        const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
+        await uploadString(imageRef, blob, 'data_url');
+        return getDownloadURL(imageRef);
+      });
+      imageUrls = await Promise.all(uploadPromises);
   }
   
   const postsCollection = collection(firestore, 'posts');
@@ -96,8 +93,6 @@ export const deletePost = async (postId: string, imageUrls: string[], asAdmin = 
     if (!user) {
       throw new Error('User not authenticated');
     }
-
-    const { firestore, storage } = initializeFirebase();
 
     const postRef = doc(firestore, 'posts', postId);
     const postSnap = await getDoc(postRef);
@@ -143,7 +138,6 @@ export const deletePost = async (postId: string, imageUrls: string[], asAdmin = 
  * @returns A promise that resolves to an array of posts.
  */
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
-    const { firestore } = initializeFirebase();
     const postsCollection = collection(firestore, 'posts');
     
     let privacyFilters: PrivacySetting[] = ['everyone'];
