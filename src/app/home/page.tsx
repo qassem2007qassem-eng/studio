@@ -33,49 +33,50 @@ export default function HomePage() {
       try {
         const userProfile = await getCurrentUserProfile();
         const followingIds = userProfile?.following || [];
-
+        
+        // Create a list of user IDs to fetch posts from: the current user + people they follow
+        const fetchUserIds = [...new Set([currentUser.uid, ...followingIds])];
+        
         let feedPosts: Post[] = [];
 
-        // 1. Fetch public posts from everyone, sorted by creation time
+        // Firestore 'in' queries are limited to 30 items in 2024. 
+        // If a user follows more, we need to chunk the requests.
+        const chunkSize = 30;
+        for (let i = 0; i < fetchUserIds.length; i += chunkSize) {
+            const chunk = fetchUserIds.slice(i, i + chunkSize);
+            if (chunk.length > 0) {
+                 const postsQuery = query(
+                    collection(firestore, "posts"),
+                    where("authorId", "in", chunk)
+                );
+                const postsSnapshot = await getDocs(postsQuery);
+                postsSnapshot.forEach(doc => {
+                    feedPosts.push({ id: doc.id, ...doc.data() } as Post);
+                });
+            }
+        }
+        
+        // Additionally, fetch all public posts, as the above only gets posts from followed users.
         const publicQuery = query(
           collection(firestore, "posts"),
-          where("privacy", "==", "everyone"),
-          orderBy("createdAt", "desc")
+          where("privacy", "==", "everyone")
         );
         const publicSnapshot = await getDocs(publicQuery);
         publicSnapshot.forEach(doc => {
           feedPosts.push({ id: doc.id, ...doc.data() } as Post);
         });
-        
-        // 2. Fetch 'followers-only' posts from followed users, if any
-        if (followingIds.length > 0) {
-            // Firestore 'in' queries are limited to 10 items. We might need to chunk this for users following many people.
-            // For now, assuming a reasonable number of followed users.
-            const followersQuery = query(
-              collection(firestore, "posts"),
-              where("authorId", "in", followingIds),
-              where("privacy", "==", "followers")
-            );
-            const followersSnapshot = await getDocs(followersQuery);
-            followersSnapshot.forEach(doc => {
-              feedPosts.push({ id: doc.id, ...doc.data() } as Post);
-            });
-        }
-        
-        // 3. Fetch current user's 'only_me' and 'followers' posts
-        const myPostsQuery = query(
-            collection(firestore, 'posts'),
-            where('authorId', '==', currentUser.uid),
-            where('privacy', 'in', ['only_me', 'followers'])
-        );
-        const myPostsSnapshot = await getDocs(myPostsQuery);
-        myPostsSnapshot.forEach(doc => {
-            feedPosts.push({ id: doc.id, ...doc.data() } as Post);
+
+
+        // Filter posts based on privacy settings on the client side
+        const filteredPosts = feedPosts.filter(post => {
+            if (post.privacy === 'everyone') return true;
+            if (post.authorId === currentUser.uid) return true; // User can always see their own posts
+            if (post.privacy === 'followers' && followingIds.includes(post.authorId)) return true;
+            return false;
         });
 
-
         // 4. Remove duplicates and sort in client-side
-        const uniquePosts = Array.from(new Map(feedPosts.map(p => [p.id, p])).values());
+        const uniquePosts = Array.from(new Map(filteredPosts.map(p => [p.id, p])).values());
         uniquePosts.sort((a, b) => {
             const dateA = a.createdAt?.toMillis() || 0;
             const dateB = b.createdAt?.toMillis() || 0;
