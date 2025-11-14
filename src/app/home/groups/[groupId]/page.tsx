@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -20,6 +21,7 @@ import { approvePost, rejectPost } from '@/services/post-service';
 import { getUsersByIds } from '@/services/user-service';
 import Link from 'next/link';
 import { ShareGroupDialog } from '@/components/share-group-dialog';
+import { safeToDate } from '@/lib/utils';
 
 function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' | 'pending' }) {
     const [posts, setPosts] = useState<Post[]>([]);
@@ -28,15 +30,21 @@ function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' |
 
     useEffect(() => {
         const postsRef = collection(firestore, 'posts');
+        // Removed orderBy to prevent composite index requirement. Sorting will be done client-side.
         const q = query(
             postsRef,
             where('groupId', '==', groupId),
-            where('status', '==', status),
-            orderBy('createdAt', 'desc')
+            where('status', '==', status)
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+            // Sort posts by creation date client-side
+            fetchedPosts.sort((a, b) => {
+                const dateA = safeToDate(a.createdAt)?.getTime() || 0;
+                const dateB = safeToDate(b.createdAt)?.getTime() || 0;
+                return dateB - dateA;
+            });
             setPosts(fetchedPosts);
             setIsLoading(false);
         }, (error) => {
@@ -403,3 +411,4 @@ export default function GroupDetailPage() {
         </div>
     );
 }
+
