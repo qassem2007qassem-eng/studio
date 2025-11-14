@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
 import { useState, useEffect } from 'react';
-import { useAuth, useFirebase } from '@/firebase';
+import { useAuth, useFirebase, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -56,10 +56,18 @@ export default function LoginPage() {
   
   const auth = useAuth();
   const { firestore } = useFirebase();
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
 
   const ADMIN_EMAIL = 'admin@app.com';
+
+  useEffect(() => {
+    // If user is already logged in, redirect to home page
+    if (!isUserLoading && user) {
+      router.push('/home');
+    }
+  }, [user, isUserLoading, router]);
 
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -138,6 +146,16 @@ export default function LoginPage() {
         setIsGoogleLoading(false);
     }
   };
+
+
+  // Show a loading indicator while checking auth status, and don't render the form if the user is logged in
+  if (isUserLoading || user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
 
   return (

@@ -3,34 +3,38 @@
 import { useState, useEffect } from 'react';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useUser } from '@/firebase/provider';
 
 /**
  * An invisible component that listens for globally emitted 'permission-error' events.
- * It throws any received error to be caught by Next.js's global-error.tsx.
+ * It throws any received error to be caught by Next.js's global-error.tsx,
+ * but only if the current user is an admin.
  */
 export function FirebaseErrorListener() {
-  // Use the specific error type for the state for type safety.
   const [error, setError] = useState<FirestorePermissionError | null>(null);
+  const { user } = useUser(); // Get the current user
+
+  const isAdmin = user?.email === 'admin@app.com';
 
   useEffect(() => {
-    // The callback now expects a strongly-typed error, matching the event payload.
+    // Only admins should listen for these specific errors
+    if (!isAdmin) {
+      return;
+    }
+
     const handleError = (error: FirestorePermissionError) => {
-      // Set error in state to trigger a re-render.
       setError(error);
     };
 
-    // The typed emitter will enforce that the callback for 'permission-error'
-    // matches the expected payload type (FirestorePermissionError).
     errorEmitter.on('permission-error', handleError);
 
-    // Unsubscribe on unmount to prevent memory leaks.
     return () => {
       errorEmitter.off('permission-error', handleError);
     };
-  }, []);
+  }, [isAdmin]); // Rerun the effect if the user's admin status changes
 
-  // On re-render, if an error exists in state, throw it.
-  if (error) {
+  // On re-render, if an error exists in state AND the user is an admin, throw it.
+  if (error && isAdmin) {
     throw error;
   }
 
