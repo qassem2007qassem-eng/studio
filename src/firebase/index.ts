@@ -3,9 +3,21 @@
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getStorage, connectStorageEmulator } from 'firebase/storage';
+
+const EMULATORS_STARTED = 'EMULATORS_STARTED';
+function areEmulatorsRunning(): boolean {
+  // Use a global variable to track if emulators have been started.
+  // This is to avoid trying to connect to the emulators multiple times.
+  const global = globalThis as any;
+  if (!global[EMULATORS_STARTED]) {
+    global[EMULATORS_STARTED] = true;
+    return false;
+  }
+  return true;
+}
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
@@ -19,14 +31,23 @@ export function initializeFirebase() {
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
-  // Revert to the default firestore initialization
+  const auth = getAuth(firebaseApp);
   const firestore = getFirestore(firebaseApp);
+  const storage = getStorage(firebaseApp);
+  
+  if (process.env.NODE_ENV === 'development' && !areEmulatorsRunning()) {
+    // These are the ports used by the Firebase emulators.
+    // localhost is the default host for the emulators.
+    connectFirestoreEmulator(firestore, 'localhost', 8080);
+    connectAuthEmulator(auth, 'http://localhost:9099');
+    connectStorageEmulator(storage, 'localhost', 9199);
+  }
 
   return {
     firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: firestore,
-    storage: getStorage(firebaseApp),
+    auth,
+    firestore,
+    storage,
   };
 }
 
