@@ -5,7 +5,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, MessageCircle, MoreHorizontal, Share2, Flag, Trash2, Edit, X } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 import { type Post, type Comment, type User } from "@/lib/types";
@@ -61,7 +61,7 @@ import {
     addDoc,
     updateDoc
 } from "firebase/firestore";
-import { getCurrentUserProfile } from "@/services/user-service";
+import { getCurrentUserProfile, getUserById } from "@/services/user-service";
 import { Skeleton } from "./ui/skeleton";
 import { initializeFirebase } from '@/firebase';
 import { useToast } from "@/hooks/use-toast";
@@ -89,6 +89,7 @@ const CommentsSheet = ({ post }: { post: Post }) => {
     const [newComment, setNewComment] = useState("");
     const [isPosting, setIsPosting] = useState(false);
     const [canComment, setCanComment] = useState(false);
+    const [isCheckingPermission, setIsCheckingPermission] = useState(true);
 
     const { firestore } = initializeFirebase();
     const commentsCollection = useMemoFirebase(() => {
@@ -103,27 +104,39 @@ const CommentsSheet = ({ post }: { post: Post }) => {
 
     const { data: comments, isLoading } = useCollection<Comment>(commentsQuery);
 
-    useEffect(() => {
-        const checkPermission = async () => {
-            if (!user || post.commenting === 'none') {
-                setCanComment(false);
-                return;
-            }
-            if (post.commenting === 'everyone' || post.authorId === user.uid) {
-                setCanComment(true);
-                return;
-            }
-            if (post.commenting === 'followers') {
-                const authorProfile = await getCurrentUserProfile({ userId: post.authorId });
-                if (authorProfile?.followers?.includes(user.uid)) {
-                    setCanComment(true);
-                } else {
-                    setCanComment(false);
-                }
-            }
-        };
-        checkPermission();
+    const checkPermission = useCallback(async () => {
+        setIsCheckingPermission(true);
+        if (!user) {
+            setCanComment(false);
+            setIsCheckingPermission(false);
+            return;
+        }
+
+        if (post.commenting === 'none') {
+            setCanComment(false);
+            setIsCheckingPermission(false);
+            return;
+        }
+        
+        if (post.authorId === user.uid || post.commenting === 'everyone') {
+            setCanComment(true);
+            setIsCheckingPermission(false);
+            return;
+        }
+
+        if (post.commenting === 'followers') {
+            const authorProfile = await getUserById(post.authorId);
+            const isFollower = authorProfile?.followers?.includes(user.uid) || false;
+            setCanComment(isFollower);
+        } else {
+            setCanComment(false);
+        }
+        setIsCheckingPermission(false);
     }, [post, user]);
+
+    useEffect(() => {
+        checkPermission();
+    }, [checkPermission]);
 
     const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -197,7 +210,9 @@ const CommentsSheet = ({ post }: { post: Post }) => {
             </div>
             <Separator />
             <div className="py-2">
-                {canComment ? (
+                {isCheckingPermission ? (
+                     <div className="text-center text-sm text-muted-foreground">التحقق من صلاحيات التعليق...</div>
+                ) : canComment ? (
                      <form onSubmit={handleAddComment} className="flex gap-2">
                         <Input 
                             placeholder="اكتب تعليقاً..."

@@ -128,11 +128,10 @@ export const deletePost = async (postId: string, asAdmin = false): Promise<void>
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
     const postsCollection = collection(firestore, 'posts');
     
-    // Base query for the user's posts
     const baseQuery = query(
         postsCollection,
         where('authorId', '==', profileUserId),
-        where('status', '==', 'approved') // Only get approved posts for profiles
+        where('groupId', '==', null) // Explicitly exclude group posts from profile pages
     );
 
     try {
@@ -142,9 +141,8 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         const currentUser = auth.currentUser;
         const isAdmin = currentUser?.email === 'admin@app.com';
 
-        if (isAdmin || currentUserId === profileUserId) {
-            // Admin or the profile owner can see all posts
-            return posts.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+        if (isAdmin) {
+             return posts.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
         }
 
         const { getUserById } = await import('./user-service');
@@ -152,14 +150,17 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         const isFollowing = currentUserId ? (profileUser?.followers || []).includes(currentUserId) : false;
 
         const filteredPosts = posts.filter(post => {
-            if (post.groupId) return false; // Exclude group posts from user profiles for now
+            // Check if current user is the owner of the profile
+            if (currentUserId === profileUserId) {
+                return true;
+            }
             if (post.privacy === 'everyone') {
                 return true;
             }
             if (post.privacy === 'followers' && isFollowing) {
                 return true;
             }
-            // 'only_me' posts are only visible to the owner, which is handled by the first `if` block.
+            // 'only_me' posts are only visible to the owner, handled above
             return false;
         });
 
@@ -182,24 +183,21 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
     if (!userProfile) return { posts: [], lastVisible: null, hasMore: false };
 
     const followingIds = userProfile.following || [];
+    // User feed should contain posts from themselves and those they follow.
     const userIdsToQuery = [userProfile.id, ...followingIds];
 
+    // If the user is not following anyone, the 'in' query with an empty array fails.
+    // So we just query for their own posts in that case.
+    if (userIdsToQuery.length === 0) {
+        userIdsToQuery.push(userProfile.id);
+    }
+    
     const postsRef = collection(firestore, 'posts');
     
-    let q;
-    
-    // This complex query attempts to get all posts that are either 'public' OR from users the current user follows.
-    // Firestore's 'OR' equivalent is using the `or` filter combined with `where`.
-    // It's constrained: all `or` clauses must use the same field for inequality comparisons. Here we use it on different fields.
-    // The correct approach is to use multiple queries and merge, but for a feed, we need ordering.
-    // The best practice is to have a "feed" collection for each user, but that's complex to set up.
-    // Let's try a simplified query and pagination, which will be much faster.
-    
-    // We will query for posts where the author is the user OR someone they follow.
-    // Then we filter client-side for privacy.
-
     const feedQueryConstraints = [
         where('authorId', 'in', userIdsToQuery),
+        // CRITICAL: Filter out group posts from the main feed.
+        where('groupId', '==', null),
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
@@ -208,16 +206,25 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
         feedQueryConstraints.push(startAfter(lastVisible));
     }
     
-    q = query(postsRef, ...feedQueryConstraints);
+    const q = query(postsRef, ...feedQueryConstraints);
 
     const querySnapshot = await getDocs(q);
 
+    // After fetching, we still need to apply privacy rules.
     const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post))
         .filter(post => {
-            if(post.groupId) return false; // Exclude group posts from main feed for now
-            if(post.authorId === userProfile.id) return true; // Always see own posts
-            if(post.privacy === 'everyone') return true;
-      if (post.privacy === 'followers' && followingIds.includes(post.authorId)) return true;
+            if (post.authorId === userProfile.id) {
+                // User can always see their own posts.
+                return true;
+            }
+            if (post.privacy === 'everyone') {
+                return true;
+            }
+            if (post.privacy === 'followers') {
+                // This check is inherently true because of the `userIdsToQuery` but good to keep for clarity.
+                return followingIds.includes(post.authorId);
+            }
+            // 'only_me' posts are filtered out by the authorId check above.
             return false;
         });
 
@@ -237,5 +244,3 @@ export const rejectPost = async (postId: string) => {
     // This is essentially deleting the post
     await deletePost(postId, true); // Use asAdmin to allow group owners to delete
 }
-
-
