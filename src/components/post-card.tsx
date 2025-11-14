@@ -304,7 +304,8 @@ export function PostCard({ post }: PostCardProps) {
         "p-4",
         hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg",
         hasBackground && !isFullView && "cursor-pointer hover:opacity-90 transition-opacity",
-        selectedBackground?.value
+        selectedBackground?.value,
+        isFullView && "h-full w-full"
       )}>
         <p className={cn(
           "whitespace-pre-wrap",
@@ -424,7 +425,8 @@ export function PostCard({ post }: PostCardProps) {
         </Card>
         
         {showTruncated ? (
-            <DialogContent className="max-w-lg p-0 border-0">
+            <DialogContent className="p-0 border-0 bg-transparent shadow-none max-w-lg">
+                <DialogTitle className="sr-only">عرض المنشور الكامل</DialogTitle>
                 {renderPostContent(true)}
             </DialogContent>
         ) : (
@@ -463,3 +465,5 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
+
+    
