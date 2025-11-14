@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useEffect } from 'react';
-import { collection, query, orderBy, where, writeBatch } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { collection, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import Link from 'next/link';
 import { useUser, useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { type AppNotification } from '@/lib/types';
@@ -10,17 +10,19 @@ import { SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatDistanceToNow, cn } from '@/lib/utils';
-import { Heart, MessageCircle, UserPlus, BellOff } from 'lucide-react';
-import { markNotificationsAsRead } from '@/services/notification-service';
+import { formatDistanceToNow, cn, safeToDate } from '@/lib/utils';
+import { Heart, MessageCircle, UserPlus, BellOff, Trash2, Loader2 } from 'lucide-react';
+import { markNotificationsAsRead, deleteNotification } from '@/services/notification-service';
+import { Button } from './ui/button';
+import { useToast } from '@/hooks/use-toast';
 
-const NotificationIcon = ({ type }: { type: AppNotification['action'] }) => {
+const NotificationIcon = ({ type }: { type: AppNotification['type'] }) => {
   switch (type) {
-    case 'liked':
+    case 'like':
       return <Heart className="h-5 w-5 text-red-500" />;
-    case 'commented':
+    case 'comment':
       return <MessageCircle className="h-5 w-5 text-blue-500" />;
-    case 'followed':
+    case 'follow':
       return <UserPlus className="h-5 w-5 text-green-500" />;
     default:
       return null;
@@ -30,6 +32,8 @@ const NotificationIcon = ({ type }: { type: AppNotification['action'] }) => {
 export function NotificationsSheet() {
   const { user } = useUser();
   const { firestore } = useFirebase();
+  const { toast } = useToast();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const notificationsQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -39,7 +43,7 @@ export function NotificationsSheet() {
     );
   }, [user, firestore]);
 
-  const { data: notifications, isLoading } = useCollection<AppNotification>(notificationsQuery);
+  const { data: notifications, isLoading, error } = useCollection<AppNotification>(notificationsQuery);
   
   useEffect(() => {
     if (notifications && notifications.some(n => !n.isRead)) {
@@ -47,14 +51,32 @@ export function NotificationsSheet() {
         const markAsRead = async () => {
              if (user && unreadIds.length > 0) {
                  // Debounce or delay this call to avoid marking as read immediately on open
-                 setTimeout(() => {
+                 const timer = setTimeout(() => {
                      markNotificationsAsRead(user.uid, unreadIds);
                  }, 3000); // 3-second delay
+                 return () => clearTimeout(timer);
              }
         }
         markAsRead();
     }
   }, [notifications, user]);
+
+  const handleDelete = async (notificationId: string) => {
+    if (!user) return;
+    setDeletingId(notificationId);
+    try {
+        await deleteNotification(user.uid, notificationId);
+    } catch (e) {
+        console.error(e);
+        toast({
+            title: 'خطأ',
+            description: 'فشل حذف الإشعار.',
+            variant: 'destructive',
+        });
+    } finally {
+        setDeletingId(null);
+    }
+  };
 
   return (
     <SheetContent>
@@ -70,36 +92,57 @@ export function NotificationsSheet() {
               <Skeleton className="h-16 w-full" />
             </>
           )}
+          {error && <p className="text-destructive text-center">حدث خطأ أثناء تحميل الإشعارات.</p>}
           {!isLoading && notifications && notifications.length > 0 ? (
-            notifications.map((notif) => (
-              <div
-                key={notif.id}
-                className={cn(
-                  "flex items-start gap-3 p-3 rounded-lg transition-colors",
-                  !notif.isRead ? "bg-primary/10" : "hover:bg-secondary"
-                )}
-              >
-                {!notif.isRead && <span className="h-2 w-2 mt-2 rounded-full bg-primary" />}
-                <div className="flex-shrink-0 relative">
-                     <Link href={`/home/profile/${notif.fromUser.username}`}>
-                        <Avatar>
-                            <AvatarImage src={notif.fromUser.avatarUrl} alt={notif.fromUser.name} />
-                            <AvatarFallback>{notif.fromUser.name?.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                     </Link>
-                     <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
-                        <NotificationIcon type={notif.type} />
-                     </div>
+            notifications.map((notif) => {
+              const notifDate = safeToDate(notif.createdAt);
+              return (
+                <div
+                    key={notif.id}
+                    className={cn(
+                        "group flex items-start gap-3 p-3 rounded-lg transition-colors",
+                        !notif.isRead ? "bg-primary/10" : "hover:bg-secondary"
+                    )}
+                >
+                    {!notif.isRead && <span className="h-2 w-2 mt-2 rounded-full bg-primary flex-shrink-0" />}
+                    <div className="flex-shrink-0 relative">
+                        <Link href={`/home/profile/${notif.fromUser.username}`}>
+                            <Avatar>
+                                <AvatarImage src={notif.fromUser.avatarUrl} alt={notif.fromUser.name} />
+                                <AvatarFallback>{notif.fromUser.name?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                        </Link>
+                        <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
+                            <NotificationIcon type={notif.type} />
+                        </div>
+                    </div>
+                    <div className="flex-1">
+                    <p className="text-sm">
+                        <Link href={`/home/profile/${notif.fromUser.username}`} className="font-semibold hover:underline">{notif.fromUser.name}</Link>
+                        {' '}{notif.content}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                        {notifDate ? formatDistanceToNow(notifDate) : "منذ لحظات"}
+                    </p>
+                    </div>
+                    <div className="flex-shrink-0">
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleDelete(notif.id)}
+                            disabled={deletingId === notif.id}
+                        >
+                            {deletingId === notif.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                            )}
+                        </Button>
+                    </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm">
-                     <Link href={`/home/profile/${notif.fromUser.username}`} className="font-semibold hover:underline">{notif.fromUser.name}</Link>
-                     {' '}{notif.content}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(notif.createdAt))}</p>
-                </div>
-              </div>
-            ))
+              )
+            })
           ) : (
             !isLoading && (
               <div className="flex flex-col items-center justify-center h-full pt-20 text-center text-muted-foreground">

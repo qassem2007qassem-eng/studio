@@ -65,7 +65,7 @@ export interface AppNotification {
   content: string;
   relatedEntityId: string; // e.g., postId, commentId, or fromUserId for follows
   isRead: boolean;
-  createdAt: string; // Using string to be compatible with JSON and easy conversion
+  createdAt: Timestamp;
 }
 
 

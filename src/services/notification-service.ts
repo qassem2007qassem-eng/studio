@@ -7,8 +7,8 @@ import {
   addDoc, 
   serverTimestamp, 
   doc, 
-  updateDoc, 
-  writeBatch 
+  writeBatch,
+  deleteDoc
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { type AppNotification } from '@/lib/types';
@@ -18,6 +18,11 @@ const { firestore } = initializeFirebase();
 type CreateNotificationInput = Omit<AppNotification, 'id' | 'createdAt' | 'isRead'>;
 
 export const createNotification = async (input: CreateNotificationInput): Promise<string | null> => {
+  // Prevent self-notification
+  if (input.userId === input.fromUser.id) {
+    return null;
+  }
+  
   try {
     const notificationsCollection = collection(firestore, `users/${input.userId}/notifications`);
     
@@ -28,11 +33,12 @@ export const createNotification = async (input: CreateNotificationInput): Promis
     };
 
     const docRef = await addDoc(notificationsCollection, notificationData);
-    await updateDoc(docRef, { id: docRef.id });
-
+    
     return docRef.id;
   } catch (error) {
     console.error("Error creating notification:", error);
+    // You might want to throw the error or handle it as needed
+    // For now, returning null to indicate failure.
     return null;
   }
 };
@@ -52,5 +58,20 @@ export const markNotificationsAsRead = async (userId: string, notificationIds: s
     await batch.commit();
   } catch (error) {
     console.error("Error marking notifications as read:", error);
+  }
+};
+
+
+export const deleteNotification = async (userId: string, notificationId: string): Promise<void> => {
+  if (!userId || !notificationId) {
+    throw new Error("User ID and Notification ID are required.");
+  }
+
+  try {
+    const notificationRef = doc(firestore, `users/${userId}/notifications`, notificationId);
+    await deleteDoc(notificationRef);
+  } catch (error) {
+    console.error("Error deleting notification:", error);
+    throw error; // Re-throw the error to be handled by the caller
   }
 };

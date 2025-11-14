@@ -11,25 +11,26 @@ import { useUser } from '@/firebase/provider';
  * but only if the current user is an admin.
  */
 export function FirebaseErrorListener() {
-  const [error, setError] = useState<FirestorePermissionError | null>(null);
-  const { user, isUserLoading } = useUser(); // Get the current user
-
-  // This check is crucial. We wait until we know who the user is.
-  if (isUserLoading) {
-    return null;
-  }
-
-  // Early exit for non-admins or logged-out users.
-  // This ensures the rest of the component (including useEffect) doesn't run for them.
-  const isAdmin = user?.email === 'admin@app.com';
-  if (!isAdmin) {
-    return null;
-  }
+  const { user, isUserLoading } = useUser();
+  const [errorToThrow, setErrorToThrow] = useState<FirestorePermissionError | null>(null);
 
   useEffect(() => {
-    // Because of the check above, this effect only runs for admins.
+    // Determine if the listener should be active.
+    // We wait until the user loading is complete.
+    if (isUserLoading) {
+      return;
+    }
+
+    const isAdmin = user?.email === 'admin@app.com';
+
+    // If the user is not an admin, we do nothing.
+    if (!isAdmin) {
+      return;
+    }
+
+    // If the user is an admin, we set up the listener.
     const handleError = (error: FirestorePermissionError) => {
-      setError(error);
+      setErrorToThrow(error);
     };
 
     errorEmitter.on('permission-error', handleError);
@@ -37,12 +38,11 @@ export function FirebaseErrorListener() {
     return () => {
       errorEmitter.off('permission-error', handleError);
     };
-  }, []); // No dependency on isAdmin needed due to the early exit.
+  }, [user, isUserLoading]); // Rerun when user or loading state changes.
 
-  // On re-render, if an error exists in state, throw it.
-  // This will only happen if the user is an admin.
-  if (error) {
-    throw error;
+  // If there's an error to throw (and this component is active for an admin), throw it.
+  if (errorToThrow) {
+    throw errorToThrow;
   }
 
   // This component renders nothing.
