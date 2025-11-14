@@ -13,7 +13,6 @@ import { Loader2, Moon, Sun, LogOut, Lock, UserCog, Palette, Shield } from "luci
 import Image from "next/image";
 import { useUser, initializeFirebase } from "@/firebase";
 import { signOut, updateProfile as updateAuthProfile } from "firebase/auth";
-import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { type User as UserType } from "@/lib/types";
 import { getCurrentUserProfile, updateProfile } from "@/services/user-service";
@@ -23,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Progress } from "@/components/ui/progress";
 
 
 function ProfileSettings() {
@@ -34,14 +34,17 @@ function ProfileSettings() {
     const [name, setName] = useState("");
     const [username, setUsername] = useState("");
     const [bio, setBio] = useState("");
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-    const [coverUrl, setCoverUrl] = useState<string | null>(null);
+    
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [coverFile, setCoverFile] = useState<File | null>(null);
+
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const [coverPreview, setCoverPreview] = useState<string | null>(null);
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     
-    const [isAvatarUploading, setIsAvatarUploading] = useState(false);
-    const [isCoverUploading, setIsCoverUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<{ type: 'avatar' | 'cover', progress: number } | null>(null);
 
     const avatarInputRef = useRef<HTMLInputElement>(null);
     const coverInputRef = useRef<HTMLInputElement>(null);
@@ -56,8 +59,8 @@ function ProfileSettings() {
                     setName(data.name || '');
                     setUsername(data.username || '');
                     setBio(data.bio || '');
-                    setAvatarUrl(data.avatarUrl || null);
-                    setCoverUrl(data.coverUrl || null);
+                    setAvatarPreview(data.avatarUrl || null);
+                    setCoverPreview(data.coverUrl || null);
                 }
                  setIsLoading(false);
             }).catch(() => setIsLoading(false));
@@ -70,47 +73,35 @@ function ProfileSettings() {
         if (!user || !userData) return;
 
         setIsSaving(true);
+        setUploadProgress(null);
         try {
-            const { auth, storage } = initializeFirebase();
-            let newAvatarUrl = avatarUrl;
-            if (avatarUrl && avatarUrl !== userData.avatarUrl && avatarUrl.startsWith('data:image')) {
-                setIsAvatarUploading(true);
-                const avatarRef = ref(storage, `avatars/${user.uid}`);
-                const snapshot = await uploadString(avatarRef, avatarUrl, 'data_url');
-                newAvatarUrl = await getDownloadURL(snapshot.ref);
-                setIsAvatarUploading(false);
-            }
-
-            let newCoverUrl = coverUrl;
-            if (coverUrl && coverUrl !== userData.coverUrl && coverUrl.startsWith('data:image')) {
-                 setIsCoverUploading(true);
-                const coverRef = ref(storage, `covers/${user.uid}`);
-                const snapshot = await uploadString(coverRef, coverUrl, 'data_url');
-                newCoverUrl = await getDownloadURL(snapshot.ref);
-                 setIsCoverUploading(false);
-            }
+            const profileUpdates: Partial<User> = { name, username, bio };
             
+            const updatedUrls = await updateProfile(
+                profileUpdates, 
+                avatarFile || undefined, 
+                coverFile || undefined, 
+                (type, progress, status) => {
+                    if (status === 'uploading') {
+                        setUploadProgress({ type, progress });
+                    } else {
+                        setUploadProgress(null);
+                    }
+                }
+            );
+
             if (auth.currentUser) {
                 await updateAuthProfile(auth.currentUser, {
                     displayName: name,
-                    photoURL: newAvatarUrl || undefined
+                    photoURL: updatedUrls.avatarUrl || avatarPreview || undefined
                 });
             }
-
-            const updatedUserData: Partial<UserType> = {
-                name: name,
-                username: username.toLowerCase(),
-                bio: bio,
-                avatarUrl: newAvatarUrl || '',
-                coverUrl: newCoverUrl || '',
-            };
-
-            await updateProfile(updatedUserData);
             
-            const updatedFullUser = { ...userData, ...updatedUserData };
-            setUserData(updatedFullUser as UserType);
-            setAvatarUrl(updatedFullUser.avatarUrl);
-            setCoverUrl(updatedFullUser.coverUrl);
+            setAvatarFile(null);
+            setCoverFile(null);
+
+            if(updatedUrls.avatarUrl) setAvatarPreview(updatedUrls.avatarUrl);
+            if(updatedUrls.coverUrl) setCoverPreview(updatedUrls.coverUrl);
 
 
             toast({
@@ -126,19 +117,21 @@ function ProfileSettings() {
             });
         } finally {
             setIsSaving(false);
-            setIsAvatarUploading(false);
-            setIsCoverUploading(false);
+            setUploadProgress(null);
         }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (url: string) => void) => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                setter(event.target?.result as string);
-            };
-            reader.readAsDataURL(file);
+            const previewUrl = URL.createObjectURL(file);
+            if (type === 'avatar') {
+                setAvatarFile(file);
+                setAvatarPreview(previewUrl);
+            } else {
+                setCoverFile(file);
+                setCoverPreview(previewUrl);
+            }
         }
     }
 
@@ -157,6 +150,8 @@ function ProfileSettings() {
             </div>
         )
     }
+    
+    const isUploading = uploadProgress?.progress !== 100;
 
     return (
         <Card>
@@ -170,23 +165,25 @@ function ProfileSettings() {
                     <Label>صورة الغلاف</Label>
                     <Card className="overflow-hidden">
                          <div className="relative h-40 w-full bg-muted">
-                            {coverUrl && 
+                            {coverPreview && 
                                 <Image
-                                    src={coverUrl}
+                                    src={coverPreview}
                                     alt="Cover preview"
                                     fill
                                     className="object-cover"
                                 />
                             }
-                             {isCoverUploading && (
-                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            {isSaving && uploadProgress?.type === 'cover' && (
+                                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
                                     <Loader2 className="h-8 w-8 animate-spin text-white" />
+                                    <p className="text-white text-sm">جاري الرفع...</p>
+                                    <Progress value={uploadProgress.progress} className="w-3/4 h-1"/>
                                 </div>
                             )}
                          </div>
                     </Card>
                     <Button variant="outline" onClick={() => coverInputRef.current?.click()} disabled={isSaving}>تغيير صورة الغلاف</Button>
-                    <Input ref={coverInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleFileChange(e, setCoverUrl)} />
+                    <Input ref={coverInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'cover')} />
                 </div>
                 
                 {/* Avatar */}
@@ -194,16 +191,17 @@ function ProfileSettings() {
                     <Label>الصورة الشخصية</Label>
                     <div className="flex items-center gap-4">
                         <Avatar className="h-24 w-24 relative">
-                            <AvatarImage src={avatarUrl || undefined} alt={name} />
+                            <AvatarImage src={avatarPreview || undefined} alt={name} />
                             <AvatarFallback>{name?.charAt(0)}</AvatarFallback>
-                             {isAvatarUploading && (
-                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full">
-                                    <Loader2 className="h-8 w-8 animate-spin text-white" />
+                            {isSaving && uploadProgress?.type === 'avatar' && (
+                                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center rounded-full gap-2">
+                                    <Loader2 className="h-6 w-6 animate-spin text-white" />
+                                    <Progress value={uploadProgress.progress} className="w-3/4 h-1"/>
                                 </div>
                             )}
                         </Avatar>
                         <Button variant="outline" onClick={() => avatarInputRef.current?.click()} disabled={isSaving}>تغيير الصورة الشخصية</Button>
-                        <Input ref={avatarInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleFileChange(e, setAvatarUrl)} />
+                        <Input ref={avatarInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'avatar')} />
                     </div>
                 </div>
 

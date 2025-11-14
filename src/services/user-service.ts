@@ -25,13 +25,18 @@ import {
   deleteDoc,
   collectionGroup
 } from 'firebase/firestore';
+import {
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+} from 'firebase/storage';
 
 import { initializeFirebase } from '@/firebase';
 import { type User } from '@/lib/types';
 import { deletePost } from './post-service';
 import { createNotification } from './notification-service';
 
-const { auth, firestore } = initializeFirebase();
+const { auth, firestore, storage } = initializeFirebase();
 
 
 let currentUserProfileCache: User | null = null;
@@ -94,15 +99,23 @@ const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<U
 };
 
 
-const createUserProfile = async (user: any, username: string, fullName: string, avatarUrl: string | null) => {
+const createUserProfile = async (user: any, username: string, fullName: string, avatarFile: File | null) => {
   try {
+     let photoURL = "";
+      if (avatarFile) {
+        const avatarRef = ref(storage, `avatars/${user.uid}`);
+        const uploadTask = uploadBytesResumable(avatarRef, avatarFile);
+        await uploadTask;
+        photoURL = await getDownloadURL(avatarRef);
+      }
+
     const userDocRef = doc(firestore, "users", user.uid);
     await setDoc(userDocRef, {
       id: user.uid,
       username: username.toLowerCase(),
       name: fullName,
       email: user.email, 
-      avatarUrl: avatarUrl || "",
+      avatarUrl: photoURL,
       coverUrl: "",
       bio: "",
       createdAt: serverTimestamp(),
@@ -114,6 +127,7 @@ const createUserProfile = async (user: any, username: string, fullName: string, 
     console.log("User profile created successfully!");
   } catch (error) {
     console.error("Error creating user profile:", error);
+    throw error;
   }
 };
 
@@ -276,15 +290,55 @@ const checkIfFollowing = async (targetUserId: string, options: GetProfileOptions
   }
 };
 
-const updateProfile = async (updates: Partial<User>) => {
+const updateProfile = async (updates: Partial<User>, avatarFile?: File, coverFile?: File, onProgress?: (type: 'avatar' | 'cover', progress: number, status: 'uploading' | 'completed' | 'error') => void): Promise<Partial<User>> => {
   const user = auth.currentUser;
-  if (!user) return;
+  if (!user) {
+    throw new Error('User not authenticated for profile update.');
+  }
+
+  const updatedUserData: Partial<User> = { ...updates };
+
+  const uploadFile = async (file: File, path: string, type: 'avatar' | 'cover'): Promise<string> => {
+    const fileRef = ref(storage, path);
+    const uploadTask = uploadBytesResumable(fileRef, file);
+
+    return new Promise<string>((resolve, reject) => {
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          onProgress?.(type, progress, 'uploading');
+        },
+        (error) => {
+          console.error(`Upload failed for ${type}:`, error);
+          onProgress?.(type, 0, 'error');
+          reject(error);
+        },
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          onProgress?.(type, 100, 'completed');
+          resolve(downloadURL);
+        }
+      );
+    });
+  };
 
   try {
-    const userRef = doc(firestore, "users", user.uid);
-    await updateDoc(userRef, updates);
-    console.log("Profile updated successfully!");
+    if (avatarFile) {
+      updatedUserData.avatarUrl = await uploadFile(avatarFile, `avatars/${user.uid}`, 'avatar');
+    }
+    if (coverFile) {
+      updatedUserData.coverUrl = await uploadFile(coverFile, `covers/${user.uid}`, 'cover');
+    }
+    
+    if (Object.keys(updatedUserData).length > 0) {
+      const userRef = doc(firestore, "users", user.uid);
+      await updateDoc(userRef, updatedUserData);
+    }
+    
     await getCurrentUserProfile({ forceRefresh: true });
+    
+    return updatedUserData;
+
   } catch (error) {
     console.error("Error updating profile:", error);
     throw error;

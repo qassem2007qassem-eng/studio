@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
@@ -21,7 +21,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, Loader2, UserCircle2, CheckCircle } from 'lucide-react';
+import { CalendarIcon, Loader2, UserCircle2, CheckCircle, UploadCloud } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
@@ -39,7 +39,7 @@ import {
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { createUserProfile } from '@/services/user-service';
 
 function RegisterForm() {
   const searchParams = useSearchParams();
@@ -56,12 +56,14 @@ function RegisterForm() {
     gender: '',
     username: '',
     password: '',
-    avatar: null as string | null,
+    avatarFile: null as File | null,
+    avatarPreview: null as string | null,
   });
   const [usernameError, setUsernameError] = useState<string | null>(null);
 
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
-  const { auth, firestore, storage } = initializeFirebase();
+  const { auth, firestore } = initializeFirebase();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -74,7 +76,7 @@ function RegisterForm() {
         ...prev,
         fullName: name,
         email: email,
-        avatar: avatar || null,
+        avatarPreview: avatar || null,
       }));
       setStep(3); // Start from step 3 if coming from Google
     }
@@ -103,14 +105,11 @@ function RegisterForm() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setFormData((prev) => ({
-          ...prev,
-          avatar: event.target?.result as string,
-        }));
-      };
-      reader.readAsDataURL(file);
+      setFormData(prev => ({
+        ...prev,
+        avatarFile: file,
+        avatarPreview: URL.createObjectURL(file)
+      }));
     }
   };
 
@@ -124,6 +123,7 @@ function RegisterForm() {
       return;
     }
     setIsLoading(true);
+    if(formData.avatarFile) setIsAvatarUploading(true);
 
     const usernameLower = formData.username.toLowerCase();
 
@@ -139,6 +139,7 @@ function RegisterForm() {
           variant: 'destructive',
         });
         setIsLoading(false);
+        setIsAvatarUploading(false);
         return;
       }
       
@@ -149,42 +150,13 @@ function RegisterForm() {
       );
       const user = userCredential.user;
 
-      // Send verification email
       await sendEmailVerification(user);
 
-      let photoURL = "";
-      if (formData.avatar) {
-        setIsAvatarUploading(true);
-        const avatarRef = ref(storage, `avatars/${user.uid}`);
-        const snapshot = await uploadString(
-          avatarRef,
-          formData.avatar,
-          'data_url'
-        );
-        photoURL = await getDownloadURL(snapshot.ref);
-        setIsAvatarUploading(false);
-      }
-
+      await createUserProfile(user, usernameLower, formData.fullName, formData.avatarFile);
+      setIsAvatarUploading(false);
+      
       await updateProfile(user, {
         displayName: formData.fullName,
-        photoURL: photoURL,
-      });
-
-      const userDocRef = doc(firestore, 'users', user.uid);
-      await setDoc(userDocRef, {
-        id: user.uid,
-        username: usernameLower,
-        email: formData.email,
-        name: formData.fullName,
-        dob: formData.dob ? format(formData.dob, 'yyyy-MM-dd') : null,
-        gender: formData.gender,
-        createdAt: serverTimestamp(),
-        bio: '',
-        avatarUrl: photoURL,
-        coverUrl: "",
-        followers: [],
-        following: [],
-        emailVerified: user.emailVerified
       });
       
       toast({
@@ -195,6 +167,7 @@ function RegisterForm() {
 
     } catch (error: any) {
       setIsLoading(false);
+      setIsAvatarUploading(false);
       let description = 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.';
       if (error.code === 'auth/weak-password') {
         description = 'كلمة المرور ضعيفة جدًا. يجب أن تتكون من 6 أحرف على الأقل.';
@@ -324,7 +297,7 @@ function RegisterForm() {
         <div className="space-y-4 text-center">
           <div className="mx-auto w-32 h-32">
             <Avatar className="w-full h-full relative">
-              <AvatarImage src={formData.avatar || undefined} />
+              <AvatarImage src={formData.avatarPreview || undefined} />
               <AvatarFallback>
                 <UserCircle2 className="w-20 h-20 text-muted-foreground" />
               </AvatarFallback>
@@ -336,19 +309,21 @@ function RegisterForm() {
             </Avatar>
           </div>
 
-          <Label
-            htmlFor="avatar-upload"
-            className={cn(buttonVariants({ variant: 'outline' }), 'cursor-pointer', isFromGoogle && 'hidden')}
+          <Button
+            variant="outline"
+            onClick={() => avatarInputRef.current?.click()}
+            disabled={isFromGoogle || isLoading}
           >
             اختر صورة
-          </Label>
+          </Button>
           <Input
+            ref={avatarInputRef}
             id="avatar-upload"
             type="file"
             accept="image/*"
             className="hidden"
             onChange={handleFileChange}
-            disabled={isFromGoogle}
+            disabled={isFromGoogle || isLoading}
           />
         </div>
       ),
@@ -417,7 +392,7 @@ function RegisterForm() {
           {currentStepData.content}
           <div className="grid grid-cols-2 gap-4 mt-4">
             {step > 1 && (
-              <Button variant="outline" onClick={handlePrev}>
+              <Button variant="outline" onClick={handlePrev} disabled={isLoading}>
                 السابق
               </Button>
             )}
@@ -425,10 +400,10 @@ function RegisterForm() {
             {!isFinalStep && (
               <Button
                 onClick={handleNext}
-                disabled={!currentStepData.validation()}
+                disabled={!currentStepData.validation() || isLoading}
                 className={cn(step === 1 ? 'col-span-2' : '', (step === 5 && !isFromGoogle) ? 'col-span-2' : '', (step === 3 && isFromGoogle) ? 'col-span-2' : '')}
               >
-                {step === 5 && !formData.avatar && !isFromGoogle ? 'تخطى' : 'التالي'}
+                {step === 5 && !formData.avatarFile && !isFromGoogle ? 'تخطى' : 'التالي'}
               </Button>
             )}
 
