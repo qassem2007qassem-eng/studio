@@ -191,7 +191,7 @@ export function PostCard({ post }: PostCardProps) {
   const [isReportAlertOpen, setIsReportAlertOpen] = useState(false);
   
   const isOwner = user?.uid === post.authorId;
-  const isAdmin = isAdminUser(user);
+  const isAdmin = user?.email === 'admin@app.com';
 
   useEffect(() => {
     setIsLiked(!!user && !!post.likeIds?.includes(user.uid));
@@ -399,3 +399,4 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
+

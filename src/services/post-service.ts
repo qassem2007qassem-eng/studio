@@ -15,7 +15,8 @@ import {
   orderBy,
   limit,
   Timestamp,
-  getDoc
+  getDoc,
+  updateDoc
 } from 'firebase/firestore';
 import {
   getStorage,
@@ -60,20 +61,23 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
   
   const postsCollection = collection(firestore, 'posts');
   
-  const postData: Omit<Post, 'id'> = {
+  const postDocRef = await addDoc(postsCollection, {
     authorId: user.uid,
     author: input.author,
     content: input.content,
-    imageUrls,
-    createdAt: serverTimestamp() as any,
-    updatedAt: serverTimestamp() as any,
+    imageUrls: imageUrls,
+    createdAt: serverTimestamp(),
     likeIds: [],
     privacy: input.privacy,
     commenting: input.commenting,
-  };
+  });
 
-  const docRef = await addDoc(postsCollection, postData);
-  return docRef.id;
+  await updateDoc(postDocRef, {
+      id: postDocRef.id,
+      updatedAt: serverTimestamp(),
+  });
+
+  return postDocRef.id;
 };
 
 
@@ -108,15 +112,17 @@ export const deletePost = async (postId: string, imageUrls: string[], asAdmin = 
 
     await batch.commit();
 
-    for (const url of imageUrls) {
-        try {
-            const imageRef = ref(storage, url);
-            await deleteObject(imageRef);
-        } catch (error: any) {
-            if (error.code !== 'storage/object-not-found') {
-              console.error(`Failed to delete image ${url}:`, error);
-            }
-        }
+    if (imageUrls && imageUrls.length > 0) {
+      for (const url of imageUrls) {
+          try {
+              const imageRef = ref(storage, url);
+              await deleteObject(imageRef);
+          } catch (error: any) {
+              if (error.code !== 'storage/object-not-found') {
+                console.error(`Failed to delete image ${url}:`, error);
+              }
+          }
+      }
     }
 }
 
@@ -169,3 +175,4 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         return [];
     }
 };
+
