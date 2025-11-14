@@ -37,12 +37,16 @@ const privacyOptions: { value: PrivacySetting; label: string; icon: React.FC<any
 ];
 
 const backgroundOptions = [
-  { id: 'default', className: 'bg-transparent text-foreground' },
-  { id: 'bg1', className: 'bg-gradient-to-br from-red-200 to-yellow-200 text-black' },
-  { id: 'bg2', className: 'bg-gradient-to-br from-blue-200 to-purple-200 text-black' },
-  { id: 'bg3', className: 'bg-gradient-to-br from-green-200 to-teal-200 text-black' },
-  { id: 'bg4', className: 'bg-gradient-to-br from-pink-200 to-rose-200 text-black' },
-  { id: 'bg5', className: 'bg-gray-800 text-white' },
+  { id: 'default', type: 'color', value: 'bg-transparent text-foreground' },
+  { id: 'gradient1', type: 'color', value: 'bg-gradient-to-br from-red-200 to-yellow-200 text-black' },
+  { id: 'gradient2', type: 'color', value: 'bg-gradient-to-br from-blue-200 to-purple-200 text-black' },
+  { id: 'gradient3', type: 'color', value: 'bg-gradient-to-br from-green-200 to-teal-200 text-black' },
+  { id: 'gradient4', type: 'color', value: 'bg-gradient-to-br from-pink-200 to-rose-200 text-black' },
+  { id: 'gradient5', type: 'color', value: 'bg-gray-800 text-white' },
+  { id: 'image1', type: 'image', value: 'https://images.unsplash.com/photo-1518655048521-f130df041f66?w=500&q=80', thumbnail: 'https://images.unsplash.com/photo-1518655048521-f130df041f66?w=100&q=80' },
+  { id: 'image2', type: 'image', value: 'https://images.unsplash.com/photo-1484417894907-623942c8ee29?w=500&q=80', thumbnail: 'https://images.unsplash.com/photo-1484417894907-623942c8ee29?w=100&q=80' },
+  { id: 'image3', type: 'image', value: 'https://images.unsplash.com/photo-1507525428034-b723a9ce6890?w=500&q=80', thumbnail: 'https://images.unsplash.com/photo-1507525428034-b723a9ce6890?w=100&q=80' },
+  { id: 'image4', type: 'image', value: 'https://images.unsplash.com/photo-1554189097-90d8360ae8df?w=500&q=80', thumbnail: 'https://images.unsplash.com/photo-1554189097-90d8360ae8df?w=100&q=80' },
 ];
 
 export default function CreatePostPage() {
@@ -59,6 +63,7 @@ export default function CreatePostPage() {
   const [background, setBackground] = useState(backgroundOptions[0].id);
   
   const hasImages = postImages.length > 0;
+  const selectedBackground = backgroundOptions.find(b => b.id === background);
   const hasBackground = background !== 'default';
 
   useEffect(() => {
@@ -136,7 +141,7 @@ export default function CreatePostPage() {
         },
         privacy,
         commenting: 'everyone',
-        background,
+        background: selectedBackground?.type === 'image' ? selectedBackground.value : background,
       });
 
       setContent('');
@@ -159,7 +164,16 @@ export default function CreatePostPage() {
   };
   
   const CurrentPrivacyIcon = privacyOptions.find(p => p.value === privacy)?.icon;
-  const selectedBackgroundClass = backgroundOptions.find(b => b.id === background)?.className || '';
+  
+  const backgroundStyle = useMemo(() => {
+    if (selectedBackground?.type === 'image') {
+      return { backgroundImage: `url(${selectedBackground.value})` };
+    }
+    return {};
+  }, [selectedBackground]);
+  
+  const backgroundClass = selectedBackground?.type === 'color' ? selectedBackground.value : 'bg-cover bg-center';
+
 
   if (isUserLoading || isDataLoading) {
       return (
@@ -219,17 +233,22 @@ export default function CreatePostPage() {
               </div>
           </div>
 
-          <div className={cn(
-              "relative flex items-center justify-center rounded-lg min-h-[144px]",
-              hasBackground && "min-h-[250px]",
-              selectedBackgroundClass
-          )}>
+          <div 
+              className={cn(
+                  "relative flex items-center justify-center rounded-lg min-h-[144px] text-white",
+                  hasBackground && "min-h-[250px]",
+                  backgroundClass
+              )}
+              style={backgroundStyle}
+          >
+              {selectedBackground?.type === 'image' && <div className="absolute inset-0 bg-black/40 rounded-lg"></div>}
               <Textarea
                   placeholder={`بماذا تفكر يا ${userData.name?.split(' ')[0] || ''}؟`}
                   className={cn(
-                      "w-full bg-transparent border-none focus-visible:ring-0 resize-none",
+                      "w-full bg-transparent border-none focus-visible:ring-0 resize-none relative",
                       "text-xl",
-                      hasBackground && "text-3xl font-bold text-center h-auto min-h-[250px] flex items-center justify-center"
+                      hasBackground && "text-3xl font-bold text-center h-auto min-h-[250px] flex items-center justify-center",
+                      selectedBackground?.type === 'color' && selectedBackground.value.includes('text-black') ? 'text-black' : 'text-white'
                   )}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
@@ -258,9 +277,9 @@ export default function CreatePostPage() {
           )}
       </main>
       <footer className="p-4 border-t mt-auto flex-shrink-0 bg-background">
-           <div className="flex items-center gap-2">
+           <div className="flex items-center gap-2 overflow-x-auto pb-2">
               <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={hasBackground}>
-                  <ImageIcon className="h-6 w-6 text-green-500"/>
+                  <ImageIcon className={cn("h-6 w-6", hasBackground ? "text-muted-foreground" : "text-green-500")}/>
                   <span className="sr-only">إضافة صورة</span>
               </Button>
                <input
@@ -277,13 +296,18 @@ export default function CreatePostPage() {
                       key={bg.id}
                       onClick={() => setBackground(bg.id)}
                       className={cn(
-                          "h-8 w-8 rounded-full border-2",
+                          "h-8 w-8 rounded-full border-2 flex-shrink-0",
                           background === bg.id ? "border-primary" : "border-muted",
-                          bg.className.startsWith('bg-') ? bg.className.split(' ')[0] : 'bg-transparent',
-                          bg.id === 'default' && 'flex items-center justify-center text-muted-foreground'
                       )}
                   >
-                      {bg.id === 'default' && 'Aa'}
+                      {bg.type === 'color' ? (
+                          <div className={cn("h-full w-full rounded-full", bg.value.startsWith('bg-') ? bg.value.split(' ')[0] : 'bg-transparent', bg.id === 'default' && 'flex items-center justify-center text-muted-foreground')}>
+                              {bg.id === 'default' && 'Aa'}
+                          </div>
+                      ) : (
+                          <Image src={bg.thumbnail!} alt="background" width={32} height={32} className="h-full w-full object-cover rounded-full" />
+                      )}
+
                   </button>
               ))}
           </div>
@@ -291,7 +315,3 @@ export default function CreatePostPage() {
     </div>
   );
 }
-
-    
-
-    

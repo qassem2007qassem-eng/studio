@@ -16,7 +16,8 @@ import {
   limit,
   Timestamp,
   getDoc,
-  updateDoc
+  updateDoc,
+  setDoc,
 } from 'firebase/firestore';
 import {
   getStorage,
@@ -77,11 +78,11 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     background: input.background || 'default'
   };
 
-  const postDocRef = await addDoc(postsCollection, {});
+  const postDocRef = doc(postsCollection); // Create a reference with a new ID
 
   await setDoc(postDocRef, {
       ...postData,
-      id: postDocRef.id,
+      id: postDocRef.id, // Explicitly set the ID
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
   });
