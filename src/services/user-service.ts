@@ -90,28 +90,32 @@ const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<U
   }
 };
 
-const createUserProfile = async (user: AuthUser, username: string, fullName: string, avatarFile: File | null): Promise<void> => {
+const createUserProfile = async (
+  user: AuthUser, 
+  details: Pick<User, 'username' | 'name' | 'email' | 'emailVerified'>,
+  avatarFile?: File
+): Promise<void> => {
   try {
-    let photoURL = "";
+    let avatarUrl = "";
     if (avatarFile) {
       const path = `avatars/${user.uid}`;
-      photoURL = await uploadFile(avatarFile, path);
+      avatarUrl = await uploadFile(avatarFile, path);
     } 
 
     const userDocRef = doc(firestore, "users", user.uid);
     await setDoc(userDocRef, {
       id: user.uid,
-      username: username.toLowerCase(),
-      name: fullName,
-      email: user.email,
-      avatarUrl: photoURL,
+      username: details.username.toLowerCase(),
+      name: details.name,
+      email: details.email,
+      avatarUrl: avatarUrl,
       coverUrl: "",
       bio: "",
       createdAt: serverTimestamp(),
       followers: [],
       following: [],
       isPrivate: false,
-      emailVerified: user.emailVerified,
+      emailVerified: details.emailVerified,
     });
     console.log("User profile created successfully!");
   } catch (error) {
@@ -278,13 +282,14 @@ const checkIfFollowing = async (targetUserId: string, options: GetProfileOptions
 };
 
 const updateProfile = async (
+    userId: string,
     updates: Partial<User>, 
     avatarFile?: File, 
     coverFile?: File, 
-    onProgress?: (type: 'avatar' | 'cover', progress: number, status: 'uploading' | 'completed' | 'error') => void
+    onProgress?: (type: 'avatar' | 'cover', progress: number) => void
 ): Promise<{ avatarUrl?: string; coverUrl?: string }> => {
-  const user = auth.currentUser;
-  if (!user) {
+  
+  if (!userId) {
     throw new Error('User not authenticated for profile update.');
   }
 
@@ -293,29 +298,30 @@ const updateProfile = async (
 
   try {
     if (avatarFile) {
-      const path = `avatars/${user.uid}`;
-      const avatarUrl = await uploadFile(avatarFile, path, (progress, status) => {
-        onProgress?.('avatar', progress, status);
+      const path = `avatars/${userId}`;
+      const avatarUrl = await uploadFile(avatarFile, path, (progress) => {
+        onProgress?.('avatar', progress);
       });
       updatedUserData.avatarUrl = avatarUrl;
       returnedUrls.avatarUrl = avatarUrl;
     }
 
     if (coverFile) {
-      const path = `covers/${user.uid}`;
-      const coverUrl = await uploadFile(coverFile, path, (progress, status) => {
-        onProgress?.('cover', progress, status);
+      const path = `covers/${userId}`;
+      const coverUrl = await uploadFile(coverFile, path, (progress) => {
+        onProgress?.('cover', progress);
       });
       updatedUserData.coverUrl = coverUrl;
       returnedUrls.coverUrl = coverUrl;
     }
     
     if (Object.keys(updatedUserData).length > 0) {
-      const userRef = doc(firestore, "users", user.uid);
+      const userRef = doc(firestore, "users", userId);
       await updateDoc(userRef, updatedUserData);
     }
     
-    await getCurrentUserProfile({ forceRefresh: true });
+    // Force a refresh of the local cache
+    await getCurrentUserProfile({ forceRefresh: true, userId: userId });
     
     return returnedUrls;
 

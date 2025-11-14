@@ -26,12 +26,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useAuth, initializeFirebase } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
+import { initializeFirebase } from '@/firebase';
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, type User as AuthUser } from 'firebase/auth';
 import {
-  doc,
-  setDoc,
-  serverTimestamp,
   collection,
   query,
   where,
@@ -123,7 +120,6 @@ function RegisterForm() {
       return;
     }
     setIsLoading(true);
-    if(formData.avatarFile) setIsAvatarUploading(true);
 
     const usernameLower = formData.username.toLowerCase();
 
@@ -139,7 +135,6 @@ function RegisterForm() {
           variant: 'destructive',
         });
         setIsLoading(false);
-        setIsAvatarUploading(false);
         return;
       }
       
@@ -152,7 +147,13 @@ function RegisterForm() {
 
       await sendEmailVerification(user);
 
-      await createUserProfile(user, usernameLower, formData.fullName, formData.avatarFile);
+      if(formData.avatarFile) setIsAvatarUploading(true);
+      await createUserProfile(user, {
+        username: usernameLower,
+        name: formData.fullName,
+        email: user.email,
+        emailVerified: user.emailVerified
+      }, formData.avatarFile || undefined);
       setIsAvatarUploading(false);
       
       await updateProfile(user, {

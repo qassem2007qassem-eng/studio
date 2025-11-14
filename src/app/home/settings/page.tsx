@@ -28,6 +28,7 @@ import { Progress } from "@/components/ui/progress";
 function ProfileSettings() {
     const { toast } = useToast();
     const { user, isUserLoading } = useUser();
+    const { auth } = initializeFirebase();
     const router = useRouter();
 
     const [userData, setUserData] = useState<UserType | null>(null);
@@ -78,15 +79,12 @@ function ProfileSettings() {
             const profileUpdates: Partial<User> = { name, username, bio };
             
             const updatedUrls = await updateProfile(
+                user.uid,
                 profileUpdates, 
                 avatarFile || undefined, 
                 coverFile || undefined, 
-                (type, progress, status) => {
-                    if (status === 'uploading') {
-                        setUploadProgress({ type, progress });
-                    } else {
-                        setUploadProgress(null);
-                    }
+                (type, progress) => {
+                   setUploadProgress({ type, progress });
                 }
             );
 
@@ -99,20 +97,21 @@ function ProfileSettings() {
             
             setAvatarFile(null);
             setCoverFile(null);
-
-            if(updatedUrls.avatarUrl) setAvatarPreview(updatedUrls.avatarUrl);
-            if(updatedUrls.coverUrl) setCoverPreview(updatedUrls.coverUrl);
+            
+            // Optimistically update previews, but final URLs are the source of truth
+            if (updatedUrls.avatarUrl) setAvatarPreview(updatedUrls.avatarUrl);
+            if (updatedUrls.coverUrl) setCoverPreview(updatedUrls.coverUrl);
 
 
             toast({
                 title: "تم الحفظ",
                 description: "تم تحديث معلومات ملفك الشخصي بنجاح.",
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error updating profile:", error);
             toast({
                 title: "خطأ",
-                description: "حدث خطأ أثناء تحديث ملفك الشخصي.",
+                description: error.message || "حدث خطأ أثناء تحديث ملفك الشخصي.",
                 variant: "destructive"
             });
         } finally {
@@ -150,8 +149,6 @@ function ProfileSettings() {
             </div>
         )
     }
-    
-    const isUploading = uploadProgress?.progress !== 100;
 
     return (
         <Card>
