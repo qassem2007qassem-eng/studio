@@ -248,10 +248,12 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
 
                 {/* Main Content Area */}
                 <div className="flex-grow flex items-center justify-center p-8 overflow-hidden">
-                     <div className="w-full max-h-full overflow-y-auto">
-                        <p className="text-3xl font-bold whitespace-pre-wrap text-center" style={{ wordBreak: 'break-word' }}>
-                            {post.content}
-                        </p>
+                    <div className="flex items-center justify-center w-full h-full">
+                        <div className="w-full max-h-full overflow-y-auto">
+                            <p className="text-3xl font-bold whitespace-pre-wrap text-center" style={{ wordBreak: 'break-word' }}>
+                                {post.content}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -399,37 +401,41 @@ export function PostCard({ post }: PostCardProps) {
   const TRUNCATE_LENGTH = 150;
   const isLongText = post.content.length > TRUNCATE_LENGTH;
   
-  const handleContentClick = () => {
-    if (hasBackground) {
-        setIsFullScreenOpen(true);
-    }
-  };
-  
   const renderContent = () => {
-    const contentToShow = (isLongText && !hasBackground) ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content;
+      const contentToShow = isLongText ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content;
 
-    return (
-        <div 
-            onClick={handleContentClick}
-            className={cn(
-                "p-4",
-                hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg cursor-pointer hover:opacity-90 transition-opacity",
-                selectedBackground?.value,
-            )}
-        >
-            <p className={cn(
-              "whitespace-pre-wrap",
-              hasBackground ? "text-2xl font-bold" : "text-base"
-            )}>
-              {contentToShow}
-            </p>
-             {isLongText && !hasBackground && (
-                <span onClick={() => setIsFullScreenOpen(true)} className="text-primary hover:underline cursor-pointer text-sm">
-                    عرض المزيد
-                </span>
-            )}
+      const contentElement = (
+          <p className={cn(
+            "whitespace-pre-wrap",
+            hasBackground ? "text-2xl font-bold" : "text-base"
+          )}>
+            {contentToShow}
+          </p>
+      );
+
+      const triggerElement = (
+          <div className={cn(
+              "p-4",
+              hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg cursor-pointer hover:opacity-90 transition-opacity",
+              selectedBackground?.value,
+          )}>
+              {contentElement}
+          </div>
+      );
+
+      if (isLongText || hasBackground) {
+          return (
+              <DialogTrigger asChild>
+                  {triggerElement}
+              </DialogTrigger>
+          );
+      }
+
+      return (
+        <div className="p-4">
+          {contentElement}
         </div>
-    );
+      );
   };
 
 
@@ -534,7 +540,7 @@ export function PostCard({ post }: PostCardProps) {
         </CardFooter>
       </Card>
       
-      {(hasBackground || isLongText) && (
+      {(isLongText || hasBackground) && (
           <FullScreenPostView post={post} onLike={handleLike} isLiked={isLiked} likeCount={likeCount} commentCount={commentCount} />
       )}
       
@@ -570,5 +576,6 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
+
 
 
