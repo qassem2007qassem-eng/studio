@@ -27,7 +27,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useAuth, initializeFirebase } from '@/firebase';
-import { createUserWithEmailAndPassword, sendEmailVerification, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import {
   doc,
   setDoc,
@@ -148,20 +148,6 @@ function RegisterForm() {
       );
       const user = userCredential.user;
 
-      try {
-        await sendEmailVerification(user);
-      } catch (verificationError) {
-         console.error("Failed to send verification email:", verificationError);
-         toast({
-            title: "فشل إرسال بريد التحقق",
-            description: "لم نتمكن من إرسال بريد التحقق. الرجاء التأكد من صحة بريدك الإلكتروني والمحاولة مرة أخرى.",
-            variant: "destructive"
-         });
-         setIsLoading(false);
-         return;
-      }
-
-
       let photoURL = "";
       if (formData.avatar) {
         const avatarRef = ref(storage, `avatars/${user.uid}`);
@@ -195,9 +181,8 @@ function RegisterForm() {
       });
       
       toast({
-        title: "تم إرسال رابط التحقق",
-        description: "لقد أرسلنا رابط تحقق إلى بريدك الإلكتروني. الرجاء النقر عليه ثم تسجيل الدخول. (قد يكون في الرسائل غير المرغوب فيها)",
-        duration: 9000,
+        title: "تم إنشاء الحساب بنجاح",
+        description: "يمكنك الآن تسجيل الدخول إلى حسابك.",
       });
       router.push('/login');
 

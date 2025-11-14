@@ -79,19 +79,7 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      
-      if (email !== ADMIN_EMAIL && !userCredential.user.emailVerified) {
-         toast({
-          title: 'لم يتم التحقق من البريد الإلكتروني',
-          description: 'لقد تم إرسال رابط تحقق إلى بريدك الإلكتروني. الرجاء التحقق منه لتسجيل الدخول. قد يكون في مجلد الرسائل غير المرغوب فيها.',
-          variant: 'destructive',
-          duration: 9000,
-        });
-        setIsLoading(false);
-        return;
-      }
-      
+      await signInWithEmailAndPassword(auth, email, password);
       router.push('/home');
     } catch (error: any) {
       console.error(error);
