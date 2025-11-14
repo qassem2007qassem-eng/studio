@@ -1,9 +1,10 @@
 
+
 "use client";
 
 import Image from "next/image";
 import Link from "next/link";
-import { Heart, MessageCircle, MoreHorizontal, Share2, Flag, Trash2, Edit } from "lucide-react";
+import { Heart, MessageCircle, MoreHorizontal, Share2, Flag, Trash2, Edit, X } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
@@ -190,6 +191,57 @@ const CommentsDialog = ({ post }: { post: Post }) => {
     )
 }
 
+const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: { post: Post, onLike: () => void, isLiked: boolean, likeCount: number, commentCount: number }) => {
+    const selectedBackground = backgroundOptions.find(opt => opt.id === post.background);
+
+    return (
+        <div className="fixed inset-0 z-50 flex flex-col">
+            <div className={cn("flex-grow flex items-center justify-center text-center p-8", selectedBackground?.value)}>
+                 <p className="text-3xl font-bold">{post.content}</p>
+            </div>
+            
+            <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/50 to-transparent">
+                 <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
+                     <MoreHorizontal />
+                 </Button>
+                 <DialogClose asChild>
+                     <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
+                        <X />
+                     </Button>
+                 </DialogClose>
+            </div>
+
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/50 to-transparent text-white">
+                <div className="flex justify-between items-center text-sm mb-2">
+                    <div className="flex items-center gap-1">
+                        <Heart className="w-4 h-4 text-white fill-white"/>
+                        <span>{likeCount}</span>
+                    </div>
+                    <span>{commentCount} تعليق</span>
+                </div>
+                <Separator className="bg-white/30" />
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                    <Button variant="ghost" className="gap-2 text-white hover:bg-white/20" onClick={onLike}>
+                        <Heart className={cn("h-5 w-5", isLiked && "fill-white text-white")} />
+                        <span>أعجبني</span>
+                    </Button>
+                    {/* The main dialog trigger needs to be the card content itself, so we can't open another dialog from here easily.
+                        We will just show the button but disable it for now. A more complex implementation would be needed. */}
+                    <Button variant="ghost" className="gap-2 text-white hover:bg-white/20" disabled>
+                        <MessageCircle className="h-5 w-5" />
+                        <span>تعليق</span>
+                    </Button>
+                    <Button variant="ghost" className="gap-2 text-white hover:bg-white/20">
+                        <Share2 className="h-5 w-5" />
+                        <span>مشاركة</span>
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 export function PostCard({ post }: PostCardProps) {
   const { user } = useUser();
   const { firestore } = initializeFirebase();
@@ -294,8 +346,8 @@ export function PostCard({ post }: PostCardProps) {
   const showTruncated = hasBackground && isTextLong;
 
 
-  const renderPostContent = (isFullView: boolean) => {
-    const contentToShow = (showTruncated && !isFullView) 
+  const renderPostContent = () => {
+    const contentToShow = showTruncated 
         ? `${post.content.substring(0, TEXT_TRUNCATION_LIMIT)}...` 
         : post.content;
     
@@ -303,9 +355,8 @@ export function PostCard({ post }: PostCardProps) {
       <div className={cn(
         "p-4",
         hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg",
-        hasBackground && !isFullView && "cursor-pointer hover:opacity-90 transition-opacity",
+        hasBackground && showTruncated && "cursor-pointer hover:opacity-90 transition-opacity",
         selectedBackground?.value,
-        isFullView && "h-full w-full"
       )}>
         <p className={cn(
           "whitespace-pre-wrap",
@@ -369,10 +420,10 @@ export function PostCard({ post }: PostCardProps) {
                 {post.content && (
                   showTruncated ? (
                     <DialogTrigger asChild>
-                      {renderPostContent(false)}
+                      {renderPostContent()}
                     </DialogTrigger>
                   ) : (
-                    renderPostContent(false)
+                    renderPostContent()
                   )
                 )}
                 {hasImages && (
@@ -425,9 +476,8 @@ export function PostCard({ post }: PostCardProps) {
         </Card>
         
         {showTruncated ? (
-            <DialogContent className="p-0 border-0 bg-transparent shadow-none max-w-lg">
-                <DialogTitle className="sr-only">عرض المنشور الكامل</DialogTitle>
-                {renderPostContent(true)}
+            <DialogContent className="p-0 border-0 bg-transparent shadow-none max-w-full h-full max-h-full sm:max-w-full sm:h-full sm:max-h-full !rounded-none">
+                 <FullScreenPostView post={post} onLike={handleLike} isLiked={isLiked} likeCount={likeCount} commentCount={commentCount} />
             </DialogContent>
         ) : (
             <CommentsDialog post={post} />
@@ -465,5 +515,3 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
-
-    
