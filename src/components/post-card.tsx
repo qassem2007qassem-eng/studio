@@ -375,24 +375,29 @@ export function PostCard({ post }: PostCardProps) {
   }, [post.background, hasImages]);
 
   const hasBackground = !!selectedBackground;
-  const TRUNCATE_LENGTH = 150;
-  const showTruncated = hasBackground && post.content.length > TRUNCATE_LENGTH;
+  
+  const TRUNCATE_LENGTH = 100;
+  const isLongText = post.content.length > TRUNCATE_LENGTH;
+  const showFullScreen = hasBackground;
   
   const postContent = (
       <div className={cn(
         "p-4",
-        hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg cursor-pointer hover:opacity-90 transition-opacity",
+        hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg",
+        showFullScreen && "cursor-pointer hover:opacity-90 transition-opacity",
         selectedBackground?.value,
       )}>
         <p className={cn(
           "whitespace-pre-wrap",
           hasBackground ? "text-2xl font-bold" : "text-base"
         )}>
-          {showTruncated ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content}
+          {isLongText && !hasBackground ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content}
         </p>
       </div>
   );
 
+
+  const PostContentWrapper = showFullScreen ? DialogTrigger : 'div';
 
   return (
     <Dialog>
@@ -443,11 +448,9 @@ export function PostCard({ post }: PostCardProps) {
         </CardHeader>
         <CardContent className="space-y-4 p-0">
             {post.content && (
-              hasBackground ? (
-                <DialogTrigger asChild>{postContent}</DialogTrigger>
-              ) : (
-                postContent
-              )
+              <PostContentWrapper asChild={showFullScreen}>
+                {postContent}
+              </PostContentWrapper>
             )}
             {hasImages && (
                 <div className={cn(
@@ -501,7 +504,7 @@ export function PostCard({ post }: PostCardProps) {
         </CardFooter>
       </Card>
       
-      {hasBackground && (
+      {showFullScreen && (
           <FullScreenPostView post={post} onLike={handleLike} isLiked={isLiked} likeCount={likeCount} commentCount={commentCount} />
       )}
       
@@ -537,6 +540,7 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
+
 
 
 
