@@ -39,9 +39,15 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 type GetProfileOptions = {
   forceRefresh?: boolean;
   userId?: string;
+  email?: string;
 };
 
 const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<User | null> => {
+  if (options.email) {
+    const userByEmail = await getUserByEmail(options.email);
+    if (userByEmail) return userByEmail;
+  }
+  
   const targetUserId = options.userId || auth.currentUser?.uid;
   if (!targetUserId) {
     console.log("No user ID provided or user not logged in");
@@ -101,6 +107,7 @@ const createUserProfile = async (user: any, username: string, fullName: string, 
       followers: [],
       following: [],
       isPrivate: false,
+      emailVerified: false
     });
     console.log("User profile created successfully!");
   } catch (error) {
@@ -128,6 +135,27 @@ const getUserByUsername = async (username: string): Promise<User | null> => {
     return null;
   }
 };
+
+const getUserByEmail = async (email: string): Promise<User | null> => {
+  if (!email) return null;
+  try {
+    const usersRef = collection(firestore, "users");
+    const q = query(usersRef, where("email", "==", email));
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
+      return { id: userDoc.id, ...userDoc.data() } as User;
+    } else {
+      console.log("User not found by email!");
+      return null;
+    }
+  } catch (error) {
+    console.error("Error getting user by email:", error);
+    return null;
+  }
+};
+
 
 const getUserById = async (userId: string): Promise<User | null> => {
   try {
@@ -351,6 +379,19 @@ const getFollowing = async (userId: string) => {
   }
 };
 
+const markEmailAsVerified = async (email: string) => {
+  const user = await getUserByEmail(email);
+  if (!user) {
+    throw new Error('User not found.');
+  }
+
+  const userRef = doc(firestore, 'users', user.id);
+  await updateDoc(userRef, { emailVerified: true });
+  await getCurrentUserProfile({ forceRefresh: true, userId: user.id });
+  return true;
+}
+
+
 export {
   createUserProfile,
   getCurrentUserProfile,
@@ -364,5 +405,9 @@ export {
   getUsers,
   getFollowers,
   getFollowing,
-  deleteUserAndContent
+  deleteUserAndContent,
+  markEmailAsVerified,
+  getUserByEmail
 };
+
+    

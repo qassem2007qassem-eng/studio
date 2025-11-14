@@ -17,6 +17,7 @@ export interface User {
   followers: string[];
   following: string[];
   isPrivate?: boolean;
+  emailVerified?: boolean;
 }
 
 export interface Comment {
@@ -67,3 +68,5 @@ export interface Report {
     createdAt: Timestamp;
     status: 'pending' | 'resolved' | 'dismissed' | 'deleted';
 }
+
+    

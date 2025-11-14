@@ -178,13 +178,14 @@ function RegisterForm() {
         coverUrl: "",
         followers: [],
         following: [],
+        emailVerified: false // Set to false initially
       });
       
       toast({
-        title: "تم إنشاء الحساب بنجاح",
-        description: "يمكنك الآن تسجيل الدخول إلى حسابك.",
+        title: "تم إنشاء الحساب",
+        description: "تم إرسال رمز إلى بريدك الإلكتروني. الرجاء التحقق.",
       });
-      router.push('/login');
+      router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`);
 
     } catch (error: any) {
       setIsLoading(false);
@@ -452,3 +453,5 @@ export default function RegisterPage() {
         </Suspense>
     );
 }
+
+    

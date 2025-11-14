@@ -25,6 +25,7 @@ import {
 } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { getUserByUsername } from '@/services/user-service';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 48 48" {...props}>
@@ -79,7 +80,19 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const loggedInUser = userCredential.user;
+
+      const userProfileDoc = await getDoc(doc(firestore, 'users', loggedInUser.uid));
+      if (userProfileDoc.exists() && userProfileDoc.data().emailVerified === false) {
+          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+          toast({
+              title: 'التحقق من البريد الإلكتروني',
+              description: 'الرجاء التحقق من بريدك الإلكتروني أولاً.',
+          });
+          return;
+      }
+
       router.push('/home');
     } catch (error: any) {
       console.error(error);
@@ -209,3 +222,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
