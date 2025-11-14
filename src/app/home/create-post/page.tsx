@@ -181,7 +181,7 @@ export default function CreatePostPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col pb-20">
       <header className="flex items-center justify-between p-4 border-b flex-shrink-0">
           <Button variant="ghost" size="icon" onClick={() => router.back()}>
               <X className="h-5 w-5" />
@@ -257,7 +257,7 @@ export default function CreatePostPage() {
             </div>
           )}
       </main>
-      <footer className="p-4 border-t mt-auto flex-shrink-0">
+      <footer className="p-4 border-t mt-auto flex-shrink-0 bg-background">
            <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={hasBackground}>
                   <ImageIcon className="h-6 w-6 text-green-500"/>
@@ -291,5 +291,7 @@ export default function CreatePostPage() {
     </div>
   );
 }
+
+    
 
     
