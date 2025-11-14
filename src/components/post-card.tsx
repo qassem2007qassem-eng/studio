@@ -65,16 +65,12 @@ interface PostCardProps {
 }
 
 const backgroundOptions = [
-  { id: 'default', type: 'color', value: 'bg-transparent text-foreground' },
-  { id: 'gradient1', type: 'color', value: 'bg-gradient-to-br from-red-200 to-yellow-200 text-black' },
-  { id: 'gradient2', type: 'color', value: 'bg-gradient-to-br from-blue-200 to-purple-200 text-black' },
-  { id: 'gradient3', type: 'color', value: 'bg-gradient-to-br from-green-200 to-teal-200 text-black' },
-  { id: 'gradient4', type: 'color', value: 'bg-gradient-to-br from-pink-200 to-rose-200 text-black' },
-  { id: 'gradient5', type: 'color', value: 'bg-gray-800 text-white' },
-  { id: 'image1', type: 'image', value: 'https://images.unsplash.com/photo-1518655048521-f130df041f66?w=500&q=80' },
-  { id: 'image2', type: 'image', value: 'https://images.unsplash.com/photo-1484417894907-623942c8ee29?w=500&q=80' },
-  { id: 'image3', type: 'image', value: 'https://images.unsplash.com/photo-1507525428034-b723a9ce6890?w=500&q=80' },
-  { id: 'image4', type: 'image', value: 'https://images.unsplash.com/photo-1554189097-90d8360ae8df?w=500&q=80' },
+  { id: 'default', value: 'bg-card text-foreground' },
+  { id: 'gradient1', value: 'bg-gradient-to-br from-red-200 to-yellow-200 text-black' },
+  { id: 'gradient2', value: 'bg-gradient-to-br from-blue-200 to-purple-200 text-black' },
+  { id: 'gradient3', value: 'bg-gradient-to-br from-green-200 to-teal-200 text-black' },
+  { id: 'gradient4', value: 'bg-gradient-to-br from-pink-200 to-rose-200 text-black' },
+  { id: 'gradient5', value: 'bg-gray-800 text-white' },
 ];
 
 
@@ -282,113 +278,103 @@ export function PostCard({ post }: PostCardProps) {
 
   const hasImages = post.imageUrls && post.imageUrls.length > 0;
   
-  const postBackground = useMemo(() => {
-    const bgOption = backgroundOptions.find(opt => opt.id === post.background || opt.value === post.background);
+  const selectedBackground = useMemo(() => {
+    const bgOption = backgroundOptions.find(opt => opt.id === post.background);
     if (!bgOption || bgOption.id === 'default' || hasImages) {
-      return { style: {}, className: 'bg-card' };
+      return null;
     }
-    if (bgOption.type === 'image') {
-      return {
-        style: { backgroundImage: `url(${bgOption.value})` },
-        className: 'bg-cover bg-center text-white',
-      };
-    }
-    // It's a color
-    return {
-      style: {},
-      className: `${bgOption.value} ${bgOption.value.includes('text-black') ? 'text-black' : 'text-white'}`,
-    };
+    return bgOption;
   }, [post.background, hasImages]);
 
-  const hasBackground = post.background && post.background !== 'default' && !hasImages;
+  const hasBackground = !!selectedBackground;
 
 
   return (
     <Dialog>
-        <Card className={cn("overflow-hidden", hasBackground ? postBackground.className : "bg-card")}>
-            <div style={postBackground.style} className={cn("relative", hasBackground && 'bg-cover bg-center')}>
-             {hasBackground && postBackground.style.backgroundImage && <div className="absolute inset-0 bg-black/40"></div>}
-            <div className="relative">
-                <CardHeader className="p-4">
-                    <div className="flex items-center gap-3">
-                        <Avatar>
-                            <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
-                            <AvatarFallback>{post.author.name?.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="grid gap-0.5">
-                            <Link href={`/home/profile/${post.author.username?.toLowerCase()}`} className="font-semibold hover:underline">
-                            {post.author.name}
-                            </Link>
-                            <p className="text-xs text-muted-foreground">{post.author.username?.toLowerCase()} · {postDate ? formatDistanceToNow(postDate) : ''}</p>
-                        </div>
-                        <div className="me-auto ms-0">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                {(isOwner || isAdmin) && (
-                                    <>
-                                        <DropdownMenuItem disabled>
-                                            <Edit className="ms-2 h-4 w-4" />
-                                            <span>تعديل المنشور</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setIsDeleteAlertOpen(true)} className="text-destructive focus:text-destructive">
-                                            <Trash2 className="ms-2 h-4 w-4" />
-                                            <span>{isAdmin && !isOwner ? "حذف (مشرف)" : "حذف"}</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                    </>
-                                )}
-                                {!isOwner && 
-                                    <DropdownMenuItem onClick={() => setIsReportAlertOpen(true)}>
-                                        <Flag className="ms-2 h-4 w-4" />
-                                        <span>إبلاغ عن المنشور</span>
-                                    </DropdownMenuItem>
-                                }
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
+        <Card className="overflow-hidden bg-card">
+            <CardHeader className="p-4">
+                <div className="flex items-center gap-3">
+                    <Avatar>
+                        <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
+                        <AvatarFallback>{post.author.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="grid gap-0.5">
+                        <Link href={`/home/profile/${post.author.username?.toLowerCase()}`} className="font-semibold hover:underline">
+                        {post.author.name}
+                        </Link>
+                        <p className="text-xs text-muted-foreground">{post.author.username?.toLowerCase()} · {postDate ? formatDistanceToNow(postDate) : ''}</p>
                     </div>
-                </CardHeader>
-                <CardContent className={cn("space-y-4 p-4 pt-0", hasBackground && "flex items-center justify-center min-h-[150px] text-center")}>
-                    {post.content && (
+                    <div className="me-auto ms-0">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                            {(isOwner || isAdmin) && (
+                                <>
+                                    <DropdownMenuItem disabled>
+                                        <Edit className="ms-2 h-4 w-4" />
+                                        <span>تعديل المنشور</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setIsDeleteAlertOpen(true)} className="text-destructive focus:text-destructive">
+                                        <Trash2 className="ms-2 h-4 w-4" />
+                                        <span>{isAdmin && !isOwner ? "حذف (مشرف)" : "حذف"}</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                </>
+                            )}
+                            {!isOwner && 
+                                <DropdownMenuItem onClick={() => setIsReportAlertOpen(true)}>
+                                    <Flag className="ms-2 h-4 w-4" />
+                                    <span>إبلاغ عن المنشور</span>
+                                </DropdownMenuItem>
+                            }
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 pt-0">
+                {post.content && (
+                    <div className={cn(
+                        hasBackground && "min-h-[150px] flex items-center justify-center text-center rounded-lg p-4",
+                        selectedBackground?.value
+                    )}>
                         <p className={cn(
                             "whitespace-pre-wrap",
                             hasBackground && "text-2xl font-bold"
                         )}>
                             {post.content}
                         </p>
-                    )}
-                    {hasImages && (
-                        <div className={cn(
-                            "grid gap-2",
-                            post.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2",
-                            post.imageUrls.length > 2 ? "grid-cols-2" : ""
-                        )}>
-                            {post.imageUrls.map((imageUrl, index) => (
-                                <div key={index} className={cn(
-                                    "relative w-full overflow-hidden rounded-lg border",
-                                    post.imageUrls.length === 1 ? "aspect-video" : "aspect-square",
-                                    post.imageUrls.length === 3 && index === 0 ? "col-span-2 row-span-2" : ""
-                                )}>
-                                    <Image
-                                        src={imageUrl}
-                                        alt={`Post image ${index + 1}`}
-                                        data-ai-hint="post image"
-                                        fill
-                                        className="object-cover"
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-             </div>
-            </div>
-            <CardFooter className={cn("flex flex-col items-start gap-4 p-4 pt-0", hasBackground ? "bg-card/50" : "bg-card")}>
+                    </div>
+                )}
+                {hasImages && (
+                    <div className={cn(
+                        "grid gap-2",
+                        post.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2",
+                        post.imageUrls.length > 2 ? "grid-cols-2" : ""
+                    )}>
+                        {post.imageUrls.map((imageUrl, index) => (
+                            <div key={index} className={cn(
+                                "relative w-full overflow-hidden rounded-lg border",
+                                post.imageUrls.length === 1 ? "aspect-video" : "aspect-square",
+                                post.imageUrls.length === 3 && index === 0 ? "col-span-2 row-span-2" : ""
+                            )}>
+                                <Image
+                                    src={imageUrl}
+                                    alt={`Post image ${index + 1}`}
+                                    data-ai-hint="post image"
+                                    fill
+                                    className="object-cover"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+            <CardFooter className="flex flex-col items-start gap-4 p-4 pt-0">
                 <div className="flex w-full items-center justify-between text-sm text-muted-foreground">
                 <p>{likeCount} إعجاب</p>
                 <p>{commentCount} تعليق</p>
@@ -446,3 +432,5 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
+
+    
