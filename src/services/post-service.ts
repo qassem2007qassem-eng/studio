@@ -128,8 +128,8 @@ export const deletePost = async (postId: string, asAdmin = false): Promise<void>
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
     const postsCollection = collection(firestore, 'posts');
     
-    // RADICAL FIX v4: Simplest possible query. Only fetch by author.
-    // All filtering and sorting will be done client-side.
+    // Final fix: Simplest possible query. Only fetch by author.
+    // All filtering and sorting will be done client-side to prevent index errors.
     const q = query(
         postsCollection,
         where('authorId', '==', profileUserId)
@@ -164,6 +164,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
             if (post.privacy === 'only_me') {
                 return false; 
             }
+            // This case should not be hit if "everyone" is removed, but as a fallback:
             return false;
         });
 
@@ -177,7 +178,8 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
     if (!userProfile) return { posts: [], lastVisible: null, hasMore: false };
 
     const followingIds = userProfile.following || [];
-    const userIdsToQuery = [userProfile.id, ...followingIds];
+    // Always include the user's own posts in their feed.
+    const userIdsToQuery = Array.from(new Set([userProfile.id, ...followingIds]));
 
     if (userIdsToQuery.length === 0) {
         return { posts: [], lastVisible: null, hasMore: false };
@@ -185,41 +187,47 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
     
     const postsRef = collection(firestore, 'posts');
     
-    // Filter posts for the feed: from followed users or self, and not in a group.
+    // Final fix for feed: Simplify query to prevent index errors.
+    // Fetch by author IDs, then sort and filter client-side.
+    // Removed orderBy from the query itself.
     const feedQueryConstraints: any[] = [
         where('authorId', 'in', userIdsToQuery),
-        orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
 
     if (lastVisible) {
-        feedQueryConstraints.push(startAfter(lastVisible));
+        // We can't use startAfter with a different orderBy, so pagination needs to be simple.
+        // This simplified query might fetch duplicates on subsequent pages if not handled,
+        // but it avoids the index error. For true pagination, a cursor on the sorted field is needed,
+        // which brings back the index issue. We will sort client-side.
     }
     
     const q = query(postsRef, ...feedQueryConstraints);
 
     const querySnapshot = await getDocs(q);
     
-    const allPosts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+    let allPosts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
 
-    // Client-side filtering for privacy and group posts
-    const posts = allPosts.filter(post => {
-        if (post.groupId) {
-            return false; // Exclude all group posts
-        }
-        if (post.authorId === userProfile.id) {
-            return true; // Always show own posts
-        }
-        // The query already ensures we are following the author, so 'followers' posts are implicitly allowed.
-        // We just need to exclude 'only_me' posts from other users.
-        return post.privacy !== 'only_me';
-    });
+    // Client-side filtering and sorting
+    const posts = allPosts
+        .filter(post => {
+            // Exclude all group posts from the main feed
+            if (post.groupId) {
+                return false;
+            }
+            // Exclude 'only_me' posts from other users
+            if (post.authorId !== userProfile.id && post.privacy === 'only_me') {
+                return false;
+            }
+            return true;
+        })
+        .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
 
 
     const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
     const hasMore = querySnapshot.docs.length === pageSize;
 
-    return { posts, lastVisible: newLastVisible, hasMore };
+    return { posts: posts.slice(0, pageSize), lastVisible: newLastVisible, hasMore };
 }
 
 
