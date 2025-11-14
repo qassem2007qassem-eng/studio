@@ -69,19 +69,9 @@ export function AdPlaceholders() {
 }
 
 const waitForStartIO = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        const startTime = Date.now();
-        const checkSDK = () => {
-            if (typeof window.startapp !== 'undefined' && typeof window.startapp.initialize === 'function') {
-                resolve();
-            } else if (Date.now() - startTime > 10000) { // 10 second timeout
-                reject(new Error('Start.io SDK failed to load'));
-            } else {
-                setTimeout(checkSDK, 100);
-            }
-        };
-        checkSDK();
-    });
+    // This function will now always resolve immediately, assuming the SDK is not available
+    // and we should proceed with placeholders.
+    return Promise.resolve();
 };
 
 
@@ -96,15 +86,9 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   // Initialize the SDK
   useEffect(() => {
     const initializeAds = async () => {
-        try {
-            await waitForStartIO();
-            window.startapp.initialize(START_IO_CONFIG.app.android.appId, () => {
-                console.log('Start.io initialized successfully');
-                setIsInitialized(true);
-            });
-        } catch (error) {
-            console.error('Failed to initialize Start.io:', error);
-        }
+        // We will now consider the SDK "initialized" for placeholder purposes immediately.
+        console.log('Start.io (Mock) Initialized');
+        setIsInitialized(true);
     };
     
     if (typeof window !== 'undefined' && !isInitialized) {
@@ -115,15 +99,9 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   // Show banner ad once initialized
   useEffect(() => {
     if(isInitialized && START_IO_CONFIG.ads.banner.autoShow) {
-        try {
-            window.startapp.showBannerAd(
-                () => { setShowBanner(true); console.log('Banner ad shown successfully'); },
-                (error: any) => { console.error("Banner Ad Error:", error); setShowBanner(true); /* Show placeholder on error */ }
-            );
-        } catch (e) {
-             console.error("Error calling showBannerAd:", e);
-             setShowBanner(true); // Show placeholder on error
-        }
+        // Directly show the placeholder banner
+        setShowBanner(true);
+        console.log('Banner ad (placeholder) shown.');
     }
   }, [isInitialized]);
 
@@ -132,18 +110,8 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const showInterstitialIfNeeded = async () => {
         if (isInitialized && !isAdFree() && postViewCount >= START_IO_CONFIG.ads.interstitial.frequency) {
-            try {
-                window.startapp.showInterstitialAd(
-                    () => { console.log('Interstitial ad completed'); },
-                    (error: any) => { 
-                        console.error('Interstitial ad failed:', error);
-                        showPlaceholder('interstitial');
-                    }
-                );
-            } catch(e) {
-                 console.error('Error calling showInterstitialAd:', e);
-                 showPlaceholder('interstitial');
-            }
+            console.log('Interstitial trigger count reached. Showing placeholder.');
+            showPlaceholder('interstitial');
             setPostViewCount(0); // Reset counter
         }
     };
@@ -151,7 +119,6 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   }, [postViewCount, isInitialized]);
   
   useEffect(() => {
-      // Very basic way to detect a "post view"
       if (pathname.includes('/home/profile/')) {
         setPostViewCount(prev => prev + 1);
       }
@@ -162,21 +129,22 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
         return new Promise((resolve) => {
             const placeholder = document.getElementById(`${type}-placeholder`);
             if (!placeholder) {
+                console.error(`Placeholder element for ${type} not found!`);
                 resolve(false);
                 return;
             }
 
             const callback = (success: boolean) => {
                 placeholder.style.display = 'none';
-                window.rewardedCallback = undefined;
-                window.interstitialCallback = undefined;
+                if (type === 'rewarded') window.rewardedCallback = undefined;
+                if (type === 'interstitial') window.interstitialCallback = undefined;
                 resolve(success);
             };
 
             if (type === 'rewarded') window.rewardedCallback = callback;
             if (type === 'interstitial') window.interstitialCallback = callback;
 
-            placeholder.style.display = 'block';
+            placeholder.style.display = 'flex';
         });
     };
 
@@ -187,60 +155,14 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
       return { success: false, message: "يجب الانتظار قبل مشاهدة إعلان آخر" };
     }
 
-    if (!isInitialized) {
-        // Fallback to placeholder if SDK not ready
-        const watched = await showPlaceholder('rewarded');
-        if (watched) {
-            setLastRewardedAdTime(Date.now());
-            return { success: true, message: getRewardMessage(rewardType) };
-        }
-        return { success: false, message: 'فشل عرض الإعلان' };
+    // Always fallback to placeholder
+    const watched = await showPlaceholder('rewarded');
+    if (watched) {
+        setLastRewardedAdTime(Date.now());
+        return { success: true, message: getRewardMessage(rewardType) };
     }
+    return { success: false, message: 'فشل عرض الإعلان' };
 
-    return new Promise((resolve) => {
-        window.startapp.isRewardedVideoAvailable(
-            (available: boolean) => {
-                if(available) {
-                     window.startapp.showRewardedVideoAd(
-                        () => {
-                            setLastRewardedAdTime(Date.now());
-                            resolve({ success: true, message: getRewardMessage(rewardType) });
-                        },
-                        async (error: any) => {
-                            console.error("Rewarded ad failed:", error);
-                            const watched = await showPlaceholder('rewarded');
-                            if(watched) {
-                                setLastRewardedAdTime(Date.now());
-                                resolve({ success: true, message: getRewardMessage(rewardType) });
-                            } else {
-                                resolve({ success: false, message: "فشل في عرض الإعلان" });
-                            }
-                        }
-                    );
-                } else {
-                    // If no real ad, show placeholder
-                     showPlaceholder('rewarded').then(watched => {
-                         if(watched) {
-                            setLastRewardedAdTime(Date.now());
-                            resolve({ success: true, message: getRewardMessage(rewardType) });
-                         } else {
-                            resolve({ success: false, message: "لا يوجد إعلانات متاحة حالياً" });
-                         }
-                     });
-                }
-            },
-            async (error: any) => {
-                 console.error("isRewardedVideoAvailable check failed:", error);
-                 const watched = await showPlaceholder('rewarded');
-                 if(watched) {
-                    setLastRewardedAdTime(Date.now());
-                    resolve({ success: true, message: getRewardMessage(rewardType) });
-                 } else {
-                    resolve({ success: false, message: "لا يوجد إعلانات متاحة حالياً" });
-                 }
-            }
-        );
-    });
   }, [isInitialized, lastRewardedAdTime]);
 
   const getRewardMessage = (rewardType: string): string => {
