@@ -61,9 +61,11 @@ function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' |
 
     if (posts.length === 0) {
         return (
-            <p className="text-muted-foreground text-center py-8">
-                {status === 'approved' ? 'لا توجد منشورات في هذه المجموعة حتى الآن.' : 'لا توجد منشورات معلقة للمراجعة.'}
-            </p>
+            <Card>
+                <CardContent className="text-muted-foreground text-center py-8">
+                    {status === 'approved' ? 'لا توجد منشورات في هذه المجموعة حتى الآن.' : 'لا توجد منشورات معلقة للمراجعة.'}
+                </CardContent>
+            </Card>
         );
     }
 
@@ -298,6 +300,7 @@ export default function GroupDetailPage() {
     
     const adminTabs = isCreator ? ['pending', 'members'] : [];
     const defaultTab = "posts";
+    const tabCount = 1 + adminTabs.length;
 
     return (
         <div className="space-y-6">
@@ -371,9 +374,9 @@ export default function GroupDetailPage() {
             
             {canViewContent ? (
                  <Tabs defaultValue={defaultTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 md:grid-cols-3">
+                    <TabsList className={`grid w-full grid-cols-${tabCount}`}>
                         <TabsTrigger value="posts">المنشورات</TabsTrigger>
-                        <TabsTrigger value="members">الأعضاء</TabsTrigger>
+                        {isCreator && <TabsTrigger value="members">الأعضاء</TabsTrigger>}
                         {isCreator && <TabsTrigger value="pending">المنشورات المعلقة</TabsTrigger>}
                     </TabsList>
 
@@ -382,16 +385,18 @@ export default function GroupDetailPage() {
                          <GroupPosts groupId={group.id} status="approved" />
                     </TabsContent>
                     
-                    <TabsContent value="members" className="space-y-6 mt-6">
-                        <Card>
-                            <CardHeader>
-                               <CardTitle className="flex items-center gap-2"><Users/> أعضاء المجموعة ({group.memberIds.length})</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <GroupMembers memberIds={group.memberIds} creatorId={group.creatorId} />
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
+                    {isCreator && (
+                        <TabsContent value="members" className="space-y-6 mt-6">
+                            <Card>
+                                <CardHeader>
+                                <CardTitle className="flex items-center gap-2"><Users/> أعضاء المجموعة ({group.memberIds.length})</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <GroupMembers memberIds={group.memberIds} creatorId={group.creatorId} />
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+                    )}
 
                     {isCreator && (
                         <TabsContent value="pending" className="space-y-6 mt-6">
