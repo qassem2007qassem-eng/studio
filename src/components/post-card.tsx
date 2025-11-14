@@ -74,12 +74,12 @@ interface PostCardProps {
 }
 
 const backgroundOptions = [
-  { id: 'default', value: 'bg-card text-foreground' },
-  { id: 'gradient1', value: 'bg-gradient-to-br from-red-200 to-yellow-200 text-black' },
-  { id: 'gradient2', value: 'bg-gradient-to-br from-blue-200 to-purple-200 text-black' },
-  { id: 'gradient3', value: 'bg-gradient-to-br from-green-200 to-teal-200 text-black' },
-  { id: 'gradient4', value: 'bg-gradient-to-br from-pink-200 to-rose-200 text-black' },
-  { id: 'gradient5', value: 'bg-gray-800 text-white' },
+  { id: 'default', value: 'bg-card text-foreground', type: 'color' },
+  { id: 'gradient1', value: 'bg-gradient-to-br from-red-200 to-yellow-200 text-black', type: 'color' },
+  { id: 'gradient2', value: 'bg-gradient-to-br from-blue-200 to-purple-200 text-black', type: 'color' },
+  { id: 'gradient3', value: 'bg-gradient-to-br from-green-200 to-teal-200 text-black', type: 'color' },
+  { id: 'gradient4', value: 'bg-gradient-to-br from-pink-200 to-rose-200 text-black', type: 'color' },
+  { id: 'gradient5', value: 'bg-gray-800 text-white', type: 'color' },
 ];
 
 
@@ -205,18 +205,20 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
     return (
         <DialogContent showCloseButton={false} className="p-0 border-0 bg-transparent shadow-none max-w-full h-full max-h-full sm:max-w-full sm:h-full sm:max-h-full !rounded-none">
             <DialogTitle className="sr-only">عرض المنشور بملء الشاشة</DialogTitle>
-            <div className="fixed inset-0 z-50 flex flex-col bg-black">
+            <div className="fixed inset-0 z-50 flex flex-col bg-black/70">
+                
+                {/* Main Content Area */}
                 <div className={cn(
-                    "flex-grow relative text-center p-8", 
+                    "flex-grow relative flex items-center justify-center p-8", 
                     selectedBackground?.value
                 )}>
-                    <ScrollArea className="absolute inset-0">
-                        <div className="flex min-h-full items-center justify-center py-16 px-8">
-                            <p className="text-3xl font-bold whitespace-pre-wrap">{post.content}</p>
-                        </div>
-                    </ScrollArea>
+                    {/* Inner container to handle scrolling for long text */}
+                    <div className="w-full max-h-full overflow-y-auto">
+                        <p className="text-3xl font-bold whitespace-pre-wrap text-center max-w-full">{post.content}</p>
+                    </div>
                 </div>
-                
+
+                {/* Top Bar */}
                 <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/50 to-transparent">
                      <div className="flex items-center gap-3 text-white">
                         <Avatar>
@@ -252,6 +254,7 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
                     </div>
                 </div>
 
+                {/* Bottom Bar */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/50 to-transparent text-white">
                     <div className="flex justify-between items-center text-sm mb-2">
                         <div className="flex items-center gap-1">
@@ -393,7 +396,7 @@ export function PostCard({ post }: PostCardProps) {
   const TRUNCATE_LENGTH = 100;
   const isLongText = post.content.length > TRUNCATE_LENGTH;
   
-  const postContentText = (isLongText && !hasBackground) ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content;
+  const postContentText = isLongText ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content;
   
   const postContent = (
       <div className={cn(
@@ -406,11 +409,10 @@ export function PostCard({ post }: PostCardProps) {
           "whitespace-pre-wrap",
           hasBackground ? "text-2xl font-bold" : "text-base"
         )}>
-          {postContentText}
+          {hasBackground ? post.content : postContentText}
         </p>
       </div>
   );
-
 
   const PostContentWrapper = hasBackground ? DialogTrigger : 'div';
 
@@ -555,3 +557,4 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
+
