@@ -39,6 +39,13 @@ import {
     DialogTrigger,
     DialogClose
 } from "@/components/ui/dialog";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
+} from '@/components/ui/sheet';
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
 import { useUser, useCollection, useMemoFirebase } from "@/firebase";
@@ -102,11 +109,10 @@ const isAdminUser = (user: User | null) => {
 };
 
 
-const CommentsDialog = ({ post }: { post: Post }) => {
+const CommentsSheet = ({ post }: { post: Post }) => {
     const { user } = useUser();
     const [newComment, setNewComment] = useState("");
     const [isPosting, setIsPosting] = useState(false);
-
 
     const { firestore } = initializeFirebase();
     const commentsCollection = useMemoFirebase(() => {
@@ -144,50 +150,52 @@ const CommentsDialog = ({ post }: { post: Post }) => {
     };
 
     return (
-    <DialogContent className="sm:max-w-[525px]">
-      <DialogHeader>
-        <DialogTitle>تعليقات على منشور {post.author.name}</DialogTitle>
-      </DialogHeader>
-      <div className="space-y-4 py-4">
-        <ScrollArea className="h-72 w-full pr-4">
-            <div className="space-y-4">
-                {isLoading && <p>تحميل التعليقات...</p>}
-                {comments && comments.length > 0 ? comments.map(comment => {
-                    const commentDate = safeToDate(comment.createdAt);
-                    return (
-                        <div key={comment.id} className="flex items-start gap-3">
-                            <Avatar className="h-8 w-8">
-                                <AvatarImage src={comment.author.avatarUrl} alt={comment.author.name} />
-                                <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                                <div className="bg-muted p-3 rounded-lg">
-                                    <Link href={`/home/profile/${comment.author.username?.toLowerCase()}`} className="font-semibold text-sm hover:underline">
-                                        {comment.author.name}
-                                    </Link>
-                                    <p className="text-sm">{comment.content}</p>
+        <SheetContent side="bottom" className="h-[90%] flex flex-col">
+            <SheetHeader className="text-center">
+                <SheetTitle>تعليقات على منشور {post.author.name}</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto">
+                <ScrollArea className="h-full w-full pr-4">
+                    <div className="space-y-4 py-4">
+                        {isLoading && <p className="text-center">تحميل التعليقات...</p>}
+                        {comments && comments.length > 0 ? comments.map(comment => {
+                            const commentDate = safeToDate(comment.createdAt);
+                            return (
+                                <div key={comment.id} className="flex items-start gap-3">
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src={comment.author.avatarUrl} alt={comment.author.name} />
+                                        <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1">
+                                        <div className="bg-muted p-3 rounded-lg">
+                                            <Link href={`/home/profile/${comment.author.username?.toLowerCase()}`} className="font-semibold text-sm hover:underline">
+                                                {comment.author.name}
+                                            </Link>
+                                            <p className="text-sm">{comment.content}</p>
+                                        </div>
+                                        {commentDate && <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(commentDate)}</p>}
+                                    </div>
                                 </div>
-                                {commentDate && <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(commentDate)}</p>}
-                            </div>
-                        </div>
-                    )
-                }) : (
-                    !isLoading && <p className="text-center text-muted-foreground">لا توجد تعليقات بعد. كن أول من يعلق!</p>
-                )}
+                            )
+                        }) : (
+                            !isLoading && <p className="text-center text-muted-foreground pt-10">لا توجد تعليقات بعد. كن أول من يعلق!</p>
+                        )}
+                    </div>
+                </ScrollArea>
             </div>
-        </ScrollArea>
-        <Separator />
-        <form onSubmit={handleAddComment} className="flex gap-2">
-            <Input 
-                placeholder="اكتب تعليقاً..."
-                value={newComment}
-                onChange={e => setNewComment(e.target.value)}
-                disabled={!user || isPosting}
-            />
-            <Button type="submit" disabled={!user || !newComment.trim() || isPosting}>نشر</Button>
-        </form>
-      </div>
-    </DialogContent>
+            <Separator />
+            <div className="py-2">
+                 <form onSubmit={handleAddComment} className="flex gap-2">
+                    <Input 
+                        placeholder="اكتب تعليقاً..."
+                        value={newComment}
+                        onChange={e => setNewComment(e.target.value)}
+                        disabled={!user || isPosting}
+                    />
+                    <Button type="submit" disabled={!user || !newComment.trim() || isPosting}>نشر</Button>
+                </form>
+            </div>
+        </SheetContent>
     )
 }
 
@@ -195,7 +203,8 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
     const selectedBackground = backgroundOptions.find(opt => opt.id === post.background);
 
     return (
-        <div className="fixed inset-0 z-50 flex flex-col">
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+             <DialogTitle className="sr-only">عرض المنشور بملء الشاشة</DialogTitle>
             <div className={cn("flex-grow flex items-center justify-center text-center p-8", selectedBackground?.value)}>
                  <p className="text-3xl font-bold">{post.content}</p>
             </div>
@@ -221,17 +230,17 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
                 </div>
                 <Separator className="bg-white/30" />
                 <div className="grid grid-cols-3 gap-2 mt-2">
-                    <Button variant="ghost" className="gap-2 text-white hover:bg-white/20" onClick={onLike}>
+                    <Button variant="ghost" className="gap-2 text-white hover:bg-white/20 hover:text-white" onClick={onLike}>
                         <Heart className={cn("h-5 w-5", isLiked && "fill-white text-white")} />
                         <span>أعجبني</span>
                     </Button>
-                    {/* The main dialog trigger needs to be the card content itself, so we can't open another dialog from here easily.
-                        We will just show the button but disable it for now. A more complex implementation would be needed. */}
-                    <Button variant="ghost" className="gap-2 text-white hover:bg-white/20" disabled>
-                        <MessageCircle className="h-5 w-5" />
-                        <span>تعليق</span>
-                    </Button>
-                    <Button variant="ghost" className="gap-2 text-white hover:bg-white/20">
+                     <SheetTrigger asChild>
+                        <Button variant="ghost" className="gap-2 text-white hover:bg-white/20 hover:text-white">
+                            <MessageCircle className="h-5 w-5" />
+                            <span>تعليق</span>
+                        </Button>
+                    </SheetTrigger>
+                    <Button variant="ghost" className="gap-2 text-white hover:bg-white/20 hover:text-white">
                         <Share2 className="h-5 w-5" />
                         <span>مشاركة</span>
                     </Button>
@@ -370,7 +379,8 @@ export function PostCard({ post }: PostCardProps) {
 
 
   return (
-    <Dialog>
+    <Sheet>
+      <Dialog>
         <Card className="overflow-hidden bg-card">
             <CardHeader className="p-4">
                 <div className="flex items-center gap-3">
@@ -461,12 +471,12 @@ export function PostCard({ post }: PostCardProps) {
                         <Heart className={cn("h-5 w-5", isLiked && "fill-red-500 text-red-500")} />
                         <span>أعجبني</span>
                     </Button>
-                    <DialogTrigger asChild>
+                    <SheetTrigger asChild>
                         <Button variant="ghost" className="gap-2">
                             <MessageCircle className="h-5 w-5" />
                             <span>تعليق</span>
                         </Button>
-                    </DialogTrigger>
+                    </SheetTrigger>
                     <Button variant="ghost" className="gap-2">
                         <Share2 className="h-5 w-5" />
                         <span>مشاركة</span>
@@ -476,13 +486,12 @@ export function PostCard({ post }: PostCardProps) {
         </Card>
         
         {showTruncated ? (
-            <DialogContent className="p-0 border-0 bg-transparent shadow-none max-w-full h-full max-h-full sm:max-w-full sm:h-full sm:max-h-full !rounded-none">
+            <DialogContent showCloseButton={false} className="p-0 border-0 bg-transparent shadow-none max-w-full h-full max-h-full sm:max-w-full sm:h-full sm:max-h-full !rounded-none">
                  <FullScreenPostView post={post} onLike={handleLike} isLiked={isLiked} likeCount={likeCount} commentCount={commentCount} />
             </DialogContent>
         ) : (
-            <CommentsDialog post={post} />
+            <CommentsSheet post={post} />
         )}
-
         <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
@@ -497,7 +506,6 @@ export function PostCard({ post }: PostCardProps) {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-
         <AlertDialog open={isReportAlertOpen} onOpenChange={setIsReportAlertOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
@@ -512,6 +520,8 @@ export function PostCard({ post }: PostCardProps) {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-    </Dialog>
+        <CommentsSheet post={post} />
+      </Dialog>
+    </Sheet>
   );
 }
