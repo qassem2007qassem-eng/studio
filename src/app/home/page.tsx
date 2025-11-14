@@ -15,7 +15,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getFeedPosts } from "@/services/post-service";
 import { type DocumentSnapshot } from "firebase/firestore";
-import { Loader2 } from "lucide-react";
+import { CatLoader } from "@/components/cat-loader";
 
 export default function HomePage() {
   const { user: currentUser, isUserLoading } = useUser();
@@ -100,10 +100,9 @@ export default function HomePage() {
       <CreatePostTrigger />
       <div className="space-y-4 pt-6">
         {(isLoading || isUserLoading) && (
-          <>
-            <Skeleton className="h-48 w-full" />
-            <Skeleton className="h-48 w-full" />
-          </>
+          <div className="flex justify-center items-center py-10">
+            <CatLoader />
+          </div>
         )}
         {!isLoading && !isUserLoading && posts.length === 0 && (
             <div className="text-center text-muted-foreground pt-10">
@@ -132,7 +131,7 @@ export default function HomePage() {
         })}
          {isLoadingMore && (
           <div className="flex justify-center items-center py-4">
-              <Loader2 className="h-8 w-8 animate-spin" />
+              <CatLoader />
           </div>
         )}
          {!isLoading && hasMore && posts.length > 0 && !isLoadingMore && (

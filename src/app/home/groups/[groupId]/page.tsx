@@ -10,7 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Globe, Lock, UserPlus, LogOut, Loader2, Check, X, ShieldCheck, Users, Share2 } from 'lucide-react';
+import { Globe, Lock, UserPlus, LogOut, Check, X, ShieldCheck, Users, Share2 } from 'lucide-react';
+import { CatLoader } from '@/components/cat-loader';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreatePostTrigger } from '@/components/create-post-trigger';
@@ -182,10 +183,10 @@ function PendingPostCard({ post }: { post: Post }) {
             </CardContent>
             <CardFooter className="gap-2">
                 <Button size="sm" onClick={handleApprove} disabled={isActionLoading}>
-                    {isActionLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <><Check className="me-2"/> قبول</>}
+                    {isActionLoading ? <CatLoader className="h-10 w-10" /> : <><Check className="me-2"/> قبول</>}
                 </Button>
                  <Button size="sm" variant="destructive" onClick={handleReject} disabled={isActionLoading}>
-                    {isActionLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <><X className="me-2"/> رفض</>}
+                    {isActionLoading ? <CatLoader className="h-10 w-10" /> : <><X className="me-2"/> رفض</>}
                 </Button>
             </CardFooter>
         </Card>
@@ -416,4 +417,3 @@ export default function GroupDetailPage() {
         </div>
     );
 }
-

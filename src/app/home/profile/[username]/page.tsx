@@ -9,7 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
-import { Settings, UserPlus, UserCheck, Loader2, Lock, Trash2, UserPlus2, Flag, Verified } from "lucide-react";
+import { Settings, UserPlus, UserCheck, Lock, Trash2, UserPlus2, Flag, Verified } from "lucide-react";
+import { CatLoader } from "@/components/cat-loader";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser } from "@/firebase";
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -24,7 +25,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useFirebase } from '@/firebase/provider';
 import { ReportDialog } from "@/components/report-dialog";
-import { createReport } from "@/services/report-service";
 import { cn } from "@/lib/utils";
 
 
@@ -213,7 +213,7 @@ export default function ProfilePage() {
   };
   
   const getFollowButton = () => {
-      if (isFollowStatusLoading) return <Button disabled><Loader2 className="h-4 w-4 animate-spin" /></Button>
+      if (isFollowStatusLoading) return <Button disabled><CatLoader className="h-10 w-10" /></Button>
       if (isFollowing) return <Button onClick={handleFollowToggle} variant='secondary' disabled={isTogglingFollow}><UserCheck className="h-4 w-4 me-2" /> متابَع</Button>;
       if (hasPendingRequest) return <Button disabled variant='secondary'><UserPlus2 className="h-4 w-4 me-2"/> معلق</Button>;
       if (profileUser?.isPrivate) return <Button onClick={handleFollowToggle} disabled={isTogglingFollow}><UserPlus className="h-4 w-4 me-2"/> طلب متابعة</Button>
@@ -222,29 +222,9 @@ export default function ProfilePage() {
 
   if (isProfileUserLoading || isCurrentUserLoading) {
     return (
-        <div className="space-y-6">
-            <Card className="overflow-hidden">
-                <Skeleton className="h-48 w-full" />
-                <CardContent className="p-4 relative">
-                    <Skeleton className="absolute -mt-16 h-28 w-28 rounded-full border-4 border-card"/>
-                    <div className="flex justify-end pt-2">
-                      <Skeleton className="h-10 w-32" />
-                    </div>
-                    <div className="mt-4 space-y-4">
-                        <Skeleton className="h-8 w-1/4" />
-                        <Skeleton className="h-4 w-1/6" />
-                        <Skeleton className="h-10 w-full" />
-                         <div className="flex gap-6">
-                            <Skeleton className="h-5 w-20" />
-                            <Skeleton className="h-5 w-20" />
-                            <Skeleton className="h-5 w-20" />
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-40 w-full" />
-        </div>
+      <div className="flex justify-center items-center h-screen">
+          <CatLoader />
+      </div>
     )
   }
 
@@ -356,7 +336,9 @@ export default function ProfilePage() {
                     </CardContent>
                 </Card>
            ) : postsLoading ? (
-            <Skeleton className="h-40 w-full" />
+            <div className="flex justify-center items-center py-10">
+              <CatLoader />
+            </div>
            ) : userPosts.length > 0 ? (
             userPosts.map(post => <PostCard key={post.id} post={post} />)
           ) : (
@@ -380,7 +362,7 @@ export default function ProfilePage() {
                 <AlertDialogFooter>
                     <AlertDialogCancel>إلغاء</AlertDialogCancel>
                     <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive hover:bg-destructive/90" disabled={isDeletingUser}>
-                        {isDeletingUser ? <Loader2 className="animate-spin" /> : "نعم، قم بالحذف"}
+                        {isDeletingUser ? <CatLoader className="h-10 w-10" /> : "نعم، قم بالحذف"}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

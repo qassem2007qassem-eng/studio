@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, LogOut, Lock, Palette, Shield, User, Users, Verified } from "lucide-react";
+import { LogOut, Lock, Palette, Shield, User, Users, Verified } from "lucide-react";
 import { useUser, initializeFirebase } from "@/firebase";
 import { signOut, updateProfile as updateAuthProfile } from "firebase/auth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,6 +22,7 @@ import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createReport } from "@/services/report-service";
+import { CatLoader } from "@/components/cat-loader";
 
 
 function ProfileSettingsCard() {
@@ -136,7 +137,7 @@ function ProfileSettingsCard() {
             </CardContent>
             <CardFooter>
                 <Button onClick={handleSaveChanges} disabled={isSaving}>
-                    {isSaving ? <Loader2 className="animate-spin" /> : "حفظ التغييرات"}
+                    {isSaving ? <CatLoader className="h-10 w-10 mx-auto" /> : "حفظ التغييرات"}
                 </Button>
             </CardFooter>
         </Card>
@@ -247,7 +248,7 @@ function AccountSettingsCard() {
                         </p>
                     </div>
                      <Button onClick={handleRequestVerification} disabled={isRequestingVerification}>
-                        {isRequestingVerification ? <Loader2 className="animate-spin" /> : "إرسال طلب"}
+                        {isRequestingVerification ? <CatLoader className="h-10 w-10" /> : "إرسال طلب"}
                     </Button>
                 </div>
             </CardContent>
@@ -303,7 +304,7 @@ export default function SettingsPage() {
     if (isUserLoading) {
          return (
              <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin" />
+                <CatLoader />
             </div>
         )
     }

@@ -15,13 +15,14 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Logo } from '@/components/logo';
+import { Logo } from '@/components/ui/logo';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, Loader2, UserCircle2, CheckCircle } from 'lucide-react';
+import { CalendarIcon, UserCircle2, CheckCircle } from 'lucide-react';
+import { CatLoader } from '@/components/cat-loader';
 import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
@@ -354,7 +355,7 @@ function RegisterForm() {
                 disabled={isLoading || !currentStepData.validation()}
                 className="col-span-2"
               >
-                {isLoading ? <Loader2 className="animate-spin" /> : 'إنشاء حساب'}
+                {isLoading ? <CatLoader className="mx-auto" /> : 'إنشاء حساب'}
               </Button>
             )}
           </div>

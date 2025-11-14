@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useFormState, useFormStatus } from 'react-dom';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
+import { CatLoader } from '@/components/cat-loader';
 import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -20,7 +21,7 @@ function SubmitButton() {
 
   return (
     <Button type="submit" disabled={pending} className="w-full">
-      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'تلخيص'}
+      {pending ? <CatLoader className="mx-auto" /> : 'تلخيص'}
     </Button>
   );
 }

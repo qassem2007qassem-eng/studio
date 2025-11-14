@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -17,7 +18,7 @@ import { useState, useEffect } from 'react';
 import { useAuth, useFirebase, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { CatLoader } from '@/components/cat-loader';
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
@@ -130,7 +131,7 @@ const SpecificUserLogin = ({ user, onBack }: { user: SavedUser, onBack: () => vo
                         />
                     </div>
                     <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading ? <Loader2 className="animate-spin" /> : 'تسجيل الدخول'}
+                        {isLoading ? <CatLoader className="mx-auto" /> : 'تسجيل الدخول'}
                     </Button>
                 </form>
                 <Button variant="link" onClick={onBack} className="w-full">
@@ -275,7 +276,7 @@ export default function LoginPage() {
   if (isUserLoading || user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <CatLoader />
       </div>
     );
   }
@@ -320,7 +321,7 @@ export default function LoginPage() {
 
           <div className="grid gap-4">
             <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading || isGoogleLoading}>
-              {isGoogleLoading ? <Loader2 className="animate-spin" /> : <><GoogleIcon className="me-2 h-4 w-4" /> متابعة باستخدام Google</>}
+              {isGoogleLoading ? <CatLoader className="mx-auto" /> : <><GoogleIcon className="me-2 h-4 w-4" /> متابعة باستخدام Google</>}
             </Button>
             <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -355,7 +356,7 @@ export default function LoginPage() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
-                {isLoading ? <Loader2 className="animate-spin" /> : 'تسجيل الدخول'}
+                {isLoading ? <CatLoader className="mx-auto" /> : 'تسجيل الدخول'}
               </Button>
             </form>
           </div>

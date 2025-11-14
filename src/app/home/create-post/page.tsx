@@ -4,7 +4,6 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Loader2,
   X,
   Globe,
   Users,
@@ -22,6 +21,7 @@ import { type User as UserType, type PrivacySetting } from '@/lib/types';
 import { getCurrentUserProfile } from '@/services/user-service';
 import { createPost } from '@/services/post-service';
 import { cn } from '@/lib/utils';
+import { CatLoader } from '@/components/cat-loader';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -160,7 +160,7 @@ function CreatePostContent() {
   if (isUserLoading || isDataLoading) {
       return (
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin" />
+              <CatLoader />
           </div>
       );
   }
@@ -185,7 +185,7 @@ function CreatePostContent() {
           <h1 className="text-lg font-semibold">{groupId ? 'إنشاء منشور في المجموعة' : 'إنشاء منشور'}</h1>
           <Button onClick={handleCreatePost} disabled={isSaving || !content.trim()}>
               {isSaving ? (
-                  <Loader2 className="animate-spin" />
+                  <CatLoader className="h-10 w-10" />
                 ) : 'نشر'}
           </Button>
       </header>
@@ -279,7 +279,7 @@ function CreatePostContent() {
 
 export default function CreatePostPage() {
     return (
-        <Suspense fallback={<div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+        <Suspense fallback={<div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center"><CatLoader /></div>}>
             <CreatePostContent />
         </Suspense>
     )

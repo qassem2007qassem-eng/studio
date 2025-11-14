@@ -11,7 +11,8 @@ import { getReports, updateReportStatus } from '@/services/report-service';
 import { deletePost } from '@/services/post-service';
 import { deleteUserAndContent, getUserById, approveVerificationRequest } from '@/services/user-service';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldAlert, Trash2, Verified, UserCheck } from 'lucide-react';
+import { ShieldAlert, Trash2, Verified, UserCheck } from 'lucide-react';
+import { CatLoader } from '@/components/cat-loader';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
 
@@ -109,7 +110,7 @@ export default function AdminPage() {
   };
 
   if (isLoading || isUserLoading) {
-    return <div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin h-8 w-8" /></div>;
+    return <div className="flex justify-center items-center h-screen"><CatLoader /></div>;
   }
 
   if (!isAdmin) {
@@ -158,7 +159,7 @@ export default function AdminPage() {
                             onClick={() => handlePostDelete(report)}
                             disabled={isActionLoading[report.id]}
                         >
-                            {isActionLoading[report.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : <><Trash2/> حذف المنشور</>}
+                            {isActionLoading[report.id] ? <CatLoader className="h-10 w-10" /> : <><Trash2/> حذف المنشور</>}
                         </Button>
                     )}
                      {report.reportedEntityType === 'user' && (
@@ -167,7 +168,7 @@ export default function AdminPage() {
                             onClick={() => handleUserDelete(report)}
                             disabled={isActionLoading[report.id]}
                         >
-                            {isActionLoading[report.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : <><Trash2/> حذف المستخدم</>}
+                            {isActionLoading[report.id] ? <CatLoader className="h-10 w-10" /> : <><Trash2/> حذف المستخدم</>}
                         </Button>
                     )}
                     <Button 
@@ -175,7 +176,7 @@ export default function AdminPage() {
                         onClick={() => handleDismissReport(report.id)}
                         disabled={isActionLoading[report.id]}
                     >
-                        {isActionLoading[report.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : "تجاهل الإبلاغ"}
+                        {isActionLoading[report.id] ? <CatLoader className="h-10 w-10" /> : "تجاهل الإبلاغ"}
                     </Button>
                     </CardFooter>
                 </Card>
@@ -213,14 +214,14 @@ export default function AdminPage() {
                                 disabled={isActionLoading[report.id]}
                                 className="bg-green-600 hover:bg-green-700 text-white"
                              >
-                                {isActionLoading[report.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : <><UserCheck/> توثيق الحساب</>}
+                                {isActionLoading[report.id] ? <CatLoader className="h-10 w-10" /> : <><UserCheck/> توثيق الحساب</>}
                             </Button>
                              <Button 
                                 variant="secondary"
                                 onClick={() => handleDismissReport(report.id)}
                                 disabled={isActionLoading[report.id]}
                             >
-                                {isActionLoading[report.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : "تجاهل الطلب"}
+                                {isActionLoading[report.id] ? <CatLoader className="h-10 w-10" /> : "تجاهل الطلب"}
                             </Button>
                         </CardFooter>
                     </Card>

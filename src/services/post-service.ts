@@ -128,47 +128,47 @@ export const deletePost = async (postId: string, asAdmin = false): Promise<void>
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
     const postsCollection = collection(firestore, 'posts');
     
-    const baseQuery = query(
+    // Simplified query: just get all non-group posts for the user.
+    // Filtering and sorting will happen on the client.
+    const q = query(
         postsCollection,
         where('authorId', '==', profileUserId),
-        where('groupId', '==', null) // Explicitly exclude group posts from profile pages
+        where('groupId', '==', null)
     );
 
     try {
-        const snapshot = await getDocs(baseQuery);
+        const snapshot = await getDocs(q);
         const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         
         const currentUser = auth.currentUser;
         const isAdmin = currentUser?.email === 'admin@app.com';
 
-        if (isAdmin) {
-             return posts.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
-        }
+        // Sort all posts by date first.
+        posts.sort((a, b) => {
+            const dateA = a.createdAt?.toMillis() || 0;
+            const dateB = b.createdAt?.toMillis() || 0;
+            return dateB - dateA;
+        });
 
+        if (isAdmin || currentUserId === profileUserId) {
+            // Admins and profile owners can see all posts.
+            return posts;
+        }
+        
         const { getUserById } = await import('./user-service');
         const profileUser = await getUserById(profileUserId);
         const isFollowing = currentUserId ? (profileUser?.followers || []).includes(currentUserId) : false;
 
+        // Apply privacy filtering on the client.
         const filteredPosts = posts.filter(post => {
-            // Check if current user is the owner of the profile
-            if (currentUserId === profileUserId) {
-                return true;
-            }
             if (post.privacy === 'everyone') {
                 return true;
             }
             if (post.privacy === 'followers' && isFollowing) {
                 return true;
             }
-            // 'only_me' posts are only visible to the owner, handled above
+            // 'only_me' posts are filtered out because currentUserId !== profileUserId here.
             return false;
-        });
-
-        // Sort after filtering
-        filteredPosts.sort((a, b) => {
-            const dateA = a.createdAt?.toMillis() || 0;
-            const dateB = b.createdAt?.toMillis() || 0;
-            return dateB - dateA;
         });
         
         return filteredPosts;
@@ -213,6 +213,7 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
     // After fetching, we still need to apply privacy rules.
     const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post))
         .filter(post => {
+            // The author is either the user or someone they follow, so we check privacy
             if (post.authorId === userProfile.id) {
                 // User can always see their own posts.
                 return true;

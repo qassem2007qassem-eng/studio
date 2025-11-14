@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useUser } from '@/firebase';
-import { Loader2 } from 'lucide-react';
+import { CatLoader } from '@/components/cat-loader';
 
 
 const onboardingStep = {
@@ -32,7 +32,7 @@ export default function OnboardingPage() {
   if (isUserLoading || user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-secondary">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <CatLoader />
       </div>
     );
   }

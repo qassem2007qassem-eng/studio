@@ -12,7 +12,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useUser, initializeFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Globe, Lock } from 'lucide-react';
+import { Globe, Lock } from 'lucide-react';
+import { CatLoader } from '@/components/cat-loader';
 import { type Group } from '@/lib/types';
 
 export default function CreateGroupPage() {
@@ -47,6 +48,7 @@ export default function CreateGroupPage() {
                 privacy,
                 memberIds: [user.uid], // Creator is the first member
                 createdAt: serverTimestamp() as any,
+                moderationRequired: false,
             };
 
             const groupsCollection = collection(firestore, 'groups');
@@ -127,7 +129,7 @@ export default function CreateGroupPage() {
                         </RadioGroup>
                     </div>
                     <Button type="submit" className="w-full" disabled={isLoading || !name.trim()}>
-                        {isLoading ? <Loader2 className="animate-spin" /> : 'إنشاء المجموعة'}
+                        {isLoading ? <CatLoader className="mx-auto" /> : 'إنشاء المجموعة'}
                     </Button>
                 </form>
             </CardContent>

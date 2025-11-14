@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Loader2, PlusCircle, Users } from 'lucide-react';
+import { PlusCircle, Users } from 'lucide-react';
+import { CatLoader } from '@/components/cat-loader';
 import { type Group } from '@/lib/types';
 import { useUser, initializeFirebase } from '@/firebase';
 import { collection, query, where, getDocs, or } from 'firebase/firestore';
@@ -55,8 +56,8 @@ export default function GroupsPage() {
             </div>
 
             {isLoading ? (
-                <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin mx-auto" />
+                <div className="text-center py-10">
+                    <CatLoader className="mx-auto" />
                 </div>
             ) : groups.length === 0 ? (
                 <Card className="text-center py-12">

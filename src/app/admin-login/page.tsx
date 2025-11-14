@@ -16,7 +16,8 @@ import { useState } from 'react';
 import { useAuth, initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Shield } from 'lucide-react';
+import { Shield } from 'lucide-react';
+import { CatLoader } from '@/components/cat-loader';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -129,7 +130,7 @@ export default function AdminLoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? <Loader2 className="animate-spin" /> : 'دخول المشرف'}
+              {isLoading ? <CatLoader className="mx-auto" /> : 'دخول المشرف'}
             </Button>
           </form>
         </CardContent>

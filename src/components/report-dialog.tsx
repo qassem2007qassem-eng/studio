@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Loader2 } from 'lucide-react';
+import { CatLoader } from '@/components/cat-loader';
 
 interface ReportDialogProps {
   open: boolean;
@@ -65,7 +65,7 @@ export function ReportDialog({
             إلغاء
           </Button>
           <Button onClick={handleSubmit} disabled={!reason.trim() || isSubmitting}>
-            {isSubmitting ? <Loader2 className="animate-spin" /> : 'إرسال الإبلاغ'}
+            {isSubmitting ? <CatLoader className="mx-auto" /> : 'إرسال الإبلاغ'}
           </Button>
         </DialogFooter>
       </DialogContent>
