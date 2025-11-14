@@ -24,7 +24,7 @@ import {
 import { CalendarIcon, Loader2, UserCircle2, CheckCircle, UploadCloud } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { cn } from '@/lib/utils';
+import { cn, fileToBase64 } from '@/lib/utils';
 import { format } from 'date-fns';
 import { initializeFirebase } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, type User as AuthUser } from 'firebase/auth';
@@ -52,7 +52,7 @@ function RegisterForm() {
     gender: '',
     username: '',
     password: '',
-    avatarFile: null as File | null,
+    avatarBase64: null as string | null,
     avatarPreview: null as string | null,
   });
   const [usernameError, setUsernameError] = useState<string | null>(null);
@@ -98,14 +98,15 @@ function RegisterForm() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setFormData(prev => ({
-        ...prev,
-        avatarFile: file,
-        avatarPreview: URL.createObjectURL(file)
-      }));
+        const base64 = await fileToBase64(file);
+        setFormData(prev => ({
+            ...prev,
+            avatarBase64: base64,
+            avatarPreview: URL.createObjectURL(file)
+        }));
     }
   };
 
@@ -144,20 +145,17 @@ function RegisterForm() {
       );
       const user = userCredential.user;
 
-      // Pass the newly created user object to the profile creation service
       await createUserProfile(user, {
         username: usernameLower,
         name: formData.fullName,
         email: user.email!,
         emailVerified: user.emailVerified,
-      }, formData.avatarFile || undefined);
+      }, formData.avatarBase64 ? { base64: formData.avatarBase64, name: 'avatar.jpg' } : undefined);
       
-      // Update the auth profile (display name, etc.) separately
       await updateProfile(user, {
         displayName: formData.fullName,
       });
 
-      // Send verification email
       await sendEmailVerification(user);
       
       toast({
@@ -403,7 +401,7 @@ function RegisterForm() {
                 disabled={!currentStepData.validation() || isLoading}
                 className={cn(step === 1 ? 'col-span-2' : '', (step === 5 && !isFromGoogle) ? 'col-span-2' : '', (step === 3 && isFromGoogle) ? 'col-span-2' : '')}
               >
-                {step === 5 && !formData.avatarFile && !isFromGoogle ? 'تخطى' : 'التالي'}
+                {step === 5 && !formData.avatarBase64 && !isFromGoogle ? 'تخطى' : 'التالي'}
               </Button>
             )}
 

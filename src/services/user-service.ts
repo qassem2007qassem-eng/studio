@@ -94,25 +94,22 @@ const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<U
 const createUserProfile = async (
   user: AuthUser, 
   details: Pick<User, 'username' | 'name' | 'email' | 'emailVerified'>,
-  avatarFile?: File
+  avatar?: { base64: string, name: string }
 ): Promise<void> => {
   try {
     let avatarUrl = "";
-    // 1. Upload avatar if it exists
-    if (avatarFile) {
-      const path = `avatars/${user.uid}/${avatarFile.name}`;
-      // Use the robust uploadFile service
-      avatarUrl = await uploadFile(avatarFile, path);
+    if (avatar) {
+      const path = `avatars/${user.uid}/${avatar.name}`;
+      avatarUrl = await uploadFile(avatar.base64, path);
     } 
 
-    // 2. Create the user document in Firestore
     const userDocRef = doc(firestore, "users", user.uid);
     const userData: Omit<User, 'id'> = {
       username: details.username.toLowerCase(),
       name: details.name,
       email: details.email,
       emailVerified: details.emailVerified,
-      avatarUrl: avatarUrl, // Use the uploaded URL or an empty string
+      avatarUrl: avatarUrl,
       coverUrl: "",
       bio: "",
       createdAt: serverTimestamp() as Timestamp,
@@ -123,13 +120,11 @@ const createUserProfile = async (
     
     await setDoc(userDocRef, userData);
     
-    // 3. Update the user document with its own ID for easier querying
     await updateDoc(userDocRef, { id: user.uid });
 
     console.log("User profile created successfully!");
   } catch (error) {
     console.error("Error creating user profile:", error);
-    // Re-throw the error to be caught by the calling function in the UI
     throw error;
   }
 };
@@ -294,8 +289,8 @@ const checkIfFollowing = async (targetUserId: string, options: GetProfileOptions
 const updateProfile = async (
     userId: string,
     updates: Partial<User>, 
-    avatarFile?: File, 
-    coverFile?: File, 
+    avatar?: { base64: string, name: string }, 
+    cover?: { base64: string, name: string }, 
     onProgress?: (type: 'avatar' | 'cover', progress: number, status: 'uploading' | 'completed' | 'error') => void
 ): Promise<{ avatarUrl?: string; coverUrl?: string }> => {
   
@@ -307,12 +302,11 @@ const updateProfile = async (
   const returnedUrls: { avatarUrl?: string; coverUrl?: string } = {};
 
   try {
-    // A list to hold all upload promises
     const uploadPromises: Promise<void>[] = [];
 
-    if (avatarFile) {
-      const path = `avatars/${userId}/${avatarFile.name}`;
-      const avatarPromise = uploadFile(avatarFile, path, (progress, status) => {
+    if (avatar) {
+      const path = `avatars/${userId}/${avatar.name}`;
+      const avatarPromise = uploadFile(avatar.base64, path, (progress, status) => {
         onProgress?.('avatar', progress, status);
       }).then(url => {
         updatedUserData.avatarUrl = url;
@@ -321,9 +315,9 @@ const updateProfile = async (
       uploadPromises.push(avatarPromise);
     }
 
-    if (coverFile) {
-      const path = `covers/${userId}/${coverFile.name}`;
-      const coverPromise = uploadFile(coverFile, path, (progress, status) => {
+    if (cover) {
+      const path = `covers/${userId}/${cover.name}`;
+      const coverPromise = uploadFile(cover.base64, path, (progress, status) => {
         onProgress?.('cover', progress, status);
       }).then(url => {
         updatedUserData.coverUrl = url;
@@ -332,23 +326,19 @@ const updateProfile = async (
       uploadPromises.push(coverPromise);
     }
     
-    // Wait for all uploads to complete successfully
     await Promise.all(uploadPromises);
     
-    // Only update Firestore if there are changes to be made (text or successful uploads)
     if (Object.keys(updatedUserData).length > 0) {
       const userRef = doc(firestore, "users", userId);
       await updateDoc(userRef, updatedUserData);
     }
     
-    // Force a refresh of the local cache
     await getCurrentUserProfile({ forceRefresh: true, userId: userId });
     
     return returnedUrls;
 
   } catch (error) {
     console.error("Error updating profile:", error);
-    // Re-throw the error so the UI can catch it and display a message
     throw error;
   }
 };

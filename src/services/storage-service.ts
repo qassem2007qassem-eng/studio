@@ -3,9 +3,10 @@
 
 import {
   ref,
-  uploadBytesResumable,
+  uploadString,
   getDownloadURL,
   type UploadTask,
+  type StringFormat,
 } from 'firebase/storage';
 import { initializeFirebase } from '@/firebase';
 
@@ -14,52 +15,36 @@ const { storage } = initializeFirebase();
 type ProgressCallback = (progress: number, status: 'uploading' | 'completed' | 'error') => void;
 
 /**
- * A centralized and robust function for uploading files to Firebase Storage.
- * It now includes comprehensive error handling to prevent silent failures.
- * @param file The file object to upload.
+ * A centralized and robust function for uploading files to Firebase Storage using Base64 data URIs.
+ * @param base64String The Base64 data URI of the file to upload.
  * @param path The desired path in Firebase Storage (e.g., 'avatars/user-id.jpg').
- * @param onProgress Optional callback to track upload progress.
+ * @param onProgress Optional callback to track upload progress (note: not directly supported by uploadString, so we simulate).
  * @returns A promise that resolves with the public download URL of the uploaded file.
  */
 export const uploadFile = (
-  file: File,
+  base64String: string,
   path: string,
   onProgress?: ProgressCallback
 ): Promise<string> => {
-  return new Promise<string>((resolve, reject) => {
-    if (!file) {
-      // Immediately reject if no file is provided.
-      return reject(new Error('No file provided for upload.'));
+  return new Promise<string>(async (resolve, reject) => {
+    if (!base64String) {
+      return reject(new Error('No Base64 string provided for upload.'));
     }
 
-    const fileRef = ref(storage, path);
-    const uploadTask: UploadTask = uploadBytesResumable(fileRef, file);
+    try {
+      const fileRef = ref(storage, path);
+      onProgress?.(50, 'uploading'); // Simulate progress since uploadString doesn't provide it
 
-    uploadTask.on('state_changed',
-      (snapshot) => {
-        // Observe state change events such as progress, pause, and resume
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        onProgress?.(progress, 'uploading');
-      },
-      (error) => {
-        // Handle unsuccessful uploads and reject the promise.
-        console.error(`Upload failed for path ${path}:`, error);
-        onProgress?.(0, 'error');
-        // Pass a more descriptive error to the caller.
-        reject(new Error(`Failed to upload file. Code: ${error.code}`));
-      },
-      async () => {
-        // Handle successful uploads on complete
-        try {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          onProgress?.(100, 'completed');
-          resolve(downloadURL);
-        } catch (error: any) {
-           // Handle errors from getDownloadURL (e.g., permissions) and reject the promise.
-           console.error(`Failed to get download URL for ${path}:`, error);
-           reject(new Error(`Failed to get download URL. Code: ${error.code}`));
-        }
-      }
-    );
+      // uploadString is used for data URIs
+      const snapshot = await uploadString(fileRef, base64String, 'data_url');
+      
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      onProgress?.(100, 'completed');
+      resolve(downloadURL);
+    } catch (error: any) {
+      console.error(`Upload failed for path ${path}:`, error);
+      onProgress?.(0, 'error');
+      reject(new Error(`Failed to upload file. Code: ${error.code}`));
+    }
   });
 };
