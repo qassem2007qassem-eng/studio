@@ -66,6 +66,7 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
   }
   
   const postsCollection = collection(firestore, 'posts');
+  const postDocRef = doc(postsCollection); // Create a reference with a new ID
   
   const postData: Omit<Post, 'id'> = {
     authorId: user.uid,
@@ -78,8 +79,6 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     commenting: input.commenting,
     background: input.background || 'default'
   };
-
-  const postDocRef = doc(postsCollection); // Create a reference with a new ID
 
   await setDoc(postDocRef, {
       ...postData,
