@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -27,7 +28,7 @@ export default function AdminPage() {
   const [isActionLoading, setIsActionLoading] = useState<Record<string, boolean>>({});
   const [reportedUsers, setReportedUsers] = useState<Record<string, User>>({});
 
-  const isAdmin = isAdminUser(user);
+  const isAdmin = isAdminUser(user as User);
 
   useEffect(() => {
     if (isUserLoading) return; // Wait until user status is resolved
@@ -76,13 +77,7 @@ export default function AdminPage() {
 
   const handlePostDelete = (report: Report) => {
     handleAction(report.id, async () => {
-        const { firestore } = initializeFirebase();
-        const { getDoc, doc } = await import('firebase/firestore');
-        const postRef = doc(firestore, 'posts', report.reportedEntityId);
-        const postSnap = await getDoc(postRef);
-        if (postSnap.exists()) {
-            await deletePost(report.reportedEntityId, postSnap.data().imageUrls || [], true);
-        }
+        await deletePost(report.reportedEntityId, true);
         await updateReportStatus(report.id, 'resolved');
     }, "تم حذف المنشور بنجاح.");
   };

@@ -21,7 +21,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, Loader2, UserCircle2, CheckCircle, UploadCloud } from 'lucide-react';
+import { CalendarIcon, Loader2, UserCircle2, CheckCircle } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
@@ -37,7 +37,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { createUserProfile } from '@/services/user-service';
-import { Progress } from '@/components/ui/progress';
 
 function RegisterForm() {
   const searchParams = useSearchParams();
@@ -45,7 +44,6 @@ function RegisterForm() {
 
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -54,12 +52,8 @@ function RegisterForm() {
     gender: '',
     username: '',
     password: '',
-    avatarFile: null as File | null,
-    avatarPreview: null as string | null,
   });
   const [usernameError, setUsernameError] = useState<string | null>(null);
-
-  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   const { auth, firestore } = initializeFirebase();
   const { toast } = useToast();
@@ -67,14 +61,12 @@ function RegisterForm() {
   useEffect(() => {
     const name = searchParams.get('name');
     const email = searchParams.get('email');
-    const avatar = searchParams.get('avatar');
 
     if (name && email) {
       setFormData(prev => ({
         ...prev,
         fullName: name,
         email: email,
-        avatarPreview: avatar || null,
       }));
       setStep(3); // Start from step 3 if coming from Google
     }
@@ -100,17 +92,6 @@ function RegisterForm() {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-        setFormData(prev => ({
-            ...prev,
-            avatarFile: file,
-            avatarPreview: URL.createObjectURL(file)
-        }));
-    }
-  };
-
   const handleCreateAccount = async () => {
     if (usernameError) {
        toast({
@@ -121,7 +102,6 @@ function RegisterForm() {
       return;
     }
     setIsLoading(true);
-    setUploadProgress(0);
 
     const usernameLower = formData.username.toLowerCase();
 
@@ -152,8 +132,6 @@ function RegisterForm() {
         name: formData.fullName,
         email: user.email!,
         emailVerified: user.emailVerified,
-      }, formData.avatarFile || undefined, (progress, status) => {
-        if(status === 'uploading') setUploadProgress(progress);
       });
       
       await updateProfile(user, {
@@ -292,46 +270,6 @@ function RegisterForm() {
       ),
     },
     {
-      title: 'اختر صورة ملفك الشخصي',
-      field: 'avatar',
-      validation: () => true, // Optional step
-      content: (
-        <div className="space-y-4 text-center">
-          <div className="mx-auto w-32 h-32">
-            <Avatar className="w-full h-full relative">
-              <AvatarImage src={formData.avatarPreview || undefined} />
-              <AvatarFallback>
-                <UserCircle2 className="w-20 h-20 text-muted-foreground" />
-              </AvatarFallback>
-               {isLoading && (
-                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center rounded-full text-white">
-                    <Loader2 className="h-8 w-8 animate-spin" />
-                    {uploadProgress > 0 && <span className="text-xs mt-2">{Math.round(uploadProgress)}%</span>}
-                </div>
-                )}
-            </Avatar>
-          </div>
-
-          <Button
-            variant="outline"
-            onClick={() => avatarInputRef.current?.click()}
-            disabled={isFromGoogle || isLoading}
-          >
-            اختر صورة
-          </Button>
-          <Input
-            ref={avatarInputRef}
-            id="avatar-upload"
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileChange}
-            disabled={isFromGoogle || isLoading}
-          />
-        </div>
-      ),
-    },
-    {
       title: 'اختر اسم مستخدم',
       field: 'username',
       validation: () => !!formData.username && !usernameError,
@@ -404,9 +342,9 @@ function RegisterForm() {
               <Button
                 onClick={handleNext}
                 disabled={!currentStepData.validation() || isLoading}
-                className={cn(step === 1 ? 'col-span-2' : '', (step === 5 && !isFromGoogle) ? 'col-span-2' : '', (step === 3 && isFromGoogle) ? 'col-span-2' : '')}
+                className={cn(step === 1 ? 'col-span-2' : '', 'col-span-1')}
               >
-                {step === 5 && !formData.avatarFile && !isFromGoogle ? 'تخطى' : 'التالي'}
+                {'التالي'}
               </Button>
             )}
 

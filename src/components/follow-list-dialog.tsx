@@ -106,7 +106,7 @@ export function FollowListDialog({ title, userIds, trigger, onFollowStateChange 
                   <div key={user.id} className="flex items-center gap-4">
                     <Link href={`/home/profile/${user.username.toLowerCase()}`} className="flex items-center gap-4 flex-1" onClick={() => setIsOpen(false)}>
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={user.avatarUrl} alt={user.name} />
+                        <AvatarImage alt={user.name} />
                         <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div>

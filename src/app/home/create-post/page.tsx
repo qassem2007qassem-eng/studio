@@ -4,16 +4,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ImageIcon,
   Loader2,
   X,
   Globe,
   Users,
   Lock,
   ChevronDown,
-  UploadCloud
 } from 'lucide-react';
-import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,20 +26,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Progress } from '@/components/ui/progress';
-
-interface ImageFile {
-    file: File;
-    preview: string;
-}
-
-interface UploadProgress {
-    [fileName: string]: {
-        progress: number;
-        status: 'uploading' | 'completed' | 'error';
-    };
-}
-
 
 const privacyOptions: { value: PrivacySetting; label: string; icon: React.FC<any> }[] = [
   { value: 'everyone', label: 'الجميع', icon: Globe },
@@ -60,49 +43,20 @@ const backgroundOptions = [
 ];
 
 
-const ImageUploadProgress = ({ progress, status }: { progress: number; status: string; }) => (
-    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 rounded-lg">
-        {status === 'uploading' ? (
-            <>
-                <UploadCloud className="h-8 w-8 text-white" />
-                <p className="text-white text-sm font-semibold">جاري الرفع... {progress.toFixed(0)}%</p>
-                <Progress value={progress} className="w-3/4 h-1" />
-            </>
-        ) : status === 'completed' ? (
-            <p className="text-white">اكتمل</p>
-        ) : (
-            <p className="text-red-500">خطأ في الرفع</p>
-        )}
-    </div>
-);
-
-
 export default function CreatePostPage() {
   const { user, isUserLoading } = useUser();
   const [userData, setUserData] = useState<UserType | null>(null);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [content, setContent] = useState('');
-  const [postImages, setPostImages] = useState<ImageFile[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({});
   
   const { toast } = useToast();
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [privacy, setPrivacy] = useState<PrivacySetting>('everyone');
   const [background, setBackground] = useState(backgroundOptions[0].id);
   
-  const hasImages = postImages.length > 0;
   const selectedBackground = backgroundOptions.find(b => b.id === background);
   const hasBackground = background !== 'default';
-  
-  const uploadingFileNames = Object.keys(uploadProgress).filter(
-    (fileName) => uploadProgress[fileName].status === 'uploading'
-  );
-  const isUploading = uploadingFileNames.length > 0;
-  const totalFilesToUpload = postImages.length;
-  const completedFiles = totalFilesToUpload - uploadingFileNames.length;
-
 
   useEffect(() => {
     if (user && !userData) {
@@ -117,37 +71,8 @@ export default function CreatePostPage() {
     }
   }, [user, userData, isUserLoading]);
 
-  useEffect(() => {
-    if (hasImages) {
-        setBackground('default');
-    }
-  }, [hasImages])
-
-  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (files) {
-        const newImages = Array.from(files).map(file => ({
-            file: file,
-            preview: URL.createObjectURL(file)
-        }));
-        setPostImages(prev => [...prev, ...newImages]);
-    }
-  };
-
-  const removeImage = (index: number) => {
-    const imageToRemove = postImages[index];
-    URL.revokeObjectURL(imageToRemove.preview); // Clean up blob URL
-    setPostImages(prev => prev.filter((_, i) => i !== index));
-    setUploadProgress(prev => {
-        const newProgress = { ...prev };
-        delete newProgress[imageToRemove.file.name];
-        return newProgress;
-    });
-  };
-
-
   const handleCreatePost = async () => {
-    if (!content.trim() && !hasImages) {
+    if (!content.trim()) {
       toast({
         title: 'خطأ',
         description: 'لا يمكنك إنشاء منشور فارغ.',
@@ -167,32 +92,20 @@ export default function CreatePostPage() {
       return;
     }
     setIsSaving(true);
-    setUploadProgress({});
 
     try {
       await createPost({
         content: content.trim(),
-        imageFiles: postImages.map(img => img.file), // Pass the actual File objects
         author: {
           name: profile.name,
           username: profile.username.toLowerCase(),
-          avatarUrl: profile.avatarUrl,
         },
         privacy,
         commenting: 'everyone',
         background: background,
-        onProgress: (fileName, progress, status) => {
-             setUploadProgress(prev => ({
-                ...prev,
-                [fileName]: { progress, status },
-            }));
-        },
       });
 
       setContent('');
-      postImages.forEach(img => URL.revokeObjectURL(img.preview)); // Cleanup all blob URLs
-      setPostImages([]);
-      setUploadProgress({});
       toast({
         title: 'نجاح',
         description: 'تم نشر منشورك بنجاح.',
@@ -235,17 +148,12 @@ export default function CreatePostPage() {
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col pb-20">
       <header className="flex items-center justify-between p-4 border-b flex-shrink-0">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} disabled={isSaving || isUploading}>
+          <Button variant="ghost" size="icon" onClick={() => router.back()} disabled={isSaving}>
               <X className="h-5 w-5" />
           </Button>
           <h1 className="text-lg font-semibold">إنشاء منشور</h1>
-          <Button onClick={handleCreatePost} disabled={isSaving || isUploading || (!content.trim() && !hasImages)}>
-              {isUploading ? (
-                  <>
-                    <Loader2 className="animate-spin me-2" />
-                    جاري رفع الصور... ({completedFiles}/{totalFilesToUpload})
-                  </>
-                ) : isSaving ? (
+          <Button onClick={handleCreatePost} disabled={isSaving || !content.trim()}>
+              {isSaving ? (
                   <Loader2 className="animate-spin" />
                 ) : 'نشر'}
           </Button>
@@ -253,7 +161,7 @@ export default function CreatePostPage() {
       <main className="flex-1 p-4 space-y-4 overflow-y-auto">
            <div className="flex items-start gap-3">
               <Avatar>
-                  <AvatarImage src={userData.avatarUrl || undefined} alt={userData.name || ''} />
+                  <AvatarImage alt={userData.name || ''} />
                   <AvatarFallback>{userData.name?.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
@@ -288,46 +196,14 @@ export default function CreatePostPage() {
               )}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              disabled={isSaving || isUploading}
+              disabled={isSaving}
               autoFocus
           />
           
-          {hasImages && (
-            <div className={cn(
-                "grid gap-2",
-                postImages.length === 1 && "grid-cols-1",
-                postImages.length === 2 && "grid-cols-2",
-                postImages.length === 3 && "grid-cols-3",
-                postImages.length >= 4 && "grid-cols-2",
-            )}>
-                {postImages.map((image, index) => (
-                  <div key={index} className="relative aspect-square">
-                     <Image src={image.preview} alt={`معاينة الصورة ${index + 1}`} fill className="rounded-lg object-cover" />
-                     {uploadProgress[image.file.name] && <ImageUploadProgress {...uploadProgress[image.file.name]} />}
-                     <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => removeImage(index)} disabled={isSaving || isUploading}>
-                        <X className="h-4 w-4"/>
-                     </Button>
-                  </div>
-                ))}
-            </div>
-          )}
       </main>
       <footer className="p-4 border-t mt-auto flex-shrink-0 bg-background">
            <div className="flex items-center gap-2 overflow-x-auto pb-2">
-              <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={hasBackground || isSaving || isUploading}>
-                  <ImageIcon className={cn("h-6 w-6", hasBackground ? "text-muted-foreground" : "text-green-500")}/>
-                  <span className="sr-only">إضافة صورة</span>
-              </Button>
-               <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleImageChange}
-                  className="hidden"
-                  accept="image/*"
-                  multiple
-                  disabled={hasBackground || isSaving || isUploading}
-                />
-              {!hasImages && backgroundOptions.map(bg => (
+              {backgroundOptions.map(bg => (
                   <button 
                       key={bg.id}
                       onClick={() => setBackground(bg.id)}
@@ -335,7 +211,7 @@ export default function CreatePostPage() {
                           "h-8 w-8 rounded-full border-2 flex-shrink-0",
                           background === bg.id ? "border-primary" : "border-muted",
                       )}
-                      disabled={isSaving || isUploading}
+                      disabled={isSaving}
                   >
                       <div className={cn("h-full w-full rounded-full", bg.value.split(' ')[0], bg.id === 'default' && 'flex items-center justify-center text-muted-foreground border')}>
                           {bg.id === 'default' && 'Aa'}

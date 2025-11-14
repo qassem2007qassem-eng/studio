@@ -22,14 +22,12 @@ import {
 } from 'firebase/storage';
 import { initializeFirebase } from '@/firebase';
 import { type Post, type PrivacySetting } from '@/lib/types';
-import { uploadFile } from './storage-service';
 import { createNotification } from './notification-service';
 
 const { auth, firestore, storage } = initializeFirebase();
 
 type CreatePostInput = {
   content: string;
-  imageFiles: File[];
   author: {
     name: string;
     username: string;
@@ -38,7 +36,6 @@ type CreatePostInput = {
   privacy: PrivacySetting;
   commenting: PrivacySetting;
   background?: string;
-  onProgress?: (fileName: string, progress: number, status: 'uploading' | 'completed' | 'error') => void;
 };
 
 export const createPost = async (input: CreatePostInput): Promise<string> => {
@@ -47,33 +44,12 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     throw new Error('User not authenticated');
   }
 
-  let imageUrls: string[] = [];
-
-  if (input.imageFiles && input.imageFiles.length > 0) {
-    try {
-      const uploadPromises = input.imageFiles.map((file) => {
-        const path = `posts/${user.uid}/${Date.now()}_${file.name}`;
-        // Note: The 'uploadFile' service now expects a File object.
-        return uploadFile(file, path, (progress, status) => {
-          input.onProgress?.(file.name, progress, status);
-        });
-      });
-      // Wait for all uploads to complete before proceeding
-      imageUrls = await Promise.all(uploadPromises);
-    } catch (error) {
-      console.error("Image upload failed, post creation stopped.", error);
-      // The error from uploadFile will be propagated, so we just re-throw it.
-      throw new Error("One or more images failed to upload. Please try again.");
-    }
-  }
-
   const postData: Omit<Post, 'id'> = {
     authorId: user.uid,
     author: input.author,
     content: input.content,
     createdAt: serverTimestamp() as Timestamp,
     likeIds: [],
-    imageUrls: imageUrls, // Now contains URLs from Firebase Storage
     privacy: input.privacy,
     commenting: input.commenting,
     background: input.background || 'default',
@@ -88,7 +64,7 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
 };
 
 
-export const deletePost = async (postId: string, imageUrls: string[], asAdmin = false): Promise<void> => {
+export const deletePost = async (postId: string, asAdmin = false): Promise<void> => {
     const user = auth.currentUser;
     if (!user) {
       throw new Error('User not authenticated');
@@ -115,19 +91,6 @@ export const deletePost = async (postId: string, imageUrls: string[], asAdmin = 
     batch.delete(postRef);
 
     await batch.commit();
-
-    if (imageUrls && imageUrls.length > 0) {
-      for (const url of imageUrls) {
-          try {
-              const imageRef = ref(storage, url);
-              await deleteObject(imageRef);
-          } catch (error: any) {
-              if (error.code !== 'storage/object-not-found') {
-                console.error(`Failed to delete image ${url}:`, error);
-              }
-          }
-      }
-    }
 }
 
 

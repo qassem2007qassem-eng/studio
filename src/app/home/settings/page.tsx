@@ -36,21 +36,9 @@ function ProfileSettings() {
     const [username, setUsername] = useState("");
     const [bio, setBio] = useState("");
     
-    const [avatarFile, setAvatarFile] = useState<File | null>(null);
-    const [coverFile, setCoverFile] = useState<File | null>(null);
-
-    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-    const [coverPreview, setCoverPreview] = useState<string | null>(null);
-    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     
-    const [uploadProgress, setUploadProgress] = useState<{ type: 'avatar' | 'cover', progress: number, status: 'uploading' | 'completed' | 'error' } | null>(null);
-
-    const avatarInputRef = useRef<HTMLInputElement>(null);
-    const coverInputRef = useRef<HTMLInputElement>(null);
-
-
     useEffect(() => {
         if (!isUserLoading && user) {
             getCurrentUserProfile().then(profile => {
@@ -60,8 +48,6 @@ function ProfileSettings() {
                     setName(data.name || '');
                     setUsername(data.username || '');
                     setBio(data.bio || '');
-                    setAvatarPreview(data.avatarUrl || null);
-                    setCoverPreview(data.coverUrl || null);
                 }
                  setIsLoading(false);
             }).catch(() => setIsLoading(false));
@@ -74,31 +60,19 @@ function ProfileSettings() {
         if (!user || !userData) return;
 
         setIsSaving(true);
-        setUploadProgress(null);
         try {
             const profileUpdates: Partial<User> = { name, username, bio };
             
-            const updatedUrls = await updateProfile(
+            await updateProfile(
                 user.uid,
-                profileUpdates, 
-                avatarFile || undefined, 
-                coverFile || undefined, 
-                (type, progress, status) => {
-                   setUploadProgress({ type, progress, status });
-                }
+                profileUpdates
             );
 
             if (auth.currentUser) {
                 await updateAuthProfile(auth.currentUser, {
                     displayName: name,
-                    photoURL: updatedUrls.avatarUrl || avatarPreview || undefined
                 });
             }
-            
-            setAvatarFile(null);
-            if (avatarInputRef.current) avatarInputRef.current.value = '';
-            setCoverFile(null);
-            if (coverInputRef.current) coverInputRef.current.value = '';
             
             toast({
                 title: "تم الحفظ",
@@ -113,34 +87,16 @@ function ProfileSettings() {
             });
         } finally {
             setIsSaving(false);
-            setUploadProgress(null);
         }
     };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const previewUrl = URL.createObjectURL(file);
-            if (type === 'avatar') {
-                setAvatarFile(file);
-                setAvatarPreview(previewUrl);
-            } else {
-                setCoverFile(file);
-                setCoverPreview(previewUrl);
-            }
-        }
-    }
 
     if (isLoading) {
         return (
             <div className="space-y-6">
-                {[...Array(5)].map((_, i) => (
-                    <div key={i} className="flex items-center gap-4">
-                        <Skeleton className="h-10 w-10" />
-                        <div className="flex-1 space-y-2">
-                             <Skeleton className="h-4 w-1/3" />
-                             <Skeleton className="h-3 w-2/3" />
-                        </div>
+                {[...Array(3)].map((_, i) => (
+                    <div key={i} className="space-y-2">
+                         <Skeleton className="h-4 w-1/4" />
+                         <Skeleton className="h-10 w-full" />
                     </div>
                 ))}
             </div>
@@ -154,51 +110,6 @@ function ProfileSettings() {
                 <CardDescription>قم بتحديث معلوماتك الشخصية هنا.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
-                {/* Cover Photo */}
-                <div className="space-y-2">
-                    <Label>صورة الغلاف</Label>
-                    <Card className="overflow-hidden">
-                         <div className="relative h-40 w-full bg-muted">
-                            {coverPreview && 
-                                <Image
-                                    src={coverPreview}
-                                    alt="Cover preview"
-                                    fill
-                                    className="object-cover"
-                                />
-                            }
-                            {isSaving && uploadProgress?.type === 'cover' && (
-                                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-2">
-                                    <Loader2 className="h-8 w-8 animate-spin text-white" />
-                                    <p className="text-white text-sm">جاري الرفع...</p>
-                                    <Progress value={uploadProgress.progress} className="w-3/4 h-1"/>
-                                </div>
-                            )}
-                         </div>
-                    </Card>
-                    <Button variant="outline" onClick={() => coverInputRef.current?.click()} disabled={isSaving}>تغيير صورة الغلاف</Button>
-                    <Input ref={coverInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'cover')} />
-                </div>
-                
-                {/* Avatar */}
-                <div className="space-y-2">
-                    <Label>الصورة الشخصية</Label>
-                    <div className="flex items-center gap-4">
-                        <Avatar className="h-24 w-24 relative">
-                            <AvatarImage src={avatarPreview || undefined} alt={name} />
-                            <AvatarFallback>{name?.charAt(0)}</AvatarFallback>
-                            {isSaving && uploadProgress?.type === 'avatar' && (
-                                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center rounded-full gap-2">
-                                    <Loader2 className="h-6 w-6 animate-spin text-white" />
-                                    <Progress value={uploadProgress.progress} className="w-3/4 h-1"/>
-                                </div>
-                            )}
-                        </Avatar>
-                        <Button variant="outline" onClick={() => avatarInputRef.current?.click()} disabled={isSaving}>تغيير الصورة الشخصية</Button>
-                        <Input ref={avatarInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'avatar')} />
-                    </div>
-                </div>
-
                 <div className="space-y-2">
                     <Label htmlFor="name">الاسم الكامل</Label>
                     <Input id="name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSaving}/>
@@ -264,20 +175,16 @@ export default function SettingsPage() {
                     savedUsers = JSON.parse(savedUsersRaw);
                 }
                 
-                // Remove the current user if they already exist in the list
                 savedUsers = savedUsers.filter((u: any) => u.email !== profile.email);
 
                 if (saveInfo) {
                     const userToSave = {
                         email: profile.email,
                         name: profile.name,
-                        avatarUrl: profile.avatarUrl,
                     };
-                    // Add the current user to the front of the array
                     savedUsers.unshift(userToSave);
                 }
                 
-                // Limit to 5 users
                 savedUsers = savedUsers.slice(0, 5);
 
                 localStorage.setItem('savedUsers', JSON.stringify(savedUsers));

@@ -5,7 +5,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, MessageCircle, MoreHorizontal, Share2, Flag, Trash2, Edit, X } from "lucide-react";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { type Post, type Comment, type User } from "@/lib/types";
@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { cn, formatDistanceToNow } from "@/lib/utils";
+import { cn, formatDistanceToNow, safeToDate } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,33 +83,6 @@ const backgroundOptions = [
   { id: 'gradient5', value: 'bg-gray-800 text-white', type: 'color' },
 ];
 
-
-const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Date | null => {
-    if (!timestamp) return null;
-    if (timestamp instanceof Timestamp) {
-        return timestamp.toDate();
-    }
-    if (timestamp instanceof Date) {
-        return timestamp;
-    }
-    try {
-        const date = new Date(timestamp);
-        if (isNaN(date.getTime())) {
-            return null;
-        }
-        return date;
-    } catch (e) {
-        return null;
-    }
-};
-
-// Simple admin check
-const isAdminUser = (user: User | null) => {
-    if (!user) return false;
-    return user.email === 'admin@app.com';
-};
-
-
 const CommentsSheet = ({ post }: { post: Post }) => {
     const { user } = useUser();
     const [newComment, setNewComment] = useState("");
@@ -139,14 +112,12 @@ const CommentsSheet = ({ post }: { post: Post }) => {
                 author: {
                     name: profile.name,
                     username: profile.username.toLowerCase(),
-                    avatarUrl: profile.avatarUrl,
                 },
                 content: newComment.trim(),
                 createdAt: serverTimestamp(),
             };
             const commentRef = await addDoc(commentsCollection, commentData);
             
-            // Create notification for the post author
             if (post.authorId !== user.uid) {
                 await createNotification({
                     userId: post.authorId,
@@ -156,7 +127,6 @@ const CommentsSheet = ({ post }: { post: Post }) => {
                         id: user.uid,
                         name: profile.name,
                         username: profile.username,
-                        avatarUrl: profile.avatarUrl,
                     },
                     content: `علق على منشورك: "${newComment.trim().substring(0, 30)}..."`,
                 })
@@ -181,7 +151,7 @@ const CommentsSheet = ({ post }: { post: Post }) => {
                             return (
                                 <div key={comment.id} className="flex items-start gap-3">
                                     <Avatar className="h-8 w-8">
-                                        <AvatarImage src={comment.author.avatarUrl} alt={comment.author.name} />
+                                        <AvatarImage alt={comment.author.name} />
                                         <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <div className="flex-1">
@@ -228,11 +198,10 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
                 selectedBackground?.value || 'bg-background'
             )}>
                 
-                {/* Top Bar */}
                 <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/50 to-transparent z-10">
                      <div className="flex items-center gap-3 text-white">
                         <Avatar>
-                            <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
+                            <AvatarImage alt={post.author.name} />
                             <AvatarFallback>{post.author.name?.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div>
@@ -264,7 +233,6 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
                     </div>
                 </div>
 
-                {/* Main Content Area */}
                 <div className="flex-grow flex items-center justify-center p-8 overflow-hidden">
                     <ScrollArea className="w-full h-full">
                         <div className="flex min-h-full w-full items-center justify-center">
@@ -276,7 +244,6 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
                 </div>
 
 
-                {/* Bottom Bar */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/50 to-transparent text-white z-10">
                     <div className="flex justify-between items-center text-sm mb-2">
                         <div className="flex items-center gap-1">
@@ -363,14 +330,12 @@ export function PostCard({ post }: PostCardProps) {
                 id: user.uid,
                 name: profile.name,
                 username: profile.username,
-                avatarUrl: profile.avatarUrl,
             },
             content: `أبدى إعجابه بمنشورك.`,
         });
       }
     }).catch(err => {
         console.error("Failed to update like status", err);
-        // Revert UI on error
         setIsLiked(!newIsLiked);
         setLikeCount(prev => !newIsLiked ? prev + 1 : prev - 1);
     });
@@ -379,7 +344,7 @@ export function PostCard({ post }: PostCardProps) {
   const handleDelete = async () => {
     if (!isOwner && !isAdmin) return;
     try {
-        await deletePost(post.id, post.imageUrls, isAdmin);
+        await deletePost(post.id, isAdmin);
         toast({ title: "تم حذف المنشور بنجاح."});
         setIsDeleteAlertOpen(false);
         router.refresh(); 
@@ -421,16 +386,14 @@ export function PostCard({ post }: PostCardProps) {
   if (!post || !post.author) {
     return <Card><CardContent><Skeleton className="h-24 w-full" /></CardContent></Card>;
   }
-
-  const hasImages = post.imageUrls && post.imageUrls.length > 0;
   
   const selectedBackground = useMemo(() => {
     const bgOption = backgroundOptions.find(opt => opt.id === post.background);
-    if (!bgOption || bgOption.id === 'default' || hasImages) {
+    if (!bgOption || bgOption.id === 'default') {
       return null;
     }
     return bgOption;
-  }, [post.background, hasImages]);
+  }, [post.background]);
 
   const hasBackground = !!selectedBackground;
   
@@ -477,7 +440,7 @@ export function PostCard({ post }: PostCardProps) {
         <CardHeader className="p-4">
             <div className="flex items-center gap-3">
                 <Avatar>
-                    <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
+                    <AvatarImage alt={post.author.name} />
                     <AvatarFallback>{post.author.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div className="grid gap-0.5">
@@ -520,29 +483,6 @@ export function PostCard({ post }: PostCardProps) {
         </CardHeader>
         <CardContent className="space-y-4 p-0">
             {post.content && renderContent()}
-            {hasImages && (
-                <div className={cn(
-                    "grid gap-2 p-4",
-                    post.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2",
-                    post.imageUrls.length > 2 ? "grid-cols-2" : ""
-                )}>
-                    {post.imageUrls.map((imageUrl, index) => (
-                        <div key={index} className={cn(
-                            "relative w-full overflow-hidden rounded-lg border",
-                            post.imageUrls.length === 1 ? "aspect-video" : "aspect-square",
-                            post.imageUrls.length === 3 && index === 0 ? "col-span-2 row-span-2" : ""
-                        )}>
-                            <Image
-                                src={imageUrl}
-                                alt={`Post image ${index + 1}`}
-                                data-ai-hint="post image"
-                                fill
-                                className="object-cover"
-                            />
-                        </div>
-                    ))}
-                </div>
-            )}
         </CardContent>
         <CardFooter className="flex flex-col items-start gap-4 p-4">
             <div className="flex w-full items-center justify-between text-sm text-muted-foreground">
@@ -608,7 +548,3 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
-
-
-
-

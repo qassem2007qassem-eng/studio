@@ -108,7 +108,7 @@ export function NotificationsSheet() {
                     <div className="flex-shrink-0 relative">
                         <Link href={`/home/profile/${notif.fromUser.username}`}>
                             <Avatar>
-                                <AvatarImage src={notif.fromUser.avatarUrl} alt={notif.fromUser.name} />
+                                <AvatarImage alt={notif.fromUser.name} />
                                 <AvatarFallback>{notif.fromUser.name?.charAt(0)}</AvatarFallback>
                             </Avatar>
                         </Link>

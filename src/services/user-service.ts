@@ -28,7 +28,6 @@ import { initializeFirebase } from '@/firebase';
 import { type User } from '@/lib/types';
 import { deletePost } from './post-service';
 import { createNotification } from './notification-service';
-import { uploadFile } from './storage-service';
 
 const { auth, firestore } = initializeFirebase();
 
@@ -93,27 +92,15 @@ const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<U
 
 const createUserProfile = async (
   user: AuthUser, 
-  details: Pick<User, 'username' | 'name' | 'email' | 'emailVerified'>,
-  avatarFile?: File,
-  onProgress?: (progress: number, status: 'uploading' | 'completed' | 'error') => void
+  details: Pick<User, 'username' | 'name' | 'email' | 'emailVerified'>
 ): Promise<void> => {
   try {
-    let avatarUrl = "";
-    if (avatarFile) {
-      const path = `avatars/${user.uid}/${Date.now()}_${avatarFile.name}`;
-      avatarUrl = await uploadFile(avatarFile, path, (progress, status) => {
-        onProgress?.(progress, status);
-      });
-    }
-
     const userDocRef = doc(firestore, "users", user.uid);
     const userData: Omit<User, 'id'> = {
       username: details.username.toLowerCase(),
       name: details.name,
       email: details.email,
       emailVerified: details.emailVerified,
-      avatarUrl: avatarUrl,
-      coverUrl: "",
       bio: "",
       createdAt: serverTimestamp() as Timestamp,
       followers: [],
@@ -243,7 +230,6 @@ const followUser = async (targetUserId: string): Promise<void> => {
             id: currentUser.uid,
             name: profile.name,
             username: profile.username,
-            avatarUrl: profile.avatarUrl,
         },
         content: `بدأ بمتابعتك.`,
     });
@@ -291,54 +277,20 @@ const checkIfFollowing = async (targetUserId: string, options: GetProfileOptions
 
 const updateProfile = async (
     userId: string,
-    updates: Partial<User>, 
-    avatarFile?: File, 
-    coverFile?: File, 
-    onProgress?: (type: 'avatar' | 'cover', progress: number, status: 'uploading' | 'completed' | 'error') => void
-): Promise<{ avatarUrl?: string; coverUrl?: string }> => {
+    updates: Partial<User>
+): Promise<void> => {
   
   if (!userId) {
     throw new Error('User not authenticated for profile update.');
   }
 
-  const updatedUserData: { [key: string]: any } = { ...updates };
-  const returnedUrls: { avatarUrl?: string; coverUrl?: string } = {};
-
   try {
-    const uploadPromises: Promise<void>[] = [];
-
-    if (avatarFile) {
-      const path = `avatars/${userId}/${Date.now()}_${avatarFile.name}`;
-      const avatarPromise = uploadFile(avatarFile, path, (progress, status) => {
-        onProgress?.('avatar', progress, status);
-      }).then(url => {
-        updatedUserData.avatarUrl = url;
-        returnedUrls.avatarUrl = url;
-      });
-      uploadPromises.push(avatarPromise);
-    }
-
-    if (coverFile) {
-      const path = `covers/${userId}/${Date.now()}_${coverFile.name}`;
-      const coverPromise = uploadFile(coverFile, path, (progress, status) => {
-        onProgress?.('cover', progress, status);
-      }).then(url => {
-        updatedUserData.coverUrl = url;
-        returnedUrls.coverUrl = url;
-      });
-      uploadPromises.push(coverPromise);
-    }
-    
-    await Promise.all(uploadPromises);
-    
-    if (Object.keys(updatedUserData).length > 0) {
+    if (Object.keys(updates).length > 0) {
       const userRef = doc(firestore, "users", userId);
-      await updateDoc(userRef, updatedUserData);
+      await updateDoc(userRef, updates);
     }
     
     await getCurrentUserProfile({ forceRefresh: true, userId: userId });
-    
-    return returnedUrls;
 
   } catch (error) {
     console.error("Error updating profile:", error);
@@ -387,8 +339,7 @@ const deleteUserAndContent = async (userId: string) => {
     const postsQuery = query(collection(firestore, 'posts'), where('authorId', '==', userId));
     const postsSnapshot = await getDocs(postsQuery);
     for (const postDoc of postsSnapshot.docs) {
-      // Must use the deletePost service to also delete images from storage
-      await deletePost(postDoc.id, postDoc.data().imageUrls || [], true);
+      await deletePost(postDoc.id, true);
     }
     
     // 2. Delete all comments by the user (using collectionGroup query)

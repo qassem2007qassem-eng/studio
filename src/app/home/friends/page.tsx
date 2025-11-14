@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -139,7 +140,7 @@ export default function FriendsPage() {
             <div key={user.id} className="flex items-center gap-4">
               <Link href={`/home/profile/${user.username.toLowerCase()}`} className="flex items-center gap-4 flex-1">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src={user.avatarUrl} alt={user.name} />
+                  <AvatarImage alt={user.name} />
                   <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div>

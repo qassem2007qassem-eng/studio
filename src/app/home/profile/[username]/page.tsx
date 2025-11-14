@@ -213,20 +213,11 @@ export default function ProfilePage() {
     <div className="space-y-6">
       <Card className="overflow-hidden">
         <div className="relative h-48 w-full bg-muted">
-            {profileUser.coverUrl && 
-                <Image
-                    src={profileUser.coverUrl}
-                    alt={`${profileUser.name}'s cover photo`}
-                    data-ai-hint="user cover photo"
-                    fill
-                    className="object-cover"
-                />
-            }
         </div>
         <CardContent className="p-4 relative">
           <div className="flex justify-between items-start">
             <Avatar className="-mt-16 h-28 w-28 border-4 border-card">
-              <AvatarImage src={profileUser.avatarUrl || undefined} alt={profileUser.name} />
+              <AvatarImage alt={profileUser.name} />
               <AvatarFallback>{profileUser.name?.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex gap-2">

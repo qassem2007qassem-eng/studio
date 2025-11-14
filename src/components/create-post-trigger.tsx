@@ -51,7 +51,7 @@ export function CreatePostTrigger() {
     <div className="flex items-center gap-3 p-4 bg-card rounded-lg border">
       <Link href={`/home/profile/${username}`}>
         <Avatar>
-          <AvatarImage src={userData.avatarUrl || undefined} alt={displayName || ""} />
+          <AvatarImage alt={displayName || ""} />
           <AvatarFallback>{displayName?.charAt(0) || user.email?.charAt(0)}</AvatarFallback>
         </Avatar>
       </Link>

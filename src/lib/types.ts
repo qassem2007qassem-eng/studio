@@ -9,8 +9,6 @@ export interface User {
   username: string;
   email: string;
   name: string;
-  avatarUrl: string;
-  coverUrl: string;
   bio?: string;
   dob?: string;
   gender?: string;
@@ -43,7 +41,6 @@ export interface Post {
       avatarUrl?: string;
   };
   content: string;
-  imageUrls: string[];
   createdAt: Timestamp;
   likeIds?: string[];
   updatedAt?: Timestamp;

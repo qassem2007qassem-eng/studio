@@ -52,7 +52,7 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 interface SavedUser {
     email: string;
     name: string;
-    avatarUrl: string;
+    avatarUrl?: string;
 }
 
 const SpecificUserLogin = ({ user, onBack }: { user: SavedUser, onBack: () => void }) => {
@@ -245,7 +245,6 @@ export default function LoginPage() {
             username: googleUser.email?.split('@')[0] || `user_${Date.now()}`.toLowerCase(),
             email: googleUser.email,
             name: googleUser.displayName,
-            avatarUrl: googleUser.photoURL,
             createdAt: serverTimestamp(),
             followers: [],
             following: [],
