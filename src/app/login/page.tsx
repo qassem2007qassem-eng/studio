@@ -24,8 +24,9 @@ import {
   signInWithPopup,
 } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { getUserByUsername } from '@/services/user-service';
+import { doc, getDoc } from 'firebase/firestore';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 48 48" {...props}>
@@ -48,6 +49,49 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+interface SavedUser {
+    email: string;
+    name: string;
+    avatarUrl: string;
+}
+
+const SavedUserLogin = ({ savedUser, onSwitchAccount }: { savedUser: SavedUser, onSwitchAccount: () => void }) => {
+    const router = useRouter();
+
+    const handleOneTapLogin = () => {
+        // Since we don't store the password, we can't auto-login.
+        // We can, however, pre-fill the email and prompt for the password.
+        // Or, if using a persistent auth state, this component would just redirect.
+        // For now, this just acts as a visual cue. We'll send them to the main home page
+        // as the main useEffect will handle the redirect if they are truly logged in.
+         router.push('/home');
+    }
+
+    return (
+         <Card className="mx-auto w-full max-w-sm">
+            <CardHeader className="text-center">
+                <Logo className="mx-auto mb-4" />
+                <Avatar className="mx-auto mb-4 h-24 w-24">
+                    <AvatarImage src={savedUser.avatarUrl} alt={savedUser.name} />
+                    <AvatarFallback>{savedUser.name?.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <CardTitle className="text-xl font-headline">أهلاً بعودتك، {savedUser.name?.split(' ')[0]}</CardTitle>
+                <CardDescription>
+                    نقرة واحدة تفصلك عن متابعة التصفح.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+                 <Button onClick={handleOneTapLogin} className="w-full">
+                    متابعة باسم {savedUser.name?.split(' ')[0]}
+                </Button>
+                <Button variant="link" onClick={onSwitchAccount} className="w-full">
+                   تسجيل الدخول بحساب آخر
+                </Button>
+            </CardContent>
+        </Card>
+    )
+}
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -60,15 +104,41 @@ export default function LoginPage() {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
+  
+  const [savedUser, setSavedUser] = useState<SavedUser | null>(null);
 
   const ADMIN_EMAIL = 'admin@app.com';
 
   useEffect(() => {
-    // If user is already logged in, redirect to home page
+    // If user is already logged in with Firebase, redirect to home page
     if (!isUserLoading && user) {
       router.push('/home');
     }
   }, [user, isUserLoading, router]);
+
+  useEffect(() => {
+    // Check for a saved user in localStorage when component mounts
+    const savedUserJson = localStorage.getItem('savedUser');
+    if (savedUserJson) {
+        setSavedUser(JSON.parse(savedUserJson));
+    }
+  }, []);
+
+  const handleSuccessfulLogin = (loggedInUser: any) => {
+    const userDocRef = doc(firestore, 'users', loggedInUser.uid);
+    getDoc(userDocRef).then(docSnap => {
+        if(docSnap.exists()){
+            const userData = docSnap.data();
+            const userToSave: SavedUser = {
+                email: userData.email,
+                name: userData.name,
+                avatarUrl: userData.avatarUrl
+            };
+            localStorage.setItem('savedUser', JSON.stringify(userToSave));
+        }
+    });
+    router.push('/home');
+  }
 
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -94,7 +164,7 @@ export default function LoginPage() {
         return;
       }
       
-      router.push('/home');
+      handleSuccessfulLogin(loggedInUser);
 
     } catch (error: any) {
       console.error(error);
@@ -123,15 +193,15 @@ export default function LoginPage() {
     const provider = new GoogleAuthProvider();
     try {
       const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+      const googleUser = result.user;
       
-      const userDocRef = doc(firestore, 'users', user.uid);
+      const userDocRef = doc(firestore, 'users', googleUser.uid);
       const userDoc = await getDoc(userDocRef);
 
       if (userDoc.exists()) {
-        router.push('/home');
+        handleSuccessfulLogin(googleUser);
       } else {
-        router.push(`/register?name=${encodeURIComponent(user.displayName || '')}&email=${encodeURIComponent(user.email || '')}&avatar=${encodeURIComponent(user.photoURL || '')}`);
+        router.push(`/register?name=${encodeURIComponent(googleUser.displayName || '')}&email=${encodeURIComponent(googleUser.email || '')}&avatar=${encodeURIComponent(googleUser.photoURL || '')}`);
       }
 
     } catch (error: any) {
@@ -158,6 +228,14 @@ export default function LoginPage() {
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
+  }
+  
+  if (savedUser) {
+      return (
+          <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
+              <SavedUserLogin savedUser={savedUser} onSwitchAccount={() => setSavedUser(null)} />
+          </div>
+      )
   }
 
 
@@ -224,3 +302,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    

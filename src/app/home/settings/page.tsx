@@ -244,6 +244,10 @@ export default function SettingsPage() {
         setIsLoggingOut(true);
         try {
             await signOut(auth);
+            // We don't clear the savedUser from localStorage here
+            // so the one-tap login can be shown next time.
+            // If the user wants to fully switch accounts, they can use the
+            // "Switch account" button on the login page.
             router.push('/login');
         } catch (error) {
             console.error("Logout error", error);
@@ -312,3 +316,5 @@ export default function SettingsPage() {
         </div>
     )
 }
+
+    
