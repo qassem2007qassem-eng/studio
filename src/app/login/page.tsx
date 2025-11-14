@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -59,9 +60,6 @@ export default function LoginPage() {
   const { toast } = useToast();
 
   const ADMIN_EMAIL = 'admin@app.com';
-  const ADMIN_PASSWORD = 'admin123';
-
-  const isTryingAdminLogin = email === ADMIN_EMAIL;
 
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -91,10 +89,7 @@ export default function LoginPage() {
       console.error(error);
       let description = 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.';
       
-      // Special check for admin login failure
-      if (email === ADMIN_EMAIL && password !== ADMIN_PASSWORD) {
-          description = 'كلمة مرور المشرف غير صحيحة.';
-      } else if (
+      if (
         error.code === 'auth/invalid-credential' ||
         error.code === 'auth/user-not-found' ||
         error.code === 'auth/wrong-password' ||
@@ -191,7 +186,6 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading || isGoogleLoading}
                 />
-                 {isTryingAdminLogin && <p className="text-xs text-muted-foreground text-center pt-1">كلمة مرور المشرف التجريبية: {ADMIN_PASSWORD}</p>}
               </div>
               <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
                 {isLoading ? <Loader2 className="animate-spin" /> : 'تسجيل الدخول'}
