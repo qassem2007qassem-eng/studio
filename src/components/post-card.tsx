@@ -207,11 +207,11 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
             <DialogTitle className="sr-only">عرض المنشور بملء الشاشة</DialogTitle>
             <div className="fixed inset-0 z-50 flex flex-col bg-black">
                 <div className={cn(
-                    "flex-grow flex items-center justify-center text-center p-8 relative", 
+                    "flex-grow relative text-center p-8", 
                     selectedBackground?.value
                 )}>
-                    <ScrollArea className="h-full w-full">
-                       <div className="flex items-center justify-center min-h-full py-16">
+                    <ScrollArea className="absolute inset-0">
+                        <div className="flex min-h-full items-center justify-center py-16 px-8">
                             <p className="text-3xl font-bold whitespace-pre-wrap">{post.content}</p>
                         </div>
                     </ScrollArea>
@@ -231,9 +231,19 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
-                            <MoreHorizontal />
-                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
+                                <MoreHorizontal />
+                            </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                    <Flag className="ms-2 h-4 w-4" />
+                                    <span>إبلاغ</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                         <DialogClose asChild>
                             <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
                                 <X />
@@ -245,10 +255,14 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
                 <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/50 to-transparent text-white">
                     <div className="flex justify-between items-center text-sm mb-2">
                         <div className="flex items-center gap-1">
-                            <Heart className="w-4 h-4 text-white fill-white"/>
-                            <span>{likeCount}</span>
+                            {likeCount > 0 && 
+                                <>
+                                    <Heart className="w-4 h-4 text-white fill-white"/>
+                                    <span>{likeCount}</span>
+                                </>
+                            }
                         </div>
-                        <span>{commentCount} تعليق</span>
+                        {commentCount > 0 && <span>{commentCount} تعليق</span>}
                     </div>
                     <Separator className="bg-white/30" />
                      <div className="grid w-full grid-cols-3 gap-2">
@@ -378,26 +392,27 @@ export function PostCard({ post }: PostCardProps) {
   
   const TRUNCATE_LENGTH = 100;
   const isLongText = post.content.length > TRUNCATE_LENGTH;
-  const showFullScreen = hasBackground;
+  
+  const postContentText = (isLongText && !hasBackground) ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content;
   
   const postContent = (
       <div className={cn(
         "p-4",
         hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg",
-        showFullScreen && "cursor-pointer hover:opacity-90 transition-opacity",
+        hasBackground && "cursor-pointer hover:opacity-90 transition-opacity",
         selectedBackground?.value,
       )}>
         <p className={cn(
           "whitespace-pre-wrap",
           hasBackground ? "text-2xl font-bold" : "text-base"
         )}>
-          {isLongText && !hasBackground ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content}
+          {postContentText}
         </p>
       </div>
   );
 
 
-  const PostContentWrapper = showFullScreen ? DialogTrigger : 'div';
+  const PostContentWrapper = hasBackground ? DialogTrigger : 'div';
 
   return (
     <Dialog>
@@ -448,7 +463,7 @@ export function PostCard({ post }: PostCardProps) {
         </CardHeader>
         <CardContent className="space-y-4 p-0">
             {post.content && (
-              <PostContentWrapper asChild={showFullScreen}>
+              <PostContentWrapper asChild={hasBackground}>
                 {postContent}
               </PostContentWrapper>
             )}
@@ -478,8 +493,8 @@ export function PostCard({ post }: PostCardProps) {
         </CardContent>
         <CardFooter className="flex flex-col items-start gap-4 p-4">
             <div className="flex w-full items-center justify-between text-sm text-muted-foreground">
-            <p>{likeCount} إعجاب</p>
-            <p>{commentCount} تعليق</p>
+            <p>{likeCount > 0 ? `${likeCount} إعجاب` : ''}</p>
+            <p>{commentCount > 0 ? `${commentCount} تعليق` : ''}</p>
             </div>
             <Separator />
             <div className="grid w-full grid-cols-3 gap-2">
@@ -504,7 +519,7 @@ export function PostCard({ post }: PostCardProps) {
         </CardFooter>
       </Card>
       
-      {showFullScreen && (
+      {hasBackground && (
           <FullScreenPostView post={post} onLike={handleLike} isLiked={isLiked} likeCount={likeCount} commentCount={commentCount} />
       )}
       
@@ -540,8 +555,3 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
-
-
-
-
-
