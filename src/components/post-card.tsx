@@ -206,8 +206,15 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
         <DialogContent showCloseButton={false} className="p-0 border-0 bg-transparent shadow-none max-w-full h-full max-h-full sm:max-w-full sm:h-full sm:max-h-full !rounded-none">
             <DialogTitle className="sr-only">عرض المنشور بملء الشاشة</DialogTitle>
             <div className="fixed inset-0 z-50 flex flex-col bg-black">
-                <div className={cn("flex-grow flex items-center justify-center text-center p-8", selectedBackground?.value)}>
-                    <p className="text-3xl font-bold">{post.content}</p>
+                <div className={cn(
+                    "flex-grow flex items-center justify-center text-center p-8 relative", 
+                    selectedBackground?.value
+                )}>
+                    <ScrollArea className="h-full w-full">
+                       <div className="flex items-center justify-center min-h-full py-16">
+                            <p className="text-3xl font-bold whitespace-pre-wrap">{post.content}</p>
+                        </div>
+                    </ScrollArea>
                 </div>
                 
                 <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/50 to-transparent">
@@ -368,6 +375,8 @@ export function PostCard({ post }: PostCardProps) {
   }, [post.background, hasImages]);
 
   const hasBackground = !!selectedBackground;
+  const TRUNCATE_LENGTH = 150;
+  const showTruncated = hasBackground && post.content.length > TRUNCATE_LENGTH;
   
   const postContent = (
       <div className={cn(
@@ -379,7 +388,7 @@ export function PostCard({ post }: PostCardProps) {
           "whitespace-pre-wrap",
           hasBackground ? "text-2xl font-bold" : "text-base"
         )}>
-          {post.content}
+          {showTruncated ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content}
         </p>
       </div>
   );
@@ -475,7 +484,7 @@ export function PostCard({ post }: PostCardProps) {
                     <Heart className={cn("h-5 w-5", isLiked && "fill-red-500 text-red-500")} />
                     <span>أعجبني</span>
                 </Button>
-                <Sheet>
+                 <Sheet>
                    <SheetTrigger asChild>
                         <Button variant="ghost" className="gap-2">
                             <MessageCircle className="h-5 w-5" />
@@ -528,6 +537,7 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
+
 
 
 
