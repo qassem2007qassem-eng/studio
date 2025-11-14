@@ -35,6 +35,7 @@ function ProfileSettings() {
     const [name, setName] = useState("");
     const [username, setUsername] = useState("");
     const [bio, setBio] = useState("");
+    const [isPrivate, setIsPrivate] = useState(false);
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -48,6 +49,7 @@ function ProfileSettings() {
                     setName(data.name || '');
                     setUsername(data.username || '');
                     setBio(data.bio || '');
+                    setIsPrivate(data.isPrivate || false);
                 }
                  setIsLoading(false);
             }).catch(() => setIsLoading(false));
@@ -61,7 +63,7 @@ function ProfileSettings() {
 
         setIsSaving(true);
         try {
-            const profileUpdates: Partial<User> = { name, username, bio };
+            const profileUpdates: Partial<User> = { name, username, bio, isPrivate };
             
             await updateProfile(
                 user.uid,
@@ -123,6 +125,20 @@ function ProfileSettings() {
                 <div className="space-y-2">
                     <Label htmlFor="bio">النبذة التعريفية</Label>
                     <Textarea id="bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={4} placeholder="أخبرنا عن نفسك..." disabled={isSaving}/>
+                </div>
+                 <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                        <Label htmlFor="private-account" className="text-base">حساب خاص</Label>
+                        <p className="text-sm text-muted-foreground">
+                            إذا كان حسابك خاصًا، فلن يتمكن من رؤية منشوراتك إلا الأشخاص الذين توافق عليهم.
+                        </p>
+                    </div>
+                    <Switch
+                        id="private-account"
+                        checked={isPrivate}
+                        onCheckedChange={setIsPrivate}
+                        disabled={isSaving}
+                    />
                 </div>
             </CardContent>
             <CardFooter>

@@ -26,7 +26,6 @@ export interface Comment {
   author: {
       name: string;
       username: string;
-      avatarUrl?: string;
   };
   content: string;
   createdAt: Timestamp;
@@ -38,7 +37,6 @@ export interface Post {
   author: {
       name: string;
       username: string;
-      avatarUrl?: string;
   };
   content: string;
   createdAt: Timestamp;
@@ -56,9 +54,8 @@ export interface AppNotification {
     id: string;
     name: string;
     username: string;
-    avatarUrl?: string;
   };
-  type: 'like' | 'comment' | 'follow';
+  type: 'like' | 'comment' | 'follow' | 'follow_request';
   content: string;
   relatedEntityId: string; // e.g., postId, commentId, or fromUserId for follows
   isRead: boolean;

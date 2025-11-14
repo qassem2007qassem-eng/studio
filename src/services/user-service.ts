@@ -203,9 +203,31 @@ const followUser = async (targetUserId: string): Promise<void> => {
     if (currentUser.uid === targetUserId) {
         throw new Error("User cannot follow themselves.");
     }
-    const profile = await getCurrentUserProfile();
-    if (!profile) return;
 
+    const [profile, targetUser] = await Promise.all([
+      getCurrentUserProfile(),
+      getUserById(targetUserId),
+    ]);
+
+    if (!profile || !targetUser) {
+        throw new Error("Could not find user profiles.");
+    }
+
+    if (targetUser.isPrivate) {
+      // It's a private account, send a follow request instead
+      await createNotification({
+        userId: targetUserId,
+        type: 'follow_request',
+        relatedEntityId: currentUser.uid,
+        fromUser: {
+            id: currentUser.uid,
+            name: profile.name,
+            username: profile.username,
+        },
+        content: `طلب متابعتك.`,
+      });
+      return; // End execution here
+    }
 
     const batch = writeBatch(firestore);
 
@@ -403,6 +425,35 @@ const getFollowing = async (userId: string) => {
   }
 };
 
+const respondToFollowRequest = async (notificationId: string, requesterId: string, action: 'accept' | 'decline') => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error("User not authenticated");
+
+  const batch = writeBatch(firestore);
+
+  // Delete the notification regardless of action
+  const notificationRef = doc(firestore, `users/${currentUser.uid}/notifications`, notificationId);
+  batch.delete(notificationRef);
+
+  if (action === 'accept') {
+    const currentUserRef = doc(firestore, "users", currentUser.uid);
+    const requesterUserRef = doc(firestore, "users", requesterId);
+
+    // Add requester to current user's followers
+    batch.update(currentUserRef, {
+      followers: arrayUnion(requesterId)
+    });
+
+    // Add current user to requester's following
+    batch.update(requesterUserRef, {
+      following: arrayUnion(currentUser.uid)
+    });
+  }
+  
+  await batch.commit();
+  await getCurrentUserProfile({ forceRefresh: true });
+};
+
 export {
   createUserProfile,
   getCurrentUserProfile,
@@ -417,5 +468,6 @@ export {
   getFollowers,
   getFollowing,
   deleteUserAndContent,
-  getUserByEmail
+  getUserByEmail,
+  respondToFollowRequest
 };

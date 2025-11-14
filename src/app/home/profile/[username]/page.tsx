@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
-import { Settings, UserPlus, UserCheck, Loader2, Lock, Trash2 } from "lucide-react";
+import { Settings, UserPlus, UserCheck, Loader2, Lock, Trash2, UserPlus2 } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser } from "@/firebase";
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -20,6 +20,9 @@ import { getPostsForUser } from "@/services/post-service";
 import { useToast } from "@/hooks/use-toast";
 import { FollowListDialog } from "@/components/follow-list-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { useFirebase } from '@/firebase/provider';
+
 
 // Simple admin check
 const isAdminUser = (user: User | null) => {
@@ -32,6 +35,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user: currentUser, isUserLoading: isCurrentUserLoading } = useUser();
+  const { firestore } = useFirebase();
   
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isProfileUserLoading, setIsProfileUserLoading] = useState(true);
@@ -40,6 +44,7 @@ export default function ProfilePage() {
   const [postsLoading, setPostsLoading] = useState(true);
 
   const [isFollowing, setIsFollowing] = useState(false);
+  const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [isFollowStatusLoading, setIsFollowStatusLoading] = useState(true);
   const [isTogglingFollow, setIsTogglingFollow] = useState(false);
   
@@ -57,7 +62,7 @@ export default function ProfilePage() {
       return currentUser.uid === profileUser.id;
   }, [currentUser, profileUser]);
 
-  const isAdmin = isAdminUser(currentUser);
+  const isAdmin = isAdminUser(currentUser as User | null);
 
   const fetchProfileUser = useCallback(async () => {
     if (!usernameFromUrl) return;
@@ -75,8 +80,21 @@ export default function ProfilePage() {
     setIsFollowStatusLoading(true);
     const followingStatus = await checkIfFollowing(profileUser.id, { forceRefresh: true });
     setIsFollowing(followingStatus);
+    
+    if (profileUser.isPrivate && !followingStatus) {
+        const q = query(
+            collection(firestore, `users/${profileUser.id}/notifications`),
+            where('type', '==', 'follow_request'),
+            where('fromUser.id', '==', currentUser.uid)
+        );
+        const requestSnap = await getDocs(q);
+        setHasPendingRequest(!requestSnap.empty);
+    } else {
+        setHasPendingRequest(false);
+    }
+
     setIsFollowStatusLoading(false);
-  }, [currentUser, profileUser, isCurrentUserProfile]);
+  }, [currentUser, profileUser, isCurrentUserProfile, firestore]);
 
   useEffect(() => {
     fetchProfileUser();
@@ -127,8 +145,13 @@ export default function ProfilePage() {
         toast({ title: `تم إلغاء متابعة ${profileUser.name}`});
       } else {
         await followUser(profileUser.id);
-        setIsFollowing(true);
-        toast({ title: `أنت تتابع الآن ${profileUser.name}`});
+        if (profileUser.isPrivate) {
+            setHasPendingRequest(true);
+            toast({ title: "تم إرسال طلب المتابعة"});
+        } else {
+            setIsFollowing(true);
+            toast({ title: `أنت تتابع الآن ${profileUser.name}`});
+        }
       }
        const updatedUser = await getUserByUsername(usernameFromUrl);
        setProfileUser(updatedUser);
@@ -136,7 +159,8 @@ export default function ProfilePage() {
     } catch (e) {
       console.error("Error toggling follow:", e);
       toast({ title: "حدث خطأ", description: "لم نتمكن من إتمام العملية. حاول مرة أخرى.", variant: "destructive" });
-      setIsFollowing(prev => !prev);
+      // Don't revert state here as the actual state might be complex (e.g. request sent)
+      await checkFollowStatus();
     } finally {
       setIsTogglingFollow(false);
     }
@@ -161,6 +185,13 @@ export default function ProfilePage() {
         setIsDeletingUser(false);
         setIsDeleteAlertOpen(false);
     }
+  }
+  
+  const getFollowButton = () => {
+      if (isTogglingFollow) return <Button disabled><Loader2 className="h-4 w-4 animate-spin" /></Button>;
+      if (isFollowing) return <Button onClick={handleFollowToggle} variant='secondary'><UserCheck className="h-4 w-4 me-2" /> متابَع</Button>;
+      if (hasPendingRequest) return <Button disabled variant='secondary'><UserPlus2 className="h-4 w-4 me-2"/> معلق</Button>;
+      return <Button onClick={handleFollowToggle}><UserPlus className="h-4 w-4 me-2" /> متابعة</Button>
   }
 
   if (isProfileUserLoading || isCurrentUserLoading) {
@@ -232,10 +263,7 @@ export default function ProfilePage() {
                         حذف المستخدم (مشرف)
                     </Button>
                 ) : (
-                    <Button onClick={handleFollowToggle} disabled={followButtonDisabled} variant={isFollowing ? 'secondary' : 'default'}>
-                        {isTogglingFollow ? <Loader2 className="h-4 w-4 animate-spin" /> : 
-                         isFollowing ? <><UserCheck className="h-4 w-4 me-2" /> متابَع</> : <><UserPlus className="h-4 w-4 me-2" /> متابعة</>}
-                    </Button> 
+                    getFollowButton()
                 )}
             </div>
           </div>

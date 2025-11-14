@@ -87,6 +87,7 @@ const CommentsSheet = ({ post }: { post: Post }) => {
     const { user } = useUser();
     const [newComment, setNewComment] = useState("");
     const [isPosting, setIsPosting] = useState(false);
+    const [canComment, setCanComment] = useState(false);
 
     const { firestore } = initializeFirebase();
     const commentsCollection = useMemoFirebase(() => {
@@ -101,10 +102,32 @@ const CommentsSheet = ({ post }: { post: Post }) => {
 
     const { data: comments, isLoading } = useCollection<Comment>(commentsQuery);
 
+    useEffect(() => {
+        const checkPermission = async () => {
+            if (!user || post.commenting === 'none') {
+                setCanComment(false);
+                return;
+            }
+            if (post.commenting === 'everyone' || post.authorId === user.uid) {
+                setCanComment(true);
+                return;
+            }
+            if (post.commenting === 'followers') {
+                const authorProfile = await getCurrentUserProfile({ userId: post.authorId });
+                if (authorProfile?.followers?.includes(user.uid)) {
+                    setCanComment(true);
+                } else {
+                    setCanComment(false);
+                }
+            }
+        };
+        checkPermission();
+    }, [post, user]);
+
     const handleAddComment = async (e: React.FormEvent) => {
         e.preventDefault();
         const profile = await getCurrentUserProfile();
-        if (newComment.trim() && user && commentsCollection && profile) {
+        if (newComment.trim() && user && commentsCollection && profile && canComment) {
              setIsPosting(true);
              const commentData = {
                 authorId: user.uid,
@@ -116,7 +139,7 @@ const CommentsSheet = ({ post }: { post: Post }) => {
                 content: newComment.trim(),
                 createdAt: serverTimestamp(),
             };
-            const commentRef = await addDoc(commentsCollection, commentData);
+            await addDoc(commentsCollection, commentData);
             
             if (post.authorId !== user.uid) {
                 await createNotification({
@@ -173,15 +196,21 @@ const CommentsSheet = ({ post }: { post: Post }) => {
             </div>
             <Separator />
             <div className="py-2">
-                 <form onSubmit={handleAddComment} className="flex gap-2">
-                    <Input 
-                        placeholder="اكتب تعليقاً..."
-                        value={newComment}
-                        onChange={e => setNewComment(e.target.value)}
-                        disabled={!user || isPosting}
-                    />
-                    <Button type="submit" disabled={!user || !newComment.trim() || isPosting}>نشر</Button>
-                </form>
+                {canComment ? (
+                     <form onSubmit={handleAddComment} className="flex gap-2">
+                        <Input 
+                            placeholder="اكتب تعليقاً..."
+                            value={newComment}
+                            onChange={e => setNewComment(e.target.value)}
+                            disabled={!user || isPosting}
+                        />
+                        <Button type="submit" disabled={!user || !newComment.trim() || isPosting}>نشر</Button>
+                    </form>
+                ) : (
+                    <div className="text-center text-sm text-muted-foreground">
+                        {post.commenting === 'none' ? "التعليقات معطلة لهذا المنشور." : "لا يمكنك التعليق على هذا المنشور."}
+                    </div>
+                )}
             </div>
         </SheetContent>
     )

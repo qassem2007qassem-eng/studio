@@ -11,8 +11,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow, cn, safeToDate } from '@/lib/utils';
-import { Heart, MessageCircle, UserPlus, BellOff, Trash2, Loader2 } from 'lucide-react';
+import { Heart, MessageCircle, UserPlus, BellOff, Trash2, Loader2, Check, X } from 'lucide-react';
 import { markNotificationsAsRead, deleteNotification } from '@/services/notification-service';
+import { respondToFollowRequest } from '@/services/user-service';
 import { Button } from './ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,6 +24,7 @@ const NotificationIcon = ({ type }: { type: AppNotification['type'] }) => {
     case 'comment':
       return <MessageCircle className="h-5 w-5 text-blue-500" />;
     case 'follow':
+    case 'follow_request':
       return <UserPlus className="h-5 w-5 text-green-500" />;
     default:
       return null;
@@ -34,6 +36,7 @@ export function NotificationsSheet() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [respondingId, setRespondingId] = useState<string | null>(null);
 
   const notificationsQuery = useMemoFirebase(() => {
     if (!user) return null;
@@ -47,13 +50,12 @@ export function NotificationsSheet() {
   
   useEffect(() => {
     if (notifications && notifications.some(n => !n.isRead)) {
-        const unreadIds = notifications.filter(n => !n.isRead).map(n => n.id);
+        const unreadIds = notifications.filter(n => !n.isRead && n.type !== 'follow_request').map(n => n.id);
         const markAsRead = async () => {
              if (user && unreadIds.length > 0) {
-                 // Debounce or delay this call to avoid marking as read immediately on open
                  const timer = setTimeout(() => {
                      markNotificationsAsRead(user.uid, unreadIds);
-                 }, 3000); // 3-second delay
+                 }, 3000);
                  return () => clearTimeout(timer);
              }
         }
@@ -78,6 +80,21 @@ export function NotificationsSheet() {
     }
   };
 
+  const handleFollowRequest = async (notification: AppNotification, action: 'accept' | 'decline') => {
+      setRespondingId(notification.id);
+      try {
+        await respondToFollowRequest(notification.id, notification.fromUser.id, action);
+        toast({
+            title: action === 'accept' ? 'تم قبول الطلب' : 'تم رفض الطلب',
+        });
+      } catch (e) {
+          console.error("Failed to respond to follow request", e);
+          toast({ title: 'خطأ', description: 'فشل الرد على طلب المتابعة.', variant: 'destructive' });
+      } finally {
+          setRespondingId(null);
+      }
+  };
+
   return (
     <SheetContent>
       <SheetHeader>
@@ -100,46 +117,58 @@ export function NotificationsSheet() {
                 <div
                     key={notif.id}
                     className={cn(
-                        "group flex items-start gap-3 p-3 rounded-lg transition-colors",
+                        "group flex flex-col gap-3 p-3 rounded-lg transition-colors",
                         !notif.isRead ? "bg-primary/10" : "hover:bg-secondary"
                     )}
                 >
-                    {!notif.isRead && <span className="h-2 w-2 mt-2 rounded-full bg-primary flex-shrink-0" />}
-                    <div className="flex-shrink-0 relative">
-                        <Link href={`/home/profile/${notif.fromUser.username}`}>
-                            <Avatar>
-                                <AvatarImage alt={notif.fromUser.name} />
-                                <AvatarFallback>{notif.fromUser.name?.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                        </Link>
-                        <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
-                            <NotificationIcon type={notif.type} />
+                    <div className="flex items-start gap-3">
+                        {!notif.isRead && <span className="h-2 w-2 mt-2 rounded-full bg-primary flex-shrink-0" />}
+                        <div className="flex-shrink-0 relative">
+                            <Link href={`/home/profile/${notif.fromUser.username}`}>
+                                <Avatar>
+                                    <AvatarImage alt={notif.fromUser.name} />
+                                    <AvatarFallback>{notif.fromUser.name?.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                            </Link>
+                            <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-0.5">
+                                <NotificationIcon type={notif.type} />
+                            </div>
+                        </div>
+                        <div className="flex-1">
+                        <p className="text-sm">
+                            <Link href={`/home/profile/${notif.fromUser.username}`} className="font-semibold hover:underline">{notif.fromUser.name}</Link>
+                            {' '}{notif.content}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                            {notifDate ? formatDistanceToNow(notifDate) : "منذ لحظات"}
+                        </p>
+                        </div>
+                        <div className="flex-shrink-0">
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => handleDelete(notif.id)}
+                                disabled={deletingId === notif.id}
+                            >
+                                {deletingId === notif.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                )}
+                            </Button>
                         </div>
                     </div>
-                    <div className="flex-1">
-                    <p className="text-sm">
-                        <Link href={`/home/profile/${notif.fromUser.username}`} className="font-semibold hover:underline">{notif.fromUser.name}</Link>
-                        {' '}{notif.content}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                        {notifDate ? formatDistanceToNow(notifDate) : "منذ لحظات"}
-                    </p>
-                    </div>
-                    <div className="flex-shrink-0">
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => handleDelete(notif.id)}
-                            disabled={deletingId === notif.id}
-                        >
-                            {deletingId === notif.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                            )}
-                        </Button>
-                    </div>
+                     {notif.type === 'follow_request' && (
+                        <div className="flex gap-2 justify-end">
+                            <Button size="sm" onClick={() => handleFollowRequest(notif, 'accept')} disabled={respondingId === notif.id}>
+                                {respondingId === notif.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <><Check className="h-4 w-4"/> قبول</>}
+                            </Button>
+                            <Button size="sm" variant="secondary" onClick={() => handleFollowRequest(notif, 'decline')} disabled={respondingId === notif.id}>
+                                <X className="h-4 w-4"/> رفض
+                            </Button>
+                        </div>
+                    )}
                 </div>
               )
             })

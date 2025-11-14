@@ -31,7 +31,6 @@ type CreatePostInput = {
   author: {
     name: string;
     username: string;
-    avatarUrl?: string;
   };
   privacy: PrivacySetting;
   commenting: PrivacySetting;

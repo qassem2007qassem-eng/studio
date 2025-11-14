@@ -10,6 +10,8 @@ import {
   Users,
   Lock,
   ChevronDown,
+  MessageCircle,
+  MessageCircleOff,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -27,10 +29,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const privacyOptions: { value: PrivacySetting; label: string; icon: React.FC<any> }[] = [
+const visibilityOptions: { value: PrivacySetting; label: string; icon: React.FC<any> }[] = [
   { value: 'everyone', label: 'الجميع', icon: Globe },
   { value: 'followers', label: 'المتابعون فقط', icon: Users },
   { value: 'only_me', label: 'أنا فقط', icon: Lock },
+];
+
+const commentingOptions: { value: PrivacySetting; label: string; icon: React.FC<any> }[] = [
+  { value: 'everyone', label: 'الجميع', icon: MessageCircle },
+  { value: 'followers', label: 'المتابعون', icon: Users },
+  { value: 'none', label: 'لا أحد', icon: MessageCircleOff },
 ];
 
 const backgroundOptions = [
@@ -52,7 +60,8 @@ export default function CreatePostPage() {
   
   const { toast } = useToast();
   const router = useRouter();
-  const [privacy, setPrivacy] = useState<PrivacySetting>('everyone');
+  const [visibility, setVisibility] = useState<PrivacySetting>('everyone');
+  const [commenting, setCommenting] = useState<PrivacySetting>('everyone');
   const [background, setBackground] = useState(backgroundOptions[0].id);
   
   const selectedBackground = backgroundOptions.find(b => b.id === background);
@@ -100,8 +109,8 @@ export default function CreatePostPage() {
           name: profile.name,
           username: profile.username.toLowerCase(),
         },
-        privacy,
-        commenting: 'everyone',
+        privacy: visibility,
+        commenting: commenting,
         background: background,
       });
 
@@ -123,7 +132,8 @@ export default function CreatePostPage() {
     }
   };
   
-  const CurrentPrivacyIcon = privacyOptions.find(p => p.value === privacy)?.icon;
+  const CurrentVisibilityIcon = visibilityOptions.find(p => p.value === visibility)?.icon;
+  const CurrentCommentingIcon = commentingOptions.find(p => p.value === commenting)?.icon;
   
 
   if (isUserLoading || isDataLoading) {
@@ -166,23 +176,42 @@ export default function CreatePostPage() {
               </Avatar>
               <div>
                   <p className="font-semibold">{userData.name}</p>
-                  <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-7 p-1 text-xs">
-                               {CurrentPrivacyIcon && <CurrentPrivacyIcon className="h-3 w-3 me-1" />}
-                              {privacyOptions.find(p => p.value === privacy)?.label}
-                              <ChevronDown className="h-3 w-3 ms-1"/>
-                          </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                          {privacyOptions.map(option => (
-                              <DropdownMenuItem key={option.value} onSelect={() => setPrivacy(option.value)}>
-                                  <option.icon className="h-4 w-4 me-2"/>
-                                  {option.label}
-                              </DropdownMenuItem>
-                          ))}
-                      </DropdownMenuContent>
-                  </DropdownMenu>
+                   <div className="flex items-center gap-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 p-1 text-xs">
+                                  {CurrentVisibilityIcon && <CurrentVisibilityIcon className="h-3 w-3 me-1" />}
+                                  {visibilityOptions.find(p => p.value === visibility)?.label}
+                                  <ChevronDown className="h-3 w-3 ms-1"/>
+                              </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                              {visibilityOptions.map(option => (
+                                  <DropdownMenuItem key={option.value} onSelect={() => setVisibility(option.value)}>
+                                      <option.icon className="h-4 w-4 me-2"/>
+                                      {option.label}
+                                  </DropdownMenuItem>
+                              ))}
+                          </DropdownMenuContent>
+                      </DropdownMenu>
+                      <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 p-1 text-xs">
+                                  {CurrentCommentingIcon && <CurrentCommentingIcon className="h-3 w-3 me-1" />}
+                                  <span className="whitespace-nowrap">التعليق: {commentingOptions.find(p => p.value === commenting)?.label}</span>
+                                  <ChevronDown className="h-3 w-3 ms-1"/>
+                              </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                              {commentingOptions.map(option => (
+                                  <DropdownMenuItem key={option.value} onSelect={() => setCommenting(option.value)}>
+                                      <option.icon className="h-4 w-4 me-2"/>
+                                      {option.label}
+                                  </DropdownMenuItem>
+                              ))}
+                          </DropdownMenuContent>
+                      </DropdownMenu>
+                   </div>
               </div>
           </div>
 
