@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -185,3 +186,4 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         return [];
     }
 };
+

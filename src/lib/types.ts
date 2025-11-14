@@ -1,4 +1,5 @@
 
+
 import { Timestamp } from "firebase/firestore";
 
 export type PrivacySetting = 'everyone' | 'followers' | 'only_me' | 'none';
@@ -52,12 +53,21 @@ export interface Post {
 }
 
 export interface AppNotification {
-  id:string;
-  user: Pick<User, 'username' | 'avatarUrl'> & { name: string };
-  action: 'liked' | 'commented' | 'followed';
-  postContent?: string;
-  createdAt: string;
+  id: string;
+  userId: string; // The user who receives the notification
+  fromUser: {
+    id: string;
+    name: string;
+    username: string;
+    avatarUrl?: string;
+  };
+  type: 'like' | 'comment' | 'follow';
+  content: string;
+  relatedEntityId: string; // e.g., postId, commentId, or fromUserId for follows
+  isRead: boolean;
+  createdAt: string; // Using string to be compatible with JSON and easy conversion
 }
+
 
 export interface Report {
     id: string;

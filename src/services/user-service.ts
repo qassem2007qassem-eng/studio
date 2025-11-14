@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { 
@@ -28,6 +29,7 @@ import {
 import { initializeFirebase } from '@/firebase';
 import { type User } from '@/lib/types';
 import { deletePost } from './post-service';
+import { createNotification } from './notification-service';
 
 const { auth, firestore } = initializeFirebase();
 
@@ -199,6 +201,9 @@ const followUser = async (targetUserId: string): Promise<void> => {
     if (currentUser.uid === targetUserId) {
         throw new Error("User cannot follow themselves.");
     }
+    const profile = await getCurrentUserProfile();
+    if (!profile) return;
+
 
     const db = getFirestore();
     const batch = writeBatch(db);
@@ -215,6 +220,20 @@ const followUser = async (targetUserId: string): Promise<void> => {
     });
 
     await batch.commit();
+
+    await createNotification({
+        userId: targetUserId,
+        type: 'follow',
+        relatedEntityId: currentUser.uid,
+        fromUser: {
+            id: currentUser.uid,
+            name: profile.name,
+            username: profile.username,
+            avatarUrl: profile.avatarUrl,
+        },
+        content: `بدأ بمتابعتك.`,
+    });
+
     await getCurrentUserProfile({ forceRefresh: true });
 };
 

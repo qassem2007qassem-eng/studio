@@ -67,6 +67,7 @@ import { initializeFirebase } from '@/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { deletePost } from "@/services/post-service";
 import { createReport } from "@/services/report-service";
+import { createNotification } from "@/services/notification-service";
 
 
 interface PostCardProps {
@@ -143,7 +144,24 @@ const CommentsSheet = ({ post }: { post: Post }) => {
                 content: newComment.trim(),
                 createdAt: serverTimestamp(),
             };
-            await addDoc(commentsCollection, commentData);
+            const commentRef = await addDoc(commentsCollection, commentData);
+            
+            // Create notification for the post author
+            if (post.authorId !== user.uid) {
+                await createNotification({
+                    userId: post.authorId,
+                    type: 'comment',
+                    relatedEntityId: post.id,
+                    fromUser: {
+                        id: user.uid,
+                        name: profile.name,
+                        username: profile.username,
+                        avatarUrl: profile.avatarUrl,
+                    },
+                    content: `علق على منشورك: "${newComment.trim().substring(0, 30)}..."`,
+                })
+            }
+
             setNewComment("");
             setIsPosting(false);
         }
@@ -248,13 +266,13 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
 
                 {/* Main Content Area */}
                 <div className="flex-grow flex items-center justify-center p-8 overflow-hidden">
-                    <div className="flex items-center justify-center w-full h-full">
-                        <div className="w-full max-h-full overflow-y-auto">
-                            <p className="text-3xl font-bold whitespace-pre-wrap text-center" style={{ wordBreak: 'break-word' }}>
+                    <ScrollArea className="w-full h-full">
+                        <div className="flex min-h-full w-full items-center justify-center">
+                            <p className="text-3xl font-bold whitespace-pre-wrap text-center max-w-full" style={{ wordBreak: 'break-word' }}>
                                 {post.content}
                             </p>
                         </div>
-                    </div>
+                    </ScrollArea>
                 </div>
 
 
@@ -323,8 +341,11 @@ export function PostCard({ post }: PostCardProps) {
     return doc(firestore, 'posts', post.id)
   }, [firestore, post.id]);
 
-  const handleLike = () => {
+  const handleLike = async () => {
     if (!user || !postRef) return;
+    const profile = await getCurrentUserProfile();
+    if (!profile) return;
+
 
     const newIsLiked = !isLiked;
     setIsLiked(newIsLiked);
@@ -332,6 +353,21 @@ export function PostCard({ post }: PostCardProps) {
 
     updateDoc(postRef, {
         likeIds: newIsLiked ? arrayUnion(user.uid) : arrayRemove(user.uid)
+    }).then(() => {
+      if (newIsLiked && post.authorId !== user.uid) {
+        createNotification({
+            userId: post.authorId,
+            type: 'like',
+            relatedEntityId: post.id,
+            fromUser: {
+                id: user.uid,
+                name: profile.name,
+                username: profile.username,
+                avatarUrl: profile.avatarUrl,
+            },
+            content: `أبدى إعجابه بمنشورك.`,
+        });
+      }
     }).catch(err => {
         console.error("Failed to update like status", err);
         // Revert UI on error
@@ -400,43 +436,39 @@ export function PostCard({ post }: PostCardProps) {
   
   const TRUNCATE_LENGTH = 150;
   const isLongText = post.content.length > TRUNCATE_LENGTH;
-  
+
   const renderContent = () => {
-      const contentToShow = isLongText ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content;
-
-      const contentElement = (
-          <p className={cn(
+    const contentToShow = isLongText ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content;
+    
+    const contentElement = (
+        <p className={cn(
             "whitespace-pre-wrap",
-            hasBackground ? "text-2xl font-bold" : "text-base"
-          )}>
+            hasBackground && !isLongText ? "text-2xl font-bold" : "",
+            hasBackground && isLongText ? "text-lg font-semibold" : "text-base",
+        )}>
             {contentToShow}
-          </p>
-      );
+            {isLongText && <span className="text-muted-foreground hover:underline cursor-pointer"> عرض المزيد</span>}
+        </p>
+    );
 
-      const triggerElement = (
-          <div className={cn(
-              "p-4",
-              hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg cursor-pointer hover:opacity-90 transition-opacity",
-              selectedBackground?.value,
-          )}>
-              {contentElement}
-          </div>
-      );
-
-      if (isLongText || hasBackground) {
-          return (
-              <DialogTrigger asChild>
-                  {triggerElement}
-              </DialogTrigger>
-          );
-      }
-
-      return (
-        <div className="p-4">
-          {contentElement}
-        </div>
-      );
-  };
+    const openFullScreen = () => setIsFullScreenOpen(true);
+    
+    const Wrapper = hasBackground || isLongText ? 'button' : 'div';
+    
+    return (
+        <Wrapper
+            onClick={openFullScreen}
+            className={cn(
+                "p-4 text-start w-full",
+                hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg hover:opacity-90 transition-opacity",
+                selectedBackground?.value,
+                (isLongText || hasBackground) ? "cursor-pointer" : ""
+            )}
+        >
+            {contentElement}
+        </Wrapper>
+    );
+};
 
 
   return (
@@ -576,6 +608,7 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
+
 
 
 
