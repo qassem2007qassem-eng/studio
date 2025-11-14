@@ -63,7 +63,7 @@ export function BottomNavBar() {
       <div className="container mx-auto h-full max-w-2xl px-2">
         <div className="grid h-full grid-cols-5 items-center">
           {navItems.map((item) => {
-            if (item.requiresAuth && (!user || (item.href.includes('/profile/') && !username)))) {
+            if (item.requiresAuth && (!user || (item.href.includes('/profile/') && !username))) {
                 return <div key={item.label} className="flex flex-col items-center gap-1 opacity-50">
                     <item.icon className="h-6 w-6 text-muted-foreground" />
                     <span className="text-xs font-medium text-muted-foreground">{item.label}</span>
