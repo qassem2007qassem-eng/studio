@@ -1,10 +1,15 @@
 
 "use client";
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useUser } from '@/firebase';
+import { Loader2 } from 'lucide-react';
+
 
 const onboardingStep = {
   image: "https://l.top4top.io/p_36040oexf1.jpg",
@@ -15,6 +20,23 @@ const onboardingStep = {
 };
 
 export default function OnboardingPage() {
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isUserLoading && user) {
+      router.push('/home');
+    }
+  }, [user, isUserLoading, router]);
+
+  if (isUserLoading || user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-secondary">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
       <Card className="mx-auto w-full max-w-md overflow-hidden">
