@@ -1,16 +1,14 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useContext } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Moon, Sun, LogOut, Lock, UserCog, Palette, Shield } from "lucide-react";
-import Image from "next/image";
+import { Loader2, Moon, Sun, LogOut, Lock, Palette, Shield, Crown } from "lucide-react";
 import { useUser, initializeFirebase } from "@/firebase";
 import { signOut, updateProfile as updateAuthProfile } from "firebase/auth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,7 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Progress } from "@/components/ui/progress";
+import { AdContext } from "@/components/ads/ad-provider";
 
 
 function ProfileSettings() {
@@ -171,6 +169,42 @@ function ThemeSettings() {
     )
 }
 
+function AdsSettings() {
+    const { showRewardedAd } = useContext(AdContext);
+    const { toast } = useToast();
+
+    const handleShowRewarded = async () => {
+        const result = await showRewardedAd('premium_features');
+        if (result.success) {
+            toast({
+                title: "شكراً لك!",
+                description: result.message
+            });
+        } else {
+             toast({
+                title: "عذراً",
+                description: result.message,
+                variant: "destructive"
+            });
+        }
+    };
+
+    return (
+        <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+                <Crown className="h-5 w-5 text-muted-foreground" />
+                <div className="space-y-1">
+                    <p className="font-medium">الحصول على ميزات مميزة</p>
+                    <p className="text-sm text-muted-foreground">شاهد إعلانًا للحصول على ميزات حصرية.</p>
+                </div>
+            </div>
+            <Button onClick={handleShowRewarded} variant="secondary" size="sm">
+                شاهد إعلان
+            </Button>
+        </div>
+    );
+}
+
 
 export default function SettingsPage() {
     const { user, isUserLoading } = useUser();
@@ -248,6 +282,8 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <ThemeSettings />
+                    <Separator />
+                    <AdsSettings />
                      {isAdmin && (
                         <>
                             <Separator />
