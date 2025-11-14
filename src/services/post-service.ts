@@ -21,7 +21,7 @@ import {
   deleteObject,
 } from 'firebase/storage';
 import { initializeFirebase } from '@/firebase';
-import { type Post, type PrivacySetting } from '@/lib/types';
+import { type Post, type PrivacySetting, type User } from '@/lib/types';
 import { createNotification } from './notification-service';
 
 const { auth, firestore, storage } = initializeFirebase();
@@ -96,40 +96,48 @@ export const deletePost = async (postId: string, asAdmin = false): Promise<void>
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
     const postsCollection = collection(firestore, 'posts');
     
-    let privacyFilters: PrivacySetting[] = ['everyone'];
-
-    const currentUser = auth.currentUser;
-    const isAdmin = currentUser?.email === 'admin@app.com';
-
-    if (currentUserId) {
-        if (currentUserId === profileUserId || isAdmin) {
-            privacyFilters = ['everyone', 'followers', 'only_me'];
-        } else {
-            const { getCurrentUserProfile } = await import('./user-service');
-            const profileUser = await getCurrentUserProfile({ userId: profileUserId });
-            if (profileUser?.followers?.includes(currentUserId)) {
-                privacyFilters.push('followers');
-            }
-        }
-    }
-    
-    const q = query(
+    // Base query for the user's posts
+    const baseQuery = query(
         postsCollection,
         where('authorId', '==', profileUserId),
-        where('privacy', 'in', privacyFilters)
     );
 
     try {
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocs(baseQuery);
         const posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         
-        posts.sort((a, b) => {
-            const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
-            const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
-            return dateB - dateA;
+        const currentUser = auth.currentUser;
+        const isAdmin = currentUser?.email === 'admin@app.com';
+
+        if (isAdmin || currentUserId === profileUserId) {
+            // Admin or the profile owner can see all posts
+            return posts.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+        }
+
+        const { getUserById } = await import('./user-service');
+        const profileUser = await getUserById(profileUserId);
+        const isFollowing = currentUserId ? (profileUser?.followers || []).includes(currentUserId) : false;
+
+        const filteredPosts = posts.filter(post => {
+            if (post.privacy === 'everyone') {
+                return true;
+            }
+            if (post.privacy === 'followers' && isFollowing) {
+                return true;
+            }
+            // 'only_me' posts are only visible to the owner, which is handled by the first `if` block.
+            return false;
         });
 
-        return posts;
+        // Sort after filtering
+        filteredPosts.sort((a, b) => {
+            const dateA = a.createdAt?.toMillis() || 0;
+            const dateB = b.createdAt?.toMillis() || 0;
+            return dateB - dateA;
+        });
+        
+        return filteredPosts;
+
     } catch (e) {
         console.error("Error fetching user posts:", e);
         return [];

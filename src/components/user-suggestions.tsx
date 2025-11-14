@@ -36,7 +36,8 @@ export function UserSuggestions() {
     
     const requesterIds = requests?.map(r => r.fromUser.id) || [];
     const followingIds = profile.following || [];
-    const excludeIds = [currentUser?.uid, ...followingIds, ...requesterIds].filter(Boolean);
+    // Make sure to exclude the current user from suggestions
+    const excludeIds = [currentUser?.uid, ...followingIds, ...requesterIds].filter((id): id is string => !!id);
 
     // Fetch requesters' full profiles
     let requesters: User[] = [];
@@ -59,18 +60,22 @@ export function UserSuggestions() {
 
   useEffect(() => {
     const fetchInitialData = async () => {
-      if (currentUser) {
+      if (currentUser && !isCurrentUserLoading) {
         const profile = await getCurrentUserProfile({ forceRefresh: true });
         setCurrentUserProfile(profile);
         if (profile) {
           await fetchSuggestions(profile);
+        } else {
+            setIsLoading(false);
         }
       } else if (!isCurrentUserLoading) {
+        // No user logged in
         setIsLoading(false);
+        setSuggestions([]);
       }
     };
     fetchInitialData();
-  }, [currentUser, isCurrentUserLoading, fetchSuggestions, requests]); // Re-fetch when requests change
+  }, [currentUser, isCurrentUserLoading, fetchSuggestions, requests]);
 
 
   const handleFollow = async (targetUserId: string) => {
@@ -86,6 +91,10 @@ export function UserSuggestions() {
       // Optional: Add the user back on error, though it might be better to just let them disappear.
     }
   };
+  
+  if (!currentUser) {
+      return null;
+  }
 
   if (isLoading) {
     return (
