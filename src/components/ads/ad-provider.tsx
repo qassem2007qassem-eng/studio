@@ -57,7 +57,7 @@ export function AdPlaceholders() {
                              <Button onClick={() => window.rewardedCallback?.(true)} style={{background: '#28a745', color: 'white', border: 'none', padding: '12px 25px', borderRadius: '25px', cursor: 'pointer', fontWeight: 'bold'}}>
                                 👑 احصل على المكافأة
                             </Button>
-                             <Button onClick={() => window.rewardedCallback?.(false)} style={{background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.5)', padding: '12px 20px', borderRadius: '25px', cursor: 'pointer'}}>
+                             <Button onClick={() => window.rewardedCallback?.(false)} style={{background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,0.5)', padding: '12px 20px', borderRadius: '25px', cursor: 'pointer'}}>
                                 تخطي
                             </Button>
                         </div>
@@ -69,9 +69,19 @@ export function AdPlaceholders() {
 }
 
 const waitForStartIO = (): Promise<void> => {
-    // This function will now always resolve immediately, assuming the SDK is not available
-    // and we should proceed with placeholders.
-    return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const startTime = Date.now();
+    const checkSDK = () => {
+      if (typeof window !== 'undefined' && window.startapp && typeof window.startapp.initialize === 'function' && window.startapp.initialize.toString().indexOf('Mock') === -1) {
+        resolve();
+      } else if (Date.now() - startTime > 10000) { // 10 seconds timeout
+        reject(new Error('Start.io SDK failed to load'));
+      } else {
+        setTimeout(checkSDK, 100);
+      }
+    };
+    checkSDK();
+  });
 };
 
 
@@ -86,9 +96,17 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   // Initialize the SDK
   useEffect(() => {
     const initializeAds = async () => {
-        // We will now consider the SDK "initialized" for placeholder purposes immediately.
-        console.log('Start.io (Mock) Initialized');
-        setIsInitialized(true);
+      try {
+        await waitForStartIO();
+        window.startapp.initialize(START_IO_CONFIG.app.android.appId, () => {
+          console.log('Start.io SDK Initialized successfully');
+          setIsInitialized(true);
+        });
+      } catch (error) {
+        console.error(error);
+        // SDK failed to load, we will proceed with placeholders.
+        setIsInitialized(true); // Set to true to allow placeholder logic to run
+      }
     };
     
     if (typeof window !== 'undefined' && !isInitialized) {
@@ -99,9 +117,16 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   // Show banner ad once initialized
   useEffect(() => {
     if(isInitialized && START_IO_CONFIG.ads.banner.autoShow) {
-        // Directly show the placeholder banner
+      if (typeof window.startapp?.showBannerAd === 'function' && window.startapp.initialize.toString().indexOf('Mock') === -1) {
+        window.startapp.showBannerAd(
+            () => { console.log('Banner ad loaded'); setShowBanner(true); },
+            () => { console.log('Banner ad failed to load, showing placeholder.'); setShowBanner(true); }
+        );
+      } else {
+        // Fallback to placeholder if SDK function not available
+        console.log('SDK not available, showing banner placeholder.');
         setShowBanner(true);
-        console.log('Banner ad (placeholder) shown.');
+      }
     }
   }, [isInitialized]);
 
@@ -110,8 +135,12 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const showInterstitialIfNeeded = async () => {
         if (isInitialized && !isAdFree() && postViewCount >= START_IO_CONFIG.ads.interstitial.frequency) {
-            console.log('Interstitial trigger count reached. Showing placeholder.');
-            showPlaceholder('interstitial');
+            console.log('Interstitial trigger count reached. Attempting to show ad.');
+            if (typeof window.startapp?.showInterstitialAd === 'function' && window.startapp.initialize.toString().indexOf('Mock') === -1) {
+                 window.startapp.showInterstitialAd(() => {}, () => { showPlaceholder('interstitial'); });
+            } else {
+                showPlaceholder('interstitial');
+            }
             setPostViewCount(0); // Reset counter
         }
     };
@@ -119,7 +148,8 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
   }, [postViewCount, isInitialized]);
   
   useEffect(() => {
-      if (pathname.includes('/home/profile/')) {
+      // A simple way to detect a "post view". This should be more specific in a real app.
+      if (pathname.includes('/home/profile/') || pathname === '/home') {
         setPostViewCount(prev => prev + 1);
       }
   }, [pathname])
@@ -155,13 +185,33 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
       return { success: false, message: "يجب الانتظار قبل مشاهدة إعلان آخر" };
     }
 
-    // Always fallback to placeholder
-    const watched = await showPlaceholder('rewarded');
-    if (watched) {
-        setLastRewardedAdTime(Date.now());
-        return { success: true, message: getRewardMessage(rewardType) };
+    if (!isInitialized) {
+        return { success: false, message: 'خدمة الإعلانات لم تهيأ بعد.' };
     }
-    return { success: false, message: 'فشل عرض الإعلان' };
+
+    return new Promise((resolve) => {
+        const adCallback = (watched: boolean) => {
+            if (watched) {
+                setLastRewardedAdTime(Date.now());
+                resolve({ success: true, message: getRewardMessage(rewardType) });
+            } else {
+                resolve({ success: false, message: 'تم تخطي الإعلان.' });
+            }
+        };
+        
+        if (typeof window.startapp?.showRewardedVideoAd === 'function' && window.startapp.initialize.toString().indexOf('Mock') === -1) {
+            window.startapp.showRewardedVideoAd(
+                () => adCallback(true),
+                () => { 
+                    console.log('Real rewarded ad failed, showing placeholder.');
+                    showPlaceholder('rewarded').then(adCallback);
+                }
+            );
+        } else {
+            console.log('SDK not available, showing rewarded placeholder.');
+            showPlaceholder('rewarded').then(adCallback);
+        }
+    });
 
   }, [isInitialized, lastRewardedAdTime]);
 
@@ -187,3 +237,4 @@ export function AdProvider({ children }: { children: React.ReactNode }) {
     </AdContext.Provider>
   );
 }
+
