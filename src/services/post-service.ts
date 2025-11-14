@@ -51,6 +51,7 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     throw new Error('User not authenticated');
   }
 
+  // 1. Create the post document first to get an ID
   const postData: Omit<Post, 'id' | 'imageUrls'> = {
     authorId: user.uid,
     author: input.author,
@@ -64,10 +65,12 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
 
   const postDocRef = await addDoc(collection(firestore, 'posts'), postData);
 
+  // 2. If there are images, upload them using the post ID
   let imageUrls: string[] = [];
   if (input.images && input.images.length > 0) {
     const uploadPromises = input.images.map(async (imageFile, index) => {
       const fileName = `image-${index}`;
+      // Use the generated post ID in the storage path
       const imageRef = ref(storage, `posts/${user.uid}/${postDocRef.id}/${fileName}`);
       const uploadTask = uploadBytesResumable(imageRef, imageFile);
 
@@ -93,6 +96,7 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     imageUrls = await Promise.all(uploadPromises);
   }
 
+  // 3. Update the post document with the ID and image URLs
   await updateDoc(postDocRef, {
     id: postDocRef.id,
     imageUrls: imageUrls,
