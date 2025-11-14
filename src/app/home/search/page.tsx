@@ -156,7 +156,7 @@ export default function SearchPage() {
     setGroupResults(filteredGroups);
 
     // Search Posts (simple content search on public posts)
-    const postsQuery = query(collection(firestore, "posts"), where('content', '>=', lowercasedTerm), where('privacy', '==', 'everyone'), limit(15));
+    const postsQuery = query(collection(firestore, "posts"), where('content', '>=', lowercasedTerm), where('privacy', '==', 'followers'), limit(15));
     const postsSnap = await getDocs(postsQuery);
     const filteredPosts = postsSnap.docs
         .map(doc => doc.data() as Post)

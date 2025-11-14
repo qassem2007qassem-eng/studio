@@ -128,8 +128,6 @@ export const deletePost = async (postId: string, asAdmin = false): Promise<void>
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
     const postsCollection = collection(firestore, 'posts');
     
-    // Simplified query: get all non-group posts for the user, regardless of privacy.
-    // Privacy filtering will happen on the client-side.
     const q = query(
         postsCollection,
         where('authorId', '==', profileUserId),
@@ -140,37 +138,26 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         const snapshot = await getDocs(q);
         let posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         
-        // Always sort by date first.
-        posts.sort((a, b) => {
-            const dateA = a.createdAt?.toMillis() || 0;
-            const dateB = b.createdAt?.toMillis() || 0;
-            return dateB - dateA;
-        });
+        posts.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
 
-        // If the viewer is the owner or an admin, they see everything.
         const isAdmin = auth.currentUser?.email === 'admin@app.com';
         if (isAdmin || currentUserId === profileUserId) {
             return posts;
         }
         
-        // For other viewers, filter based on privacy rules.
         const { getUserById } = await import('./user-service');
         const profileUser = await getUserById(profileUserId);
         const isFollowing = currentUserId ? (profileUser?.followers || []).includes(currentUserId) : false;
 
-        const filteredPosts = posts.filter(post => {
+        return posts.filter(post => {
             if (post.privacy === 'followers') {
                 return isFollowing;
             }
-             if (post.privacy === 'only_me') {
-                return false; // Only the owner can see this, handled above.
+            if (post.privacy === 'only_me') {
+                return false; 
             }
-            // If privacy is not explicitly 'followers' or 'only_me', assume it's viewable by others.
-            // This is safer than assuming a default 'everyone' which we removed.
-            return post.privacy !== 'only_me';
+            return false;
         });
-        
-        return filteredPosts;
 
     } catch (e) {
         console.error("Error fetching user posts:", e);
@@ -185,7 +172,7 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
     const userIdsToQuery = [userProfile.id, ...followingIds];
 
     if (userIdsToQuery.length === 0) {
-        userIdsToQuery.push(userProfile.id); // Should not happen if user can see their own posts, but as a fallback.
+        return { posts: [], lastVisible: null, hasMore: false };
     }
     
     const postsRef = collection(firestore, 'posts');
@@ -204,22 +191,8 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
     const q = query(postsRef, ...feedQueryConstraints);
 
     const querySnapshot = await getDocs(q);
-
-    // Filter for privacy on the client side
-    const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post))
-        .filter(post => {
-            if (post.authorId === userProfile.id) {
-                return true; // User can always see their own posts
-            }
-            if (post.privacy === 'followers') {
-                return followingIds.includes(post.authorId);
-            }
-            if (post.privacy === 'only_me') {
-                return false; // This post should not be in another user's feed
-            }
-            // If we removed 'everyone', then 'followers' is the only public-like state.
-            return post.privacy === 'followers'; 
-        });
+    
+    const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
 
     const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
     const hasMore = querySnapshot.docs.length === pageSize;
