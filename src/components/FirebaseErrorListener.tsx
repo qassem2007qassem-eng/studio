@@ -12,16 +12,22 @@ import { useUser } from '@/firebase/provider';
  */
 export function FirebaseErrorListener() {
   const [error, setError] = useState<FirestorePermissionError | null>(null);
-  const { user } = useUser(); // Get the current user
+  const { user, isUserLoading } = useUser(); // Get the current user
 
+  // This check is crucial. We wait until we know who the user is.
+  if (isUserLoading) {
+    return null;
+  }
+
+  // Early exit for non-admins or logged-out users.
+  // This ensures the rest of the component (including useEffect) doesn't run for them.
   const isAdmin = user?.email === 'admin@app.com';
+  if (!isAdmin) {
+    return null;
+  }
 
   useEffect(() => {
-    // Only admins should listen for these specific errors
-    if (!isAdmin) {
-      return;
-    }
-
+    // Because of the check above, this effect only runs for admins.
     const handleError = (error: FirestorePermissionError) => {
       setError(error);
     };
@@ -31,10 +37,11 @@ export function FirebaseErrorListener() {
     return () => {
       errorEmitter.off('permission-error', handleError);
     };
-  }, [isAdmin]); // Rerun the effect if the user's admin status changes
+  }, []); // No dependency on isAdmin needed due to the early exit.
 
-  // On re-render, if an error exists in state AND the user is an admin, throw it.
-  if (error && isAdmin) {
+  // On re-render, if an error exists in state, throw it.
+  // This will only happen if the user is an admin.
+  if (error) {
     throw error;
   }
 

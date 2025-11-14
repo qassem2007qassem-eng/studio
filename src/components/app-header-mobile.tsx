@@ -13,7 +13,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { NotificationsSheet } from './notifications-sheet';
-import { useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useCollection, useMemoFirebase, initializeFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 
 export function AppHeader() {
