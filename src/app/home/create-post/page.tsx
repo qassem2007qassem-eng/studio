@@ -71,7 +71,7 @@ const ImageUploadProgress = ({ progress, status }: { progress: number; status: s
         ) : status === 'completed' ? (
             <p className="text-white">اكتمل</p>
         ) : (
-            <p className="text-red-500">خطأ</p>
+            <p className="text-red-500">خطأ في الرفع</p>
         )}
     </div>
 );
@@ -85,8 +85,7 @@ export default function CreatePostPage() {
   const [postImages, setPostImages] = useState<ImageFile[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({});
-  const [uploadingFileCount, setUploadingFileCount] = useState(0);
-
+  
   const { toast } = useToast();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,7 +95,13 @@ export default function CreatePostPage() {
   const hasImages = postImages.length > 0;
   const selectedBackground = backgroundOptions.find(b => b.id === background);
   const hasBackground = background !== 'default';
-  const isUploading = uploadingFileCount > 0;
+  
+  const uploadingFileNames = Object.keys(uploadProgress).filter(
+    (fileName) => uploadProgress[fileName].status === 'uploading'
+  );
+  const isUploading = uploadingFileNames.length > 0;
+  const totalFilesToUpload = postImages.length;
+  const completedFiles = totalFilesToUpload - uploadingFileNames.length;
 
 
   useEffect(() => {
@@ -162,6 +167,7 @@ export default function CreatePostPage() {
       return;
     }
     setIsSaving(true);
+    setUploadProgress({});
 
     try {
       await createPost({
@@ -180,12 +186,6 @@ export default function CreatePostPage() {
                 ...prev,
                 [fileName]: { progress, status },
             }));
-
-            if (status === 'uploading' && progress === 0) {
-                setUploadingFileCount(prev => prev + 1);
-            } else if (status === 'completed' || status === 'error') {
-                setUploadingFileCount(prev => Math.max(0, prev - 1));
-            }
         },
       });
 
@@ -197,16 +197,15 @@ export default function CreatePostPage() {
         description: 'تم نشر منشورك بنجاح.',
       });
       router.push('/home');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating post:", error);
       toast({
-        title: 'خطأ',
-        description: 'لم نتمكن من نشر منشورك. حاول مرة أخرى.',
+        title: 'خطأ في إنشاء المنشور',
+        description: error.message || 'لم نتمكن من نشر منشورك. حاول مرة أخرى.',
         variant: 'destructive',
       });
     } finally {
       setIsSaving(false);
-      setUploadingFileCount(0);
     }
   };
   
@@ -243,7 +242,7 @@ export default function CreatePostPage() {
               {isUploading ? (
                   <>
                     <Loader2 className="animate-spin me-2" />
-                    جاري رفع الصور... ({postImages.length - uploadingFileCount}/{postImages.length})
+                    جاري رفع الصور... ({completedFiles}/{totalFilesToUpload})
                   </>
                 ) : isSaving ? (
                   <Loader2 className="animate-spin" />

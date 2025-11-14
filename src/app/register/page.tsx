@@ -44,7 +44,6 @@ function RegisterForm() {
 
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -145,20 +144,21 @@ function RegisterForm() {
       );
       const user = userCredential.user;
 
-      await sendEmailVerification(user);
-
-      if(formData.avatarFile) setIsAvatarUploading(true);
+      // Pass the newly created user object to the profile creation service
       await createUserProfile(user, {
         username: usernameLower,
         name: formData.fullName,
-        email: user.email,
-        emailVerified: user.emailVerified
+        email: user.email!,
+        emailVerified: user.emailVerified,
       }, formData.avatarFile || undefined);
-      setIsAvatarUploading(false);
       
+      // Update the auth profile (display name, etc.) separately
       await updateProfile(user, {
         displayName: formData.fullName,
       });
+
+      // Send verification email
+      await sendEmailVerification(user);
       
       toast({
         title: "الرجاء التحقق من بريدك الإلكتروني",
@@ -168,7 +168,6 @@ function RegisterForm() {
 
     } catch (error: any) {
       setIsLoading(false);
-      setIsAvatarUploading(false);
       let description = 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.';
       if (error.code === 'auth/weak-password') {
         description = 'كلمة المرور ضعيفة جدًا. يجب أن تتكون من 6 أحرف على الأقل.';
@@ -179,7 +178,7 @@ function RegisterForm() {
       }
       toast({
         title: 'خطأ في إنشاء الحساب',
-        description: description,
+        description: error.message || description, // Show specific error from services if available
         variant: 'destructive',
       });
     }
@@ -302,7 +301,7 @@ function RegisterForm() {
               <AvatarFallback>
                 <UserCircle2 className="w-20 h-20 text-muted-foreground" />
               </AvatarFallback>
-               {isAvatarUploading && (
+               {isLoading && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full">
                     <Loader2 className="h-8 w-8 animate-spin text-white" />
                 </div>

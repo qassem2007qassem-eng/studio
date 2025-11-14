@@ -21,7 +21,8 @@ import {
   limit,
   startAfter,
   deleteDoc,
-  collectionGroup
+  collectionGroup,
+  Timestamp
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { type User } from '@/lib/types';
@@ -97,29 +98,38 @@ const createUserProfile = async (
 ): Promise<void> => {
   try {
     let avatarUrl = "";
+    // 1. Upload avatar if it exists
     if (avatarFile) {
-      const path = `avatars/${user.uid}`;
+      const path = `avatars/${user.uid}/${avatarFile.name}`;
+      // Use the robust uploadFile service
       avatarUrl = await uploadFile(avatarFile, path);
     } 
 
+    // 2. Create the user document in Firestore
     const userDocRef = doc(firestore, "users", user.uid);
-    await setDoc(userDocRef, {
-      id: user.uid,
+    const userData: Omit<User, 'id'> = {
       username: details.username.toLowerCase(),
       name: details.name,
       email: details.email,
-      avatarUrl: avatarUrl,
+      emailVerified: details.emailVerified,
+      avatarUrl: avatarUrl, // Use the uploaded URL or an empty string
       coverUrl: "",
       bio: "",
-      createdAt: serverTimestamp(),
+      createdAt: serverTimestamp() as Timestamp,
       followers: [],
       following: [],
       isPrivate: false,
-      emailVerified: details.emailVerified,
-    });
+    };
+    
+    await setDoc(userDocRef, userData);
+    
+    // 3. Update the user document with its own ID for easier querying
+    await updateDoc(userDocRef, { id: user.uid });
+
     console.log("User profile created successfully!");
   } catch (error) {
     console.error("Error creating user profile:", error);
+    // Re-throw the error to be caught by the calling function in the UI
     throw error;
   }
 };
@@ -286,7 +296,7 @@ const updateProfile = async (
     updates: Partial<User>, 
     avatarFile?: File, 
     coverFile?: File, 
-    onProgress?: (type: 'avatar' | 'cover', progress: number) => void
+    onProgress?: (type: 'avatar' | 'cover', progress: number, status: 'uploading' | 'completed' | 'error') => void
 ): Promise<{ avatarUrl?: string; coverUrl?: string }> => {
   
   if (!userId) {
@@ -297,24 +307,35 @@ const updateProfile = async (
   const returnedUrls: { avatarUrl?: string; coverUrl?: string } = {};
 
   try {
+    // A list to hold all upload promises
+    const uploadPromises: Promise<void>[] = [];
+
     if (avatarFile) {
-      const path = `avatars/${userId}`;
-      const avatarUrl = await uploadFile(avatarFile, path, (progress) => {
-        onProgress?.('avatar', progress);
+      const path = `avatars/${userId}/${avatarFile.name}`;
+      const avatarPromise = uploadFile(avatarFile, path, (progress, status) => {
+        onProgress?.('avatar', progress, status);
+      }).then(url => {
+        updatedUserData.avatarUrl = url;
+        returnedUrls.avatarUrl = url;
       });
-      updatedUserData.avatarUrl = avatarUrl;
-      returnedUrls.avatarUrl = avatarUrl;
+      uploadPromises.push(avatarPromise);
     }
 
     if (coverFile) {
-      const path = `covers/${userId}`;
-      const coverUrl = await uploadFile(coverFile, path, (progress) => {
-        onProgress?.('cover', progress);
+      const path = `covers/${userId}/${coverFile.name}`;
+      const coverPromise = uploadFile(coverFile, path, (progress, status) => {
+        onProgress?.('cover', progress, status);
+      }).then(url => {
+        updatedUserData.coverUrl = url;
+        returnedUrls.coverUrl = url;
       });
-      updatedUserData.coverUrl = coverUrl;
-      returnedUrls.coverUrl = coverUrl;
+      uploadPromises.push(coverPromise);
     }
     
+    // Wait for all uploads to complete successfully
+    await Promise.all(uploadPromises);
+    
+    // Only update Firestore if there are changes to be made (text or successful uploads)
     if (Object.keys(updatedUserData).length > 0) {
       const userRef = doc(firestore, "users", userId);
       await updateDoc(userRef, updatedUserData);
@@ -327,6 +348,7 @@ const updateProfile = async (
 
   } catch (error) {
     console.error("Error updating profile:", error);
+    // Re-throw the error so the UI can catch it and display a message
     throw error;
   }
 };

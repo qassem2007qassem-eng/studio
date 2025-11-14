@@ -47,32 +47,36 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     throw new Error('User not authenticated');
   }
 
-  // 1. Upload images first to get their URLs
   let imageUrls: string[] = [];
+
+  // 1. Upload all images first and collect their URLs.
+  // Using Promise.all ensures that we wait for all uploads to complete before proceeding.
+  // If any upload fails, Promise.all will reject, and the post won't be created.
   if (input.images && input.images.length > 0) {
-    const uploadPromises = input.images.map((imageFile, index) => {
-      const path = `posts/${user.uid}/${Date.now()}_${imageFile.name}`;
-      return uploadFile(imageFile, path, (progress, status) => {
-        input.onProgress?.(imageFile.name, progress, status);
-      });
-    });
-    
     try {
+      const uploadPromises = input.images.map((imageFile) => {
+        // Generate a unique path for each file.
+        const path = `posts/${user.uid}/${Date.now()}_${imageFile.name}`;
+        return uploadFile(imageFile, path, (progress, status) => {
+          input.onProgress?.(imageFile.name, progress, status);
+        });
+      });
       imageUrls = await Promise.all(uploadPromises);
     } catch (error) {
+      // If any upload fails, we stop the entire process and re-throw the error.
       console.error("Image upload failed, post creation stopped.", error);
-      throw new Error("One or more images failed to upload.");
+      throw new Error("One or more images failed to upload. Please try again.");
     }
   }
 
-  // 2. Create the post document with the retrieved image URLs
+  // 2. Only if all images are uploaded successfully, create the post document.
   const postData: Omit<Post, 'id'> = {
     authorId: user.uid,
     author: input.author,
     content: input.content,
     createdAt: serverTimestamp() as Timestamp,
     likeIds: [],
-    imageUrls: imageUrls,
+    imageUrls: imageUrls, // Use the URLs from the successful uploads
     privacy: input.privacy,
     commenting: input.commenting,
     background: input.background || 'default',
@@ -81,6 +85,7 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
   const postCollectionRef = collection(firestore, 'posts');
   const postDocRef = await addDoc(postCollectionRef, postData);
   
+  // Update the post with its own ID for easier reference
   await updateDoc(postDocRef, { id: postDocRef.id });
 
   return postDocRef.id;

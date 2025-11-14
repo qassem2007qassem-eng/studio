@@ -15,6 +15,7 @@ type ProgressCallback = (progress: number, status: 'uploading' | 'completed' | '
 
 /**
  * A centralized and robust function for uploading files to Firebase Storage.
+ * It now includes comprehensive error handling to prevent silent failures.
  * @param file The file object to upload.
  * @param path The desired path in Firebase Storage (e.g., 'avatars/user-id.jpg').
  * @param onProgress Optional callback to track upload progress.
@@ -27,8 +28,8 @@ export const uploadFile = (
 ): Promise<string> => {
   return new Promise<string>((resolve, reject) => {
     if (!file) {
-      reject(new Error('No file provided for upload.'));
-      return;
+      // Immediately reject if no file is provided.
+      return reject(new Error('No file provided for upload.'));
     }
 
     const fileRef = ref(storage, path);
@@ -41,10 +42,11 @@ export const uploadFile = (
         onProgress?.(progress, 'uploading');
       },
       (error) => {
-        // Handle unsuccessful uploads
+        // Handle unsuccessful uploads and reject the promise.
         console.error(`Upload failed for path ${path}:`, error);
         onProgress?.(0, 'error');
-        reject(error);
+        // Pass a more descriptive error to the caller.
+        reject(new Error(`Failed to upload file. Code: ${error.code}`));
       },
       async () => {
         // Handle successful uploads on complete
@@ -52,9 +54,10 @@ export const uploadFile = (
           const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
           onProgress?.(100, 'completed');
           resolve(downloadURL);
-        } catch (error) {
+        } catch (error: any) {
+           // Handle errors from getDownloadURL (e.g., permissions) and reject the promise.
            console.error(`Failed to get download URL for ${path}:`, error);
-           reject(error);
+           reject(new Error(`Failed to get download URL. Code: ${error.code}`));
         }
       }
     );

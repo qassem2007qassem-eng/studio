@@ -45,7 +45,7 @@ function ProfileSettings() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     
-    const [uploadProgress, setUploadProgress] = useState<{ type: 'avatar' | 'cover', progress: number } | null>(null);
+    const [uploadProgress, setUploadProgress] = useState<{ type: 'avatar' | 'cover', progress: number, status: 'uploading' | 'completed' | 'error' } | null>(null);
 
     const avatarInputRef = useRef<HTMLInputElement>(null);
     const coverInputRef = useRef<HTMLInputElement>(null);
@@ -83,11 +83,12 @@ function ProfileSettings() {
                 profileUpdates, 
                 avatarFile || undefined, 
                 coverFile || undefined, 
-                (type, progress) => {
-                   setUploadProgress({ type, progress });
+                (type, progress, status) => {
+                   setUploadProgress({ type, progress, status });
                 }
             );
 
+            // This is for updating the display name/photo in Firebase Auth itself, which can be reflected across Google services
             if (auth.currentUser) {
                 await updateAuthProfile(auth.currentUser, {
                     displayName: name,
@@ -95,14 +96,13 @@ function ProfileSettings() {
                 });
             }
             
+            // Clear file inputs after successful upload
             setAvatarFile(null);
+            if (avatarInputRef.current) avatarInputRef.current.value = '';
             setCoverFile(null);
+            if (coverInputRef.current) coverInputRef.current.value = '';
             
-            // Optimistically update previews, but final URLs are the source of truth
-            if (updatedUrls.avatarUrl) setAvatarPreview(updatedUrls.avatarUrl);
-            if (updatedUrls.coverUrl) setCoverPreview(updatedUrls.coverUrl);
-
-
+            // The user profile cache is already refreshed in the `updateProfile` service
             toast({
                 title: "تم الحفظ",
                 description: "تم تحديث معلومات ملفك الشخصي بنجاح.",
@@ -110,7 +110,7 @@ function ProfileSettings() {
         } catch (error: any) {
             console.error("Error updating profile:", error);
             toast({
-                title: "خطأ",
+                title: "خطأ في التحديث",
                 description: error.message || "حدث خطأ أثناء تحديث ملفك الشخصي.",
                 variant: "destructive"
             });
