@@ -3,15 +3,125 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, orderBy, writeBatch } from 'firebase/firestore';
 import { useUser, initializeFirebase } from '@/firebase';
-import { type Group } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { type Group, type Post } from '@/lib/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Globe, Lock, UserPlus, LogOut } from 'lucide-react';
+import { Globe, Lock, UserPlus, LogOut, Loader2, Check, X, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CreatePostTrigger } from '@/components/create-post-trigger';
+import { PostCard } from '@/components/post-card';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { approvePost, rejectPost } from '@/services/post-service';
+
+function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' | 'pending' }) {
+    const [posts, setPosts] = useState<Post[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { firestore } = initializeFirebase();
+
+    useEffect(() => {
+        const postsRef = collection(firestore, 'posts');
+        const q = query(
+            postsRef,
+            where('groupId', '==', groupId),
+            where('status', '==', status),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const fetchedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+            setPosts(fetchedPosts);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error fetching group posts:", error);
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [groupId, firestore, status]);
+
+    if (isLoading) {
+        return <Skeleton className="h-40 w-full" />;
+    }
+
+    if (posts.length === 0) {
+        return (
+            <p className="text-muted-foreground text-center py-8">
+                {status === 'approved' ? 'لا توجد منشورات في هذه المجموعة حتى الآن.' : 'لا توجد منشورات معلقة للمراجعة.'}
+            </p>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {posts.map(post => {
+                 if (status === 'pending') {
+                    return <PendingPostCard key={post.id} post={post} />;
+                }
+                return <PostCard key={post.id} post={post} />;
+            })}
+        </div>
+    );
+}
+
+function PendingPostCard({ post }: { post: Post }) {
+    const [isActionLoading, setIsActionLoading] = useState(false);
+    const { toast } = useToast();
+
+    const handleApprove = async () => {
+        setIsActionLoading(true);
+        try {
+            await approvePost(post.id);
+            toast({ title: "تم قبول المنشور" });
+        } catch (e) {
+            toast({ title: "خطأ", description: "فشل قبول المنشور", variant: 'destructive'});
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const handleReject = async () => {
+        setIsActionLoading(true);
+         try {
+            await rejectPost(post.id);
+            toast({ title: "تم رفض المنشور" });
+        } catch (e) {
+            toast({ title: "خطأ", description: "فشل رفض المنشور", variant: 'destructive'});
+        } finally {
+            setIsActionLoading(false);
+        }
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8">
+                        <AvatarFallback>{post.author.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <p className="font-semibold">{post.author.name}</p>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <p>{post.content}</p>
+            </CardContent>
+            <CardFooter className="gap-2">
+                <Button size="sm" onClick={handleApprove} disabled={isActionLoading}>
+                    {isActionLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <><Check className="me-2"/> قبول</>}
+                </Button>
+                 <Button size="sm" variant="destructive" onClick={handleReject} disabled={isActionLoading}>
+                    {isActionLoading ? <Loader2 className="h-4 w-4 animate-spin"/> : <><X className="me-2"/> رفض</>}
+                </Button>
+            </CardFooter>
+        </Card>
+    )
+}
+
 
 export default function GroupDetailPage() {
     const params = useParams();
@@ -22,6 +132,8 @@ export default function GroupDetailPage() {
     
     const [group, setGroup] = useState<Group | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isUpdatingModeration, setIsUpdatingModeration] = useState(false);
+
 
     useEffect(() => {
         if (!groupId || !firestore) return;
@@ -45,6 +157,7 @@ export default function GroupDetailPage() {
     }, [groupId, firestore]);
 
     const isMember = user && group?.memberIds.includes(user.uid);
+    const isCreator = user && group?.creatorId === user.uid;
     const canViewContent = group?.privacy === 'public' || isMember;
 
     const handleJoinLeaveGroup = async () => {
@@ -55,6 +168,10 @@ export default function GroupDetailPage() {
 
         try {
             if (action === 'join') {
+                if (group.privacy === 'private') {
+                    toast({ title: 'هذه مجموعة خاصة', description: 'لا يمكنك الانضمام مباشرة.', variant: 'default'});
+                    return;
+                }
                 await updateDoc(groupRef, {
                     memberIds: arrayUnion(user.uid)
                 });
@@ -71,6 +188,21 @@ export default function GroupDetailPage() {
             }
         } catch (error: any) {
              toast({ title: 'حدث خطأ', description: error.message, variant: 'destructive'});
+        }
+    };
+    
+    const handleModerationChange = async (checked: boolean) => {
+        if (!isCreator || !group) return;
+
+        setIsUpdatingModeration(true);
+        const groupRef = doc(firestore, 'groups', group.id);
+        try {
+            await updateDoc(groupRef, { moderationRequired: checked });
+            toast({ title: 'تم تحديث إعدادات المراجعة بنجاح.' });
+        } catch (error: any) {
+            toast({ title: 'خطأ', description: 'فشل تحديث الإعدادات.', variant: 'destructive'});
+        } finally {
+            setIsUpdatingModeration(false);
         }
     };
 
@@ -131,17 +263,50 @@ export default function GroupDetailPage() {
                      <p className="mt-4 text-muted-foreground">{group.description}</p>
                 </CardContent>
             </Card>
-            
-            {canViewContent ? (
-                 <Card>
+
+            {isCreator && (
+                <Card>
                     <CardHeader>
-                        <CardTitle>المنشورات</CardTitle>
+                        <CardTitle>إعدادات الإدارة</CardTitle>
+                        <CardDescription>تحكم في إعدادات مجموعتك من هنا.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {/* Posts will be listed here */}
-                        <p className="text-muted-foreground text-center py-8">لا توجد منشورات حتى الآن.</p>
+                        <div className="flex items-center justify-between rounded-lg border p-4">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="moderation-switch" className="text-base flex items-center gap-2">
+                                    <ShieldCheck /> مراجعة المنشورات
+                                </Label>
+                                <p className="text-sm text-muted-foreground">
+                                    عند التفعيل، يجب عليك قبول منشورات الأعضاء قبل عرضها للجميع.
+                                </p>
+                            </div>
+                            <Switch
+                                id="moderation-switch"
+                                checked={group.moderationRequired}
+                                onCheckedChange={handleModerationChange}
+                                disabled={isUpdatingModeration}
+                            />
+                        </div>
                     </CardContent>
                 </Card>
+            )}
+            
+            {canViewContent ? (
+                 <Tabs defaultValue="posts" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="posts">المنشورات</TabsTrigger>
+                        {isCreator && <TabsTrigger value="pending">المنشورات المعلقة</TabsTrigger>}
+                    </TabsList>
+                    <TabsContent value="posts" className="space-y-6 mt-6">
+                         {isMember && <CreatePostTrigger groupId={group.id} />}
+                         <GroupPosts groupId={group.id} status="approved" />
+                    </TabsContent>
+                    {isCreator && (
+                        <TabsContent value="pending" className="space-y-6 mt-6">
+                            <GroupPosts groupId={group.id} status="pending" />
+                        </TabsContent>
+                    )}
+                </Tabs>
             ) : (
                 <Card>
                     <CardContent className="p-8 text-center text-muted-foreground space-y-2">
@@ -154,3 +319,4 @@ export default function GroupDetailPage() {
         </div>
     );
 }
+

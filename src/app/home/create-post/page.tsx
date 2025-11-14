@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Loader2,
   X,
@@ -51,7 +51,7 @@ const backgroundOptions = [
 ];
 
 
-export default function CreatePostPage() {
+function CreatePostContent() {
   const { user, isUserLoading } = useUser();
   const [userData, setUserData] = useState<UserType | null>(null);
   const [isDataLoading, setIsDataLoading] = useState(true);
@@ -60,6 +60,10 @@ export default function CreatePostPage() {
   
   const { toast } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const groupId = searchParams.get('groupId');
+
+
   const [visibility, setVisibility] = useState<PrivacySetting>('everyone');
   const [commenting, setCommenting] = useState<PrivacySetting>('everyone');
   const [background, setBackground] = useState(backgroundOptions[0].id);
@@ -73,7 +77,7 @@ export default function CreatePostPage() {
         if (profile) {
           setUserData(profile as UserType);
           // If the user's account is private, default to 'followers'
-          if (profile.isPrivate) {
+          if (profile.isPrivate && !groupId) { // Only change for non-group posts
             setVisibility('followers');
           }
         }
@@ -82,15 +86,18 @@ export default function CreatePostPage() {
     } else if (!isUserLoading) {
       setIsDataLoading(false);
     }
-  }, [user, userData, isUserLoading]);
+  }, [user, userData, isUserLoading, groupId]);
 
   // Filter visibility options based on account privacy
   const visibilityOptions = useMemo(() => {
+    if (groupId) {
+        return []; // Hide visibility options for group posts
+    }
     if (userData?.isPrivate) {
       return allVisibilityOptions.filter(option => option.value !== 'everyone');
     }
     return allVisibilityOptions;
-  }, [userData]);
+  }, [userData, groupId]);
 
 
   const handleCreatePost = async () => {
@@ -116,15 +123,16 @@ export default function CreatePostPage() {
     setIsSaving(true);
 
     try {
-      await createPost({
+      const postId = await createPost({
         content: content.trim(),
         author: {
           name: profile.name,
           username: profile.username.toLowerCase(),
         },
-        privacy: visibility,
+        privacy: groupId ? 'everyone' : visibility, // Group posts are controlled by group privacy
         commenting: commenting,
         background: background,
+        groupId: groupId || undefined,
       });
 
       setContent('');
@@ -132,7 +140,7 @@ export default function CreatePostPage() {
         title: 'نجاح',
         description: 'تم نشر منشورك بنجاح.',
       });
-      router.push('/home');
+      router.push(groupId ? `/home/groups/${groupId}` : '/home');
     } catch (error: any) {
       console.error("Error creating post:", error);
       toast({
@@ -174,7 +182,7 @@ export default function CreatePostPage() {
           <Button variant="ghost" size="icon" onClick={() => router.back()} disabled={isSaving}>
               <X className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-semibold">إنشاء منشور</h1>
+          <h1 className="text-lg font-semibold">{groupId ? 'إنشاء منشور في المجموعة' : 'إنشاء منشور'}</h1>
           <Button onClick={handleCreatePost} disabled={isSaving || !content.trim()}>
               {isSaving ? (
                   <Loader2 className="animate-spin" />
@@ -190,23 +198,25 @@ export default function CreatePostPage() {
               <div>
                   <p className="font-semibold">{userData.name}</p>
                    <div className="flex items-center gap-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm" className="h-7 p-1 text-xs">
-                                  {CurrentVisibilityIcon && <CurrentVisibilityIcon className="h-3 w-3 me-1" />}
-                                  {visibilityOptions.find(p => p.value === visibility)?.label}
-                                  <ChevronDown className="h-3 w-3 ms-1"/>
-                              </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                              {visibilityOptions.map(option => (
-                                  <DropdownMenuItem key={option.value} onSelect={() => setVisibility(option.value)}>
-                                      <option.icon className="h-4 w-4 me-2"/>
-                                      {option.label}
-                                  </DropdownMenuItem>
-                              ))}
-                          </DropdownMenuContent>
-                      </DropdownMenu>
+                        {!groupId && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-7 p-1 text-xs">
+                                      {CurrentVisibilityIcon && <CurrentVisibilityIcon className="h-3 w-3 me-1" />}
+                                      {visibilityOptions.find(p => p.value === visibility)?.label}
+                                      <ChevronDown className="h-3 w-3 ms-1"/>
+                                  </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent>
+                                  {visibilityOptions.map(option => (
+                                      <DropdownMenuItem key={option.value} onSelect={() => setVisibility(option.value)}>
+                                          <option.icon className="h-4 w-4 me-2"/>
+                                          {option.label}
+                                      </DropdownMenuItem>
+                                  ))}
+                              </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="sm" className="h-7 p-1 text-xs">
@@ -264,4 +274,13 @@ export default function CreatePostPage() {
       </footer>
     </div>
   );
+}
+
+
+export default function CreatePostPage() {
+    return (
+        <Suspense fallback={<div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+            <CreatePostContent />
+        </Suspense>
+    )
 }

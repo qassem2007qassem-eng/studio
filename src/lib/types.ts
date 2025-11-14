@@ -47,7 +47,7 @@ export interface Post {
   privacy: PrivacySetting;
   commenting: PrivacySetting;
   background?: string;
-  status?: 'pending' | 'approved';
+  status: 'pending' | 'approved';
 }
 
 export interface AppNotification {
@@ -84,6 +84,8 @@ export interface Group {
     privacy: 'public' | 'private';
     memberIds: string[];
     createdAt: Timestamp;
+    // New fields for group management
+    moderationRequired: boolean; // If true, posts need approval
 }
 
     

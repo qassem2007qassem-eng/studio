@@ -10,7 +10,7 @@ import { type User as UserType } from "@/lib/types";
 import { getCurrentUserProfile } from "@/services/user-service";
 import { Skeleton } from "./ui/skeleton";
 
-export function CreatePostTrigger() {
+export function CreatePostTrigger({ groupId }: { groupId?: string }) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const [userData, setUserData] = useState<UserType | null>(null);
@@ -46,6 +46,11 @@ export function CreatePostTrigger() {
 
   const username = userData.username;
   const displayName = userData.name;
+  
+  const destinationUrl = groupId 
+    ? `/home/create-post?groupId=${groupId}` 
+    : '/home/create-post';
+
 
   return (
     <div className="flex items-center gap-3 p-4 bg-card rounded-lg border">
@@ -57,7 +62,7 @@ export function CreatePostTrigger() {
       </Link>
       <div 
         className="flex-1 cursor-pointer"
-        onClick={() => router.push('/home/create-post')}
+        onClick={() => router.push(destinationUrl)}
       >
          <div className="w-full rounded-full bg-muted px-4 py-2 text-muted-foreground hover:bg-secondary transition-colors">
             {`بماذا تفكر يا ${displayName?.split(' ')[0] || ''}؟`}
@@ -66,3 +71,4 @@ export function CreatePostTrigger() {
     </div>
   );
 }
+

@@ -21,7 +21,7 @@ import {
   deleteObject,
 } from 'firebase/storage';
 import { initializeFirebase } from '@/firebase';
-import { type Post, type PrivacySetting, type User } from '@/lib/types';
+import { type Post, type PrivacySetting, type User, type Group } from '@/lib/types';
 import { createNotification } from './notification-service';
 
 const { auth, firestore, storage } = initializeFirebase();
@@ -35,6 +35,7 @@ type CreatePostInput = {
   privacy: PrivacySetting;
   commenting: PrivacySetting;
   background?: string;
+  groupId?: string; // Add groupId
 };
 
 export const createPost = async (input: CreatePostInput): Promise<string> => {
@@ -42,6 +43,19 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  let status: 'pending' | 'approved' = 'approved';
+  if (input.groupId) {
+    const groupRef = doc(firestore, 'groups', input.groupId);
+    const groupSnap = await getDoc(groupRef);
+    if (groupSnap.exists()) {
+        const groupData = groupSnap.data() as Group;
+        if (groupData.moderationRequired && groupData.creatorId !== user.uid) {
+            status = 'pending';
+        }
+    }
+  }
+
 
   const postData: Omit<Post, 'id'> = {
     authorId: user.uid,
@@ -52,6 +66,8 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     privacy: input.privacy,
     commenting: input.commenting,
     background: input.background || 'default',
+    groupId: input.groupId,
+    status: status,
   };
 
   const postCollectionRef = collection(firestore, 'posts');
@@ -76,8 +92,20 @@ export const deletePost = async (postId: string, asAdmin = false): Promise<void>
         throw new Error("Post not found.");
     }
     
-    const postAuthorId = postSnap.data().authorId;
-    if (!asAdmin && postAuthorId !== user.uid) {
+    const postData = postSnap.data() as Post;
+    const postAuthorId = postData.authorId;
+
+    let canDelete = asAdmin || postAuthorId === user.uid;
+
+    if (!canDelete && postData.groupId) {
+        const groupRef = doc(firestore, 'groups', postData.groupId);
+        const groupSnap = await getDoc(groupRef);
+        if (groupSnap.exists() && groupSnap.data().creatorId === user.uid) {
+            canDelete = true; // Group admin can delete posts in their group
+        }
+    }
+
+    if (!canDelete) {
         throw new Error("User not authorized to delete this post.");
     }
     
@@ -100,6 +128,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     const baseQuery = query(
         postsCollection,
         where('authorId', '==', profileUserId),
+        where('status', '==', 'approved') // Only get approved posts for profiles
     );
 
     try {
@@ -119,6 +148,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         const isFollowing = currentUserId ? (profileUser?.followers || []).includes(currentUserId) : false;
 
         const filteredPosts = posts.filter(post => {
+            if (post.groupId) return false; // Exclude group posts from user profiles for now
             if (post.privacy === 'everyone') {
                 return true;
             }
@@ -143,3 +173,14 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         return [];
     }
 };
+
+export const approvePost = async (postId: string) => {
+    const postRef = doc(firestore, 'posts', postId);
+    await updateDoc(postRef, { status: 'approved' });
+}
+
+export const rejectPost = async (postId: string) => {
+    // This is essentially deleting the post
+    await deletePost(postId, true); // Use asAdmin to allow group owners to delete
+}
+
