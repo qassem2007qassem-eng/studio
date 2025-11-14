@@ -1,8 +1,9 @@
+
 export const START_IO_CONFIG = {
   // إعدادات التطبيق
   app: {
     android: {
-      appId: 'YOUR_ANDROID_APP_ID'
+      appId: '210206864'
     },
     ios: {
       appId: 'YOUR_IOS_APP_ID'
