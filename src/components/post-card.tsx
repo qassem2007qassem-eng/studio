@@ -36,6 +36,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogTrigger,
+    DialogClose
 } from "@/components/ui/dialog";
 import { Input } from "./ui/input";
 import { ScrollArea } from "./ui/scroll-area";
@@ -287,6 +288,33 @@ export function PostCard({ post }: PostCardProps) {
   }, [post.background, hasImages]);
 
   const hasBackground = !!selectedBackground;
+  
+  const TEXT_TRUNCATION_LIMIT = 150;
+  const isTextLong = post.content.length > TEXT_TRUNCATION_LIMIT;
+  const showTruncated = hasBackground && isTextLong;
+
+
+  const renderPostContent = (isFullView: boolean) => {
+    const contentToShow = (showTruncated && !isFullView) 
+        ? `${post.content.substring(0, TEXT_TRUNCATION_LIMIT)}...` 
+        : post.content;
+    
+    return (
+      <div className={cn(
+        "p-4",
+        hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg",
+        hasBackground && !isFullView && "cursor-pointer hover:opacity-90 transition-opacity",
+        selectedBackground?.value
+      )}>
+        <p className={cn(
+          "whitespace-pre-wrap",
+          hasBackground ? "text-2xl font-bold" : "text-base"
+        )}>
+          {contentToShow}
+        </p>
+      </div>
+    );
+  };
 
 
   return (
@@ -336,23 +364,19 @@ export function PostCard({ post }: PostCardProps) {
                     </div>
                 </div>
             </CardHeader>
-            <CardContent className="space-y-4 p-4 pt-0">
+            <CardContent className="space-y-4 p-0">
                 {post.content && (
-                    <div className={cn(
-                        hasBackground && "min-h-[150px] flex items-center justify-center text-center rounded-lg p-4",
-                        selectedBackground?.value
-                    )}>
-                        <p className={cn(
-                            "whitespace-pre-wrap",
-                            hasBackground && "text-2xl font-bold"
-                        )}>
-                            {post.content}
-                        </p>
-                    </div>
+                  showTruncated ? (
+                    <DialogTrigger asChild>
+                      {renderPostContent(false)}
+                    </DialogTrigger>
+                  ) : (
+                    renderPostContent(false)
+                  )
                 )}
                 {hasImages && (
                     <div className={cn(
-                        "grid gap-2",
+                        "grid gap-2 p-4",
                         post.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2",
                         post.imageUrls.length > 2 ? "grid-cols-2" : ""
                     )}>
@@ -374,7 +398,7 @@ export function PostCard({ post }: PostCardProps) {
                     </div>
                 )}
             </CardContent>
-            <CardFooter className="flex flex-col items-start gap-4 p-4 pt-0">
+            <CardFooter className="flex flex-col items-start gap-4 p-4">
                 <div className="flex w-full items-center justify-between text-sm text-muted-foreground">
                 <p>{likeCount} إعجاب</p>
                 <p>{commentCount} تعليق</p>
@@ -398,7 +422,14 @@ export function PostCard({ post }: PostCardProps) {
                 </div>
             </CardFooter>
         </Card>
-        <CommentsDialog post={post} />
+        
+        {showTruncated ? (
+            <DialogContent className="max-w-lg p-0 border-0">
+                {renderPostContent(true)}
+            </DialogContent>
+        ) : (
+            <CommentsDialog post={post} />
+        )}
 
         <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
             <AlertDialogContent>
@@ -432,5 +463,3 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
-
-    
