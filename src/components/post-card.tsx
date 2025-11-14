@@ -68,6 +68,7 @@ import { useToast } from "@/hooks/use-toast";
 import { deletePost } from "@/services/post-service";
 import { createReport } from "@/services/report-service";
 import { createNotification } from "@/services/notification-service";
+import { ReportDialog } from "./report-dialog";
 
 
 interface PostCardProps {
@@ -321,7 +322,7 @@ export function PostCard({ post }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-  const [isReportAlertOpen, setIsReportAlertOpen] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   
   const isOwner = user?.uid === post.authorId;
@@ -383,23 +384,27 @@ export function PostCard({ post }: PostCardProps) {
     }
   }
 
-  const handleReport = async () => {
+  const handleReport = async (reason: string) => {
     if (!user) {
         toast({ title: "خطأ", description: "يجب عليك تسجيل الدخول للإبلاغ عن منشور.", variant: "destructive"});
+        return;
+    }
+    if (!reason) {
+        toast({ title: "خطأ", description: "الرجاء إدخال سبب للإبلاغ.", variant: "destructive"});
         return;
     }
     try {
         await createReport({
             reportedEntityType: 'post',
             reportedEntityId: post.id,
-            reason: "محتوى غير لائق",
+            reason: reason,
         });
         toast({ title: "تم إرسال البلاغ", description: "شكرًا لك، سنقوم بمراجعة بلاغك." });
     } catch(error) {
         console.error("Error creating report:", error);
         toast({ title: "خطأ", description: "لم نتمكن من إرسال بلاغك. حاول مرة أخرى.", variant: "destructive" });
     }
-    setIsReportAlertOpen(false);
+    setIsReportDialogOpen(false);
   }
 
   const commentsCollectionQuery = useMemoFirebase(() => {
@@ -500,7 +505,7 @@ export function PostCard({ post }: PostCardProps) {
                             </>
                         )}
                         {!isOwner && 
-                            <DropdownMenuItem onClick={() => setIsReportAlertOpen(true)}>
+                            <DropdownMenuItem onClick={() => setIsReportDialogOpen(true)}>
                                 <Flag className="ms-2 h-4 w-4" />
                                 <span>إبلاغ عن المنشور</span>
                             </DropdownMenuItem>
@@ -560,20 +565,14 @@ export function PostCard({ post }: PostCardProps) {
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
-      <AlertDialog open={isReportAlertOpen} onOpenChange={setIsReportAlertOpen}>
-          <AlertDialogContent>
-              <AlertDialogHeader>
-                  <AlertDialogTitle>الإبلاغ عن محتوى</AlertDialogTitle>
-                  <AlertDialogDescription>
-                  هل أنت متأكد أنك تريد الإبلاغ عن هذا المنشور؟ سيتم إرسال بلاغك إلى المشرفين للمراجعة.
-                  </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleReport}>إبلاغ</AlertDialogAction>
-              </AlertDialogFooter>
-          </AlertDialogContent>
-      </AlertDialog>
+
+      <ReportDialog 
+        open={isReportDialogOpen} 
+        onOpenChange={setIsReportDialogOpen} 
+        onReportSubmit={handleReport}
+        title="الإبلاغ عن منشور"
+        description="لماذا تبلغ عن هذا المنشور؟ سيتم إرسال بلاغك إلى المشرفين للمراجعة."
+      />
     </Dialog>
   );
 }

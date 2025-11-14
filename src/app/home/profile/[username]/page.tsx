@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import Image from "next/image";
@@ -8,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
-import { Settings, UserPlus, UserCheck, Loader2, Lock, Trash2, UserPlus2 } from "lucide-react";
+import { Settings, UserPlus, UserCheck, Loader2, Lock, Trash2, UserPlus2, Flag } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser } from "@/firebase";
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -22,6 +23,8 @@ import { FollowListDialog } from "@/components/follow-list-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useFirebase } from '@/firebase/provider';
+import { ReportDialog } from "@/components/report-dialog";
+import { createReport } from "@/services/report-service";
 
 
 // Simple admin check
@@ -50,6 +53,7 @@ export default function ProfilePage() {
   
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
 
 
   const usernameFromUrl = useMemo(() => {
@@ -187,6 +191,25 @@ export default function ProfilePage() {
         setIsDeleteAlertOpen(false);
     }
   }
+
+  const handleReportUser = async (reason: string) => {
+    if (!currentUser || !profileUser) return;
+     if (!reason) {
+        toast({ title: "خطأ", description: "الرجاء إدخال سبب للإبلاغ.", variant: "destructive"});
+        return;
+    }
+    try {
+      await createReport({
+        reportedEntityId: profileUser.id,
+        reportedEntityType: 'user',
+        reason: reason,
+      });
+      toast({ title: "تم إرسال الإبلاغ بنجاح" });
+      setIsReportDialogOpen(false);
+    } catch (error: any) {
+      toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+    }
+  };
   
   const getFollowButton = () => {
       if (isFollowStatusLoading) return <Button disabled><Loader2 className="h-4 w-4 animate-spin" /></Button>
@@ -264,7 +287,12 @@ export default function ProfilePage() {
                         حذف المستخدم (مشرف)
                     </Button>
                 ) : (
-                    getFollowButton()
+                  <>
+                    {getFollowButton()}
+                    <Button variant="outline" size="icon" onClick={() => setIsReportDialogOpen(true)}>
+                      <Flag className="h-4 w-4" />
+                    </Button>
+                  </>
                 )}
             </div>
           </div>
@@ -353,6 +381,14 @@ export default function ProfilePage() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+
+        <ReportDialog
+            open={isReportDialogOpen}
+            onOpenChange={setIsReportDialogOpen}
+            onReportSubmit={handleReportUser}
+            title={`الإبلاغ عن @${profileUser.username}`}
+            description="لماذا تبلغ عن هذا الحساب؟ سيتم إرسال بلاغك إلى المشرفين للمراجعة."
+        />
 
     </div>
   );

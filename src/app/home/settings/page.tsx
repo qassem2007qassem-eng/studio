@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Moon, Sun, LogOut, Lock, Palette, Shield, Crown } from "lucide-react";
+import { Loader2, LogOut, Lock, Palette, Shield, User, Users, Verified } from "lucide-react";
 import { useUser, initializeFirebase } from "@/firebase";
 import { signOut, updateProfile as updateAuthProfile } from "firebase/auth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,19 +20,18 @@ import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { createReport } from "@/services/report-service";
 
 
-function ProfileSettings() {
+function ProfileSettingsCard() {
     const { toast } = useToast();
     const { user, isUserLoading } = useUser();
-    const { auth } = initializeFirebase();
-    const router = useRouter();
 
     const [userData, setUserData] = useState<UserType | null>(null);
     const [name, setName] = useState("");
     const [username, setUsername] = useState("");
     const [bio, setBio] = useState("");
-    const [isPrivate, setIsPrivate] = useState(false);
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -46,7 +45,6 @@ function ProfileSettings() {
                     setName(data.name || '');
                     setUsername(data.username || '');
                     setBio(data.bio || '');
-                    setIsPrivate(data.isPrivate || false);
                 }
                  setIsLoading(false);
             }).catch(() => setIsLoading(false));
@@ -60,7 +58,7 @@ function ProfileSettings() {
 
         setIsSaving(true);
         try {
-            const profileUpdates: Partial<User> = { name, username, bio, isPrivate };
+            const profileUpdates: Partial<User> = { name, username, bio };
             
             await updateProfile(
                 user.uid,
@@ -91,21 +89,33 @@ function ProfileSettings() {
 
     if (isLoading) {
         return (
-            <div className="space-y-6">
-                {[...Array(3)].map((_, i) => (
-                    <div key={i} className="space-y-2">
-                         <Skeleton className="h-4 w-1/4" />
-                         <Skeleton className="h-10 w-full" />
+            <Card>
+                <CardHeader><CardTitle>الملف الشخصي</CardTitle></CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-1/4" />
+                        <Skeleton className="h-10 w-full" />
                     </div>
-                ))}
-            </div>
+                     <div className="space-y-2">
+                        <Skeleton className="h-4 w-1/4" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                     <div className="space-y-2">
+                        <Skeleton className="h-4 w-1/4" />
+                        <Skeleton className="h-20 w-full" />
+                    </div>
+                </CardContent>
+                <CardFooter>
+                     <Skeleton className="h-10 w-32" />
+                </CardFooter>
+            </Card>
         )
     }
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle>تعديل الملف الشخصي</CardTitle>
+                <CardTitle>الملف الشخصي</CardTitle>
                 <CardDescription>قم بتحديث معلوماتك الشخصية هنا.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -123,20 +133,6 @@ function ProfileSettings() {
                     <Label htmlFor="bio">النبذة التعريفية</Label>
                     <Textarea id="bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={4} placeholder="أخبرنا عن نفسك..." disabled={isSaving}/>
                 </div>
-                 <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                        <Label htmlFor="private-account" className="text-base">حساب خاص</Label>
-                        <p className="text-sm text-muted-foreground">
-                            إذا كان حسابك خاصًا، فلن يتمكن من رؤية منشوراتك إلا الأشخاص الذين توافق عليهم.
-                        </p>
-                    </div>
-                    <Switch
-                        id="private-account"
-                        checked={isPrivate}
-                        onCheckedChange={setIsPrivate}
-                        disabled={isSaving}
-                    />
-                </div>
             </CardContent>
             <CardFooter>
                 <Button onClick={handleSaveChanges} disabled={isSaving}>
@@ -147,26 +143,118 @@ function ProfileSettings() {
     );
 }
 
-function ThemeSettings() {
-    const { theme, setTheme } = useTheme();
+function AccountSettingsCard() {
+    const { user, isUserLoading } = useUser();
+    const { toast } = useToast();
+    
+    const [isPrivate, setIsPrivate] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const [isRequestingVerification, setIsRequestingVerification] = useState(false);
+
+
+    useEffect(() => {
+        if (!isUserLoading && user) {
+            getCurrentUserProfile().then(profile => {
+                if (profile) {
+                    setIsPrivate(profile.isPrivate || false);
+                }
+                setIsLoading(false);
+            });
+        } else if (!isUserLoading) {
+            setIsLoading(false);
+        }
+    }, [user, isUserLoading]);
+
+    const handlePrivacyChange = async (checked: boolean) => {
+        if (!user) return;
+        setIsSaving(true);
+        setIsPrivate(checked);
+        try {
+            await updateProfile(user.uid, { isPrivate: checked });
+            toast({
+                title: "تم تحديث الخصوصية",
+                description: `حسابك الآن ${checked ? 'خاص' : 'عام'}.`,
+            });
+        } catch (error: any) {
+            toast({ title: "خطأ", description: error.message, variant: 'destructive' });
+            setIsPrivate(!checked); // Revert on error
+        } finally {
+            setIsSaving(false);
+        }
+    };
+    
+    const handleRequestVerification = async () => {
+        if (!user) return;
+        setIsRequestingVerification(true);
+        try {
+            await createReport({
+                reportedEntityId: user.uid,
+                reportedEntityType: 'verification_request',
+                reason: 'طلب توثيق الحساب',
+            });
+            toast({
+                title: 'تم إرسال الطلب',
+                description: 'تم إرسال طلب التوثيق الخاص بك إلى المشرفين للمراجعة.',
+            });
+        } catch (error: any) {
+            toast({ title: 'خطأ', description: 'فشل إرسال طلب التوثيق.', variant: 'destructive' });
+        } finally {
+            setIsRequestingVerification(false);
+        }
+    };
+
+     if (isLoading) {
+        return (
+            <Card>
+                <CardHeader><CardTitle>الحساب</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                     <Skeleton className="h-16 w-full" />
+                     <Skeleton className="h-10 w-full" />
+                </CardContent>
+            </Card>
+        )
+    }
 
     return (
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-                <Palette className="h-5 w-5 text-muted-foreground" />
-                <Label htmlFor="theme-switcher">المظهر</Label>
-            </div>
-            <div className="flex items-center gap-2 rounded-full border p-1">
-                <Button variant={theme === 'light' ? 'secondary': 'ghost'} size="icon" className="rounded-full h-8 w-8" onClick={() => setTheme('light')}>
-                    <Sun className="h-5 w-5"/>
-                </Button>
-                 <Button variant={theme === 'dark' ? 'secondary': 'ghost'} size="icon" className="rounded-full h-8 w-8" onClick={() => setTheme('dark')}>
-                    <Moon className="h-5 w-5"/>
-                </Button>
-            </div>
-        </div>
-    )
+        <Card>
+            <CardHeader><CardTitle>إعدادات الحساب</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+                 <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                        <Label htmlFor="private-account" className="text-base flex items-center gap-2">
+                           <Lock /> حساب خاص
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                            إذا كان حسابك خاصًا، فلن يرى منشوراتك إلا متابعوك.
+                        </p>
+                    </div>
+                    <Switch
+                        id="private-account"
+                        checked={isPrivate}
+                        onCheckedChange={handlePrivacyChange}
+                        disabled={isSaving || isLoading}
+                    />
+                </div>
+                 <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                        <Label htmlFor="verification-request" className="text-base flex items-center gap-2">
+                           <Verified/> توثيق الحساب
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                           اطلب علامة التوثيق الزرقاء بجانب اسمك.
+                        </p>
+                    </div>
+                     <Button onClick={handleRequestVerification} disabled={isRequestingVerification}>
+                        {isRequestingVerification ? <Loader2 className="animate-spin" /> : "إرسال طلب"}
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
 }
+
 
 export default function SettingsPage() {
     const { user, isUserLoading } = useUser();
@@ -236,14 +324,35 @@ export default function SettingsPage() {
 
     return (
         <div className="space-y-8">
-            <ProfileSettings />
+            <h1 className="text-3xl font-bold font-headline">الإعدادات</h1>
+
+            <ProfileSettingsCard />
+            <AccountSettingsCard />
 
             <Card>
                  <CardHeader>
                     <CardTitle>الإعدادات العامة</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <ThemeSettings />
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Palette className="h-5 w-5 text-muted-foreground" />
+                            <Label htmlFor="theme-switcher">المظهر</Label>
+                        </div>
+                        <ThemeToggle />
+                    </div>
+                     <Separator />
+                     <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Users className="h-5 w-5 text-muted-foreground" />
+                            <Label>المجتمع</Label>
+                        </div>
+                        <Button asChild variant="secondary" size="sm">
+                            <Link href="/home/friends">
+                                عرض الأصدقاء والمتابعين
+                            </Link>
+                        </Button>
+                    </div>
                      {isAdmin && (
                         <>
                             <Separator />
@@ -256,7 +365,7 @@ export default function SettingsPage() {
                                 </div>
                                 <Button asChild variant="secondary" size="sm">
                                     <Link href="/home/admin">
-                                        الذهاب إلى لوحة التحكم
+                                        الانتقال إلى لوحة التحكم
                                     </Link>
                                 </Button>
                             </div>

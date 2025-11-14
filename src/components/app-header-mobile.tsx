@@ -2,10 +2,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Bell, Search } from 'lucide-react';
+import { Bell, Search, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
-import { ThemeToggle } from './theme-toggle';
 import { useRouter } from 'next/navigation';
 import {
   Sheet,
@@ -39,7 +38,6 @@ export function AppHeader() {
             <Logo />
         </Link>
         <div className="flex items-center justify-end gap-1">
-          <ThemeToggle />
            <Button variant="ghost" size="icon" onClick={() => router.push('/home/search')}>
               <Search />
               <span className="sr-only">Search</span>
@@ -56,6 +54,10 @@ export function AppHeader() {
             </SheetTrigger>
             <NotificationsSheet />
           </Sheet>
+           <Button variant="ghost" size="icon" onClick={() => router.push('/home/settings')}>
+              <Settings />
+              <span className="sr-only">Settings</span>
+           </Button>
         </div>
       </div>
     </header>
