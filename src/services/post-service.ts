@@ -15,6 +15,10 @@ import {
   Timestamp,
   getDoc,
   updateDoc,
+  limit,
+  startAfter,
+  or,
+  DocumentSnapshot,
 } from 'firebase/firestore';
 import {
   ref,
@@ -174,6 +178,56 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     }
 };
 
+export const getFeedPosts = async (userProfile: User | null, pageSize = 10, lastVisible: DocumentSnapshot | null = null) => {
+    if (!userProfile) return { posts: [], lastVisible: null, hasMore: false };
+
+    const followingIds = userProfile.following || [];
+    const userIdsToQuery = [userProfile.id, ...followingIds];
+
+    const postsRef = collection(firestore, 'posts');
+    
+    let q;
+    
+    // This complex query attempts to get all posts that are either 'public' OR from users the current user follows.
+    // Firestore's 'OR' equivalent is using the `or` filter combined with `where`.
+    // It's constrained: all `or` clauses must use the same field for inequality comparisons. Here we use it on different fields.
+    // The correct approach is to use multiple queries and merge, but for a feed, we need ordering.
+    // The best practice is to have a "feed" collection for each user, but that's complex to set up.
+    // Let's try a simplified query and pagination, which will be much faster.
+    
+    // We will query for posts where the author is the user OR someone they follow.
+    // Then we filter client-side for privacy.
+
+    const feedQueryConstraints = [
+        where('authorId', 'in', userIdsToQuery),
+        orderBy('createdAt', 'desc'),
+        limit(pageSize)
+    ];
+
+    if (lastVisible) {
+        feedQueryConstraints.push(startAfter(lastVisible));
+    }
+    
+    q = query(postsRef, ...feedQueryConstraints);
+
+    const querySnapshot = await getDocs(q);
+
+    const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post))
+        .filter(post => {
+            if(post.groupId) return false; // Exclude group posts from main feed for now
+            if(post.authorId === userProfile.id) return true; // Always see own posts
+            if(post.privacy === 'everyone') return true;
+      if (post.privacy === 'followers' && followingIds.includes(post.authorId)) return true;
+            return false;
+        });
+
+    const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
+    const hasMore = querySnapshot.docs.length === pageSize;
+
+    return { posts, lastVisible: newLastVisible, hasMore };
+}
+
+
 export const approvePost = async (postId: string) => {
     const postRef = doc(firestore, 'posts', postId);
     await updateDoc(postRef, { status: 'approved' });
@@ -183,4 +237,5 @@ export const rejectPost = async (postId: string) => {
     // This is essentially deleting the post
     await deletePost(postId, true); // Use asAdmin to allow group owners to delete
 }
+
 

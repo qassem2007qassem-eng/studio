@@ -1,29 +1,48 @@
 
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { AppHeader } from "@/components/app-header-mobile";
 import { PostCard } from "@/components/post-card";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { UserSuggestions } from "@/components/user-suggestions";
-import { useUser, initializeFirebase } from "@/firebase";
-import { collection, query, where, orderBy, getDocs, Timestamp } from "firebase/firestore";
-import { type Post, type User } from "@/lib/types";
+import { useUser } from "@/firebase";
+import { type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { getCurrentUserProfile } from "@/services/user-service";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { getFeedPosts } from "@/services/post-service";
+import { type DocumentSnapshot } from "firebase/firestore";
+import { Loader2 } from "lucide-react";
 
 export default function HomePage() {
-  const { firestore } = initializeFirebase();
   const { user: currentUser, isUserLoading } = useUser();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [lastVisible, setLastVisible] = useState<DocumentSnapshot | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  
+  const observer = useRef<IntersectionObserver>();
+  
+  const lastPostElementRef = useCallback((node: HTMLDivElement) => {
+    if (isLoadingMore) return;
+    if (observer.current) observer.current.disconnect();
+    
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+        loadMorePosts();
+      }
+    });
 
-  useEffect(() => {
-    const fetchFeed = async () => {
-      if (!currentUser || !firestore) {
+    if (node) observer.current.observe(node);
+  }, [isLoadingMore, hasMore]);
+
+
+  const fetchInitialFeed = async () => {
+      if (!currentUser) {
         setIsLoading(false);
         setPosts([]);
         return;
@@ -32,70 +51,47 @@ export default function HomePage() {
 
       try {
         const userProfile = await getCurrentUserProfile();
-        const followingIds = userProfile?.following || [];
-        
-        // Create a list of user IDs to fetch posts from: the current user + people they follow
-        const fetchUserIds = [...new Set([currentUser.uid, ...followingIds])];
-        
-        let feedPosts: Post[] = [];
-
-        // Firestore 'in' queries are limited to 30 items in 2024. 
-        // If a user follows more, we need to chunk the requests.
-        const chunkSize = 30;
-        for (let i = 0; i < fetchUserIds.length; i += chunkSize) {
-            const chunk = fetchUserIds.slice(i, i + chunkSize);
-            if (chunk.length > 0) {
-                 const postsQuery = query(
-                    collection(firestore, "posts"),
-                    where("authorId", "in", chunk)
-                );
-                const postsSnapshot = await getDocs(postsQuery);
-                postsSnapshot.forEach(doc => {
-                    feedPosts.push({ id: doc.id, ...doc.data() } as Post);
-                });
-            }
-        }
-        
-        // Additionally, fetch all public posts, as the above only gets posts from followed users.
-        const publicQuery = query(
-          collection(firestore, "posts"),
-          where("privacy", "==", "everyone")
-        );
-        const publicSnapshot = await getDocs(publicQuery);
-        publicSnapshot.forEach(doc => {
-          feedPosts.push({ id: doc.id, ...doc.data() } as Post);
-        });
-
-
-        // Filter posts based on privacy settings on the client side
-        const filteredPosts = feedPosts.filter(post => {
-            if (post.privacy === 'everyone') return true;
-            if (post.authorId === currentUser.uid) return true; // User can always see their own posts
-            if (post.privacy === 'followers' && followingIds.includes(post.authorId)) return true;
-            return false;
-        });
-
-        // 4. Remove duplicates and sort in client-side
-        const uniquePosts = Array.from(new Map(filteredPosts.map(p => [p.id, p])).values());
-        uniquePosts.sort((a, b) => {
-            const dateA = a.createdAt?.toMillis() || 0;
-            const dateB = b.createdAt?.toMillis() || 0;
-            return dateB - dateA;
-        });
-        
-        setPosts(uniquePosts);
-
+        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(userProfile, 10);
+        setPosts(newPosts);
+        setLastVisible(newLastVisible);
+        setHasMore(newHasMore);
       } catch (error) {
-        console.error("Error fetching feed:", error);
+        console.error("Error fetching initial feed:", error);
       } finally {
         setIsLoading(false);
       }
-    };
+  };
+  
+  const loadMorePosts = async () => {
+    if (!currentUser || !lastVisible || !hasMore) return;
 
-    if (!isUserLoading) {
-      fetchFeed();
+    setIsLoadingMore(true);
+    try {
+        const userProfile = await getCurrentUserProfile();
+        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(userProfile, 10, lastVisible);
+        
+        setPosts(prevPosts => {
+          const postIds = new Set(prevPosts.map(p => p.id));
+          const uniqueNewPosts = newPosts.filter(p => !postIds.has(p.id));
+          return [...prevPosts, ...uniqueNewPosts];
+        });
+
+        setLastVisible(newLastVisible);
+        setHasMore(newHasMore);
+
+    } catch (error) {
+        console.error("Error loading more posts:", error);
+    } finally {
+        setIsLoadingMore(false);
     }
-  }, [currentUser, isUserLoading, firestore]);
+  };
+
+
+  useEffect(() => {
+    if (!isUserLoading) {
+      fetchInitialFeed();
+    }
+  }, [currentUser, isUserLoading]);
 
   return (
     <>
@@ -121,14 +117,32 @@ export default function HomePage() {
                 </Button>
             </div>
         )}
-        {posts?.map((post, index) => (
-          <React.Fragment key={post.id}>
-            <PostCard post={post} />
-            {index === 1 && (
-              <UserSuggestions />
-            )}
-          </React.Fragment>
-        ))}
+        {posts?.map((post, index) => {
+           const isLastElement = index === posts.length - 1;
+           return (
+              <React.Fragment key={post.id}>
+                <div ref={isLastElement ? lastPostElementRef : null}>
+                    <PostCard post={post} />
+                </div>
+                {index === 1 && (
+                  <UserSuggestions />
+                )}
+              </React.Fragment>
+           )
+        })}
+         {isLoadingMore && (
+          <div className="flex justify-center items-center py-4">
+              <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        )}
+         {!isLoading && hasMore && posts.length > 0 && !isLoadingMore && (
+             <div className="text-center">
+                 <Button onClick={loadMorePosts} variant="secondary">تحميل المزيد</Button>
+             </div>
+         )}
+         {!hasMore && posts.length > 0 && (
+              <p className="text-center text-muted-foreground py-4">لقد وصلت إلى النهاية!</p>
+         )}
       </div>
     </>
   );
