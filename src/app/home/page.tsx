@@ -12,6 +12,8 @@ import { type Post, type User } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { getCurrentUserProfile } from "@/services/user-service";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   const { firestore } = initializeFirebase();
@@ -32,12 +34,9 @@ export default function HomePage() {
         const userProfile = await getCurrentUserProfile();
         const followingIds = userProfile?.following || [];
 
-        // IDs to query: current user (for their own posts), and people they follow
-        const authorIdsToQuery = [currentUser.uid, ...followingIds];
-
         let feedPosts: Post[] = [];
 
-        // 1. Fetch public posts from everyone
+        // 1. Fetch public posts from everyone, sorted by creation time
         const publicQuery = query(
           collection(firestore, "posts"),
           where("privacy", "==", "everyone"),
@@ -50,11 +49,12 @@ export default function HomePage() {
         
         // 2. Fetch 'followers-only' posts from followed users, if any
         if (followingIds.length > 0) {
+            // Firestore 'in' queries are limited to 10 items. We might need to chunk this for users following many people.
+            // For now, assuming a reasonable number of followed users.
             const followersQuery = query(
               collection(firestore, "posts"),
               where("authorId", "in", followingIds),
-              where("privacy", "==", "followers"),
-              orderBy("createdAt", "desc")
+              where("privacy", "==", "followers")
             );
             const followersSnapshot = await getDocs(followersQuery);
             followersSnapshot.forEach(doc => {
@@ -66,8 +66,7 @@ export default function HomePage() {
         const myPostsQuery = query(
             collection(firestore, 'posts'),
             where('authorId', '==', currentUser.uid),
-            where('privacy', 'in', ['only_me', 'followers']),
-            orderBy('createdAt', 'desc')
+            where('privacy', 'in', ['only_me', 'followers'])
         );
         const myPostsSnapshot = await getDocs(myPostsQuery);
         myPostsSnapshot.forEach(doc => {
@@ -75,7 +74,7 @@ export default function HomePage() {
         });
 
 
-        // 4. Remove duplicates and sort
+        // 4. Remove duplicates and sort in client-side
         const uniquePosts = Array.from(new Map(feedPosts.map(p => [p.id, p])).values());
         uniquePosts.sort((a, b) => {
             const dateA = a.createdAt?.toMillis() || 0;
@@ -111,8 +110,14 @@ export default function HomePage() {
         )}
         {!isLoading && !isUserLoading && posts.length === 0 && (
             <div className="text-center text-muted-foreground pt-10">
-                <p>لا توجد منشورات لعرضها.</p>
-                <p className="text-sm">ابدأ بمتابعة بعض الأشخاص أو قم بإنشاء منشورك الأول!</p>
+                <p className="text-lg font-semibold">مرحباً بك في StudentHub!</p>
+                <p className="text-sm">يبدو أن صفحتك الرئيسية فارغة.</p>
+                <p className="text-sm mt-2">ابدأ بمتابعة بعض الأشخاص لترى منشوراتهم هنا.</p>
+                 <Button asChild className="mt-4">
+                    <Link href="/home/friends">
+                        اكتشف الأصدقاء
+                    </Link>
+                </Button>
             </div>
         )}
         {posts?.map((post, index) => (

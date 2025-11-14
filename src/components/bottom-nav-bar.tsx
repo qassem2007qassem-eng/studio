@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, PlusCircle, User, Settings } from 'lucide-react';
+import { Home, Users, PlusCircle, User, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/firebase';
 import { useEffect, useState } from 'react';
@@ -37,8 +37,8 @@ export function BottomNavBar() {
     { href: '/home', icon: Home, label: 'الرئيسية' },
     { href: '/home/friends', icon: Users, label: 'الأصدقاء' },
     { href: '/home/create-post', icon: PlusCircle, label: 'إنشاء', isSpecial: true },
+    { href: '/home/search', icon: Search, label: 'بحث' },
     { href: `/home/profile/${username}`, icon: User, label: 'حسابي', requiresAuth: true },
-    { href: '/home/settings', icon: Settings, label: 'الإعدادات', requiresAuth: true },
   ];
 
   if (isUserLoading) {
@@ -64,6 +64,7 @@ export function BottomNavBar() {
         <div className="grid h-full grid-cols-5 items-center">
           {navItems.map((item) => {
             if (item.requiresAuth && (!user || (item.href.includes('/profile/') && !username))) {
+                // Return a disabled-like placeholder for auth-required items when not logged in
                 return <div key={item.label} className="flex flex-col items-center gap-1 opacity-50">
                     <item.icon className="h-6 w-6 text-muted-foreground" />
                     <span className="text-xs font-medium text-muted-foreground">{item.label}</span>

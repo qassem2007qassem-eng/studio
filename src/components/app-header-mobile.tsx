@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Bell } from 'lucide-react';
+import { Bell, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import { ThemeToggle } from './theme-toggle';
@@ -38,8 +38,12 @@ export function AppHeader() {
         <Link href="/home">
             <Logo />
         </Link>
-        <div className="flex items-center justify-end gap-2">
+        <div className="flex items-center justify-end gap-1">
           <ThemeToggle />
+           <Button variant="ghost" size="icon" onClick={() => router.push('/home/search')}>
+              <Search />
+              <span className="sr-only">Search</span>
+           </Button>
           <Sheet>
             <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" disabled={!user}>
