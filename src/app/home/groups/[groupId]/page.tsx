@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -10,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Globe, Lock, UserPlus, LogOut, Loader2, Check, X, ShieldCheck, Users } from 'lucide-react';
+import { Globe, Lock, UserPlus, LogOut, Loader2, Check, X, ShieldCheck, Users, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreatePostTrigger } from '@/components/create-post-trigger';
@@ -20,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { approvePost, rejectPost } from '@/services/post-service';
 import { getUsersByIds } from '@/services/user-service';
 import Link from 'next/link';
+import { ShareGroupDialog } from '@/components/share-group-dialog';
 
 function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' | 'pending' }) {
     const [posts, setPosts] = useState<Post[]>([]);
@@ -71,7 +71,7 @@ function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' |
     );
 }
 
-function GroupMembers({ memberIds }: { memberIds: string[] }) {
+function GroupMembers({ memberIds, creatorId }: { memberIds: string[], creatorId: string }) {
     const [members, setMembers] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -79,11 +79,17 @@ function GroupMembers({ memberIds }: { memberIds: string[] }) {
         const fetchMembers = async () => {
             setIsLoading(true);
             const users = await getUsersByIds(memberIds);
+            // Ensure creator is always first in the list
+            users.sort((a, b) => {
+                if (a.id === creatorId) return -1;
+                if (b.id === creatorId) return 1;
+                return 0;
+            });
             setMembers(users);
             setIsLoading(false);
         };
         fetchMembers();
-    }, [memberIds]);
+    }, [memberIds, creatorId]);
 
     if (isLoading) {
         return (
@@ -115,7 +121,7 @@ function GroupMembers({ memberIds }: { memberIds: string[] }) {
                             <p className="text-sm text-muted-foreground">@{member.username.toLowerCase()}</p>
                         </div>
                     </Link>
-                    {/* Placeholder for member actions (promote, remove, etc.) */}
+                    {member.id === creatorId && <span className="text-xs font-semibold text-primary px-2 py-1 bg-primary/10 rounded-full">المدير</span>}
                 </div>
             ))}
         </div>
@@ -307,15 +313,22 @@ export default function GroupDetailPage() {
                                 </div>
                             </div>
                         </div>
-
-                        <Button 
-                            onClick={handleJoinLeaveGroup}
-                            disabled={!user}
-                            variant={isMember ? 'outline' : 'default'}
-                        >
-                            {isMember ? <LogOut className="me-2"/> : <UserPlus className="me-2"/>}
-                            {isMember ? 'مغادرة المجموعة' : 'الانضمام إلى المجموعة'}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            <ShareGroupDialog group={group}>
+                                <Button variant="outline">
+                                    <Share2 className="me-2"/>
+                                    مشاركة
+                                </Button>
+                            </ShareGroupDialog>
+                            <Button 
+                                onClick={handleJoinLeaveGroup}
+                                disabled={!user}
+                                variant={isMember ? 'outline' : 'default'}
+                            >
+                                {isMember ? <LogOut className="me-2"/> : <UserPlus className="me-2"/>}
+                                {isMember ? 'مغادرة المجموعة' : 'الانضمام إلى المجموعة'}
+                            </Button>
+                        </div>
                     </div>
                      <p className="mt-4 text-muted-foreground">{group.description}</p>
                 </CardContent>
@@ -339,7 +352,7 @@ export default function GroupDetailPage() {
                             </div>
                             <Switch
                                 id="moderation-switch"
-                                checked={group.moderationRequired}
+                                checked={group.moderationRequired || false}
                                 onCheckedChange={handleModerationChange}
                                 disabled={isUpdatingModeration}
                             />
@@ -367,7 +380,7 @@ export default function GroupDetailPage() {
                                <CardTitle className="flex items-center gap-2"><Users/> أعضاء المجموعة ({group.memberIds.length})</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <GroupMembers memberIds={group.memberIds} />
+                                <GroupMembers memberIds={group.memberIds} creatorId={group.creatorId} />
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -390,5 +403,3 @@ export default function GroupDetailPage() {
         </div>
     );
 }
-
-    
