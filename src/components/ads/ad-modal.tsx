@@ -1,6 +1,11 @@
 
 'use client';
 
+// This component is no longer directly used.
+// The logic has been moved into the placeholder elements inside ad-provider.tsx
+// to more closely match the user's provided vanilla JS solution.
+// It is kept here in case it's needed for a different implementation style later.
+
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -13,74 +18,27 @@ interface AdModalProps {
 }
 
 export function AdModal({ isOpen, type, onClose }: AdModalProps) {
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-
-  useEffect(() => {
-    if (isOpen) {
-      setStatus('loading');
-      // Simulate ad loading time
-      const timer = setTimeout(() => {
-        if (Math.random() > 0.2) { // 80% success rate
-          setStatus('ready');
-        } else {
-          setStatus('error');
-          // Auto-close on error
-          setTimeout(() => onClose(false), 1500);
-        }
-      }, 2000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, onClose]);
-
-  const handleClose = (watched: boolean) => {
-    onClose(watched);
-  };
   
-  const title = type === 'rewarded' ? 'إعلان مكافئ' : 'إعلان بيني';
-
-  const renderContent = () => {
-    switch (status) {
-      case 'loading':
-        return (
-          <>
-            <DialogDescription>جاري تحميل الإعلان...</DialogDescription>
-            <div className="flex justify-center items-center h-24">
-                <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          </>
-        );
-      case 'ready':
-        return (
-          <>
-            <DialogDescription>الإعلان جاهز للمشاهدة.</DialogDescription>
-            <div className="flex justify-center items-center h-24 bg-secondary rounded-md my-4">
-              <p>محتوى الإعلان (محاكاة)</p>
-            </div>
-          </>
-        );
-      case 'error':
-        return (
-            <DialogDescription>لا يوجد إعلانات متاحة حالياً. سيتم إغلاق النافذة.</DialogDescription>
-        );
-      default:
-        return null;
-    }
+  if (!isOpen) {
+    return null;
   }
 
+  const title = type === 'rewarded' ? 'إعلان مكافئ' : 'إعلان بيني';
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose(false)}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose(false)}>
       <DialogContent showCloseButton={false} className="sm:max-w-[350px] text-center">
         <DialogHeader>
           <DialogTitle className="text-center">{title}</DialogTitle>
         </DialogHeader>
-        {renderContent()}
-        {status === 'ready' && (
-             <DialogFooter className="sm:justify-center gap-2">
-                <Button variant="secondary" onClick={() => handleClose(false)}>تخطي الإعلان</Button>
-                <Button onClick={() => handleClose(true)}>إغلاق الإعلان</Button>
-            </DialogFooter>
-        )}
+         <DialogDescription>الإعلان جاهز للمشاهدة.</DialogDescription>
+            <div className="flex justify-center items-center h-24 bg-secondary rounded-md my-4">
+              <p>محتوى الإعلان (محاكاة)</p>
+            </div>
+         <DialogFooter className="sm:justify-center gap-2">
+            <Button variant="secondary" onClick={() => onClose(false)}>تخطي الإعلان</Button>
+            <Button onClick={() => onClose(true)}>إغلاق الإعلان</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

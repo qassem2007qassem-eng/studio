@@ -6,32 +6,30 @@ import { AdContext } from './ad-provider';
 import { Button } from '../ui/button';
 
 export function AdBanner() {
-  const { showBanner, setShowBanner } = useContext(AdContext);
+  const { showBanner } = useContext(AdContext);
+
+  const hideBannerAd = () => {
+    if (typeof window !== 'undefined' && window.startapp) {
+        try {
+            window.startapp.hideBannerAd();
+        } catch (e) {
+            console.error("Error hiding banner via SDK", e);
+        }
+    }
+    const bannerElement = document.getElementById('startio-banner-real');
+    if (bannerElement) {
+        bannerElement.style.display = 'none';
+    }
+  }
 
   if (!showBanner) {
     return null;
   }
   
-  const hideBannerAd = () => {
-    if (typeof window !== 'undefined' && window.startapp) {
-        window.startapp.hideBannerAd();
-    }
-    setShowBanner(false);
-  }
-
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-secondary/80 backdrop-blur-sm p-2 text-center border-t md:hidden">
-        <div className="relative flex items-center justify-center h-12 bg-muted rounded-md p-2">
-            <span className="text-sm text-muted-foreground">إعلان - Start.io (محاكاة)</span>
-            <Button
-                variant="ghost"
-                size="icon"
-                onClick={hideBannerAd}
-                className="absolute left-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground"
-            >
-                ✕
-            </Button>
-        </div>
+    <div id="startio-banner-real" style={{position: 'fixed', bottom: '0', left: '0', right: '0', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: '12px', textAlign: 'center', zIndex: 1000, borderTop: '2px solid #fff'}}>
+        <span style={{color: 'white', fontWeight: 'bold'}}>إعلان - Start.io</span>
+        <button onClick={hideBannerAd} style={{position: 'absolute', left: '15px', background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '5px 10px', borderRadius: '15px', cursor: 'pointer', top: '50%', transform: 'translateY(-50%)'}}>✕</button>
     </div>
   );
 }
