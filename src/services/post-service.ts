@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -22,7 +21,7 @@ import {
 import {
   getStorage,
   ref,
-  uploadString,
+  uploadBytesResumable,
   getDownloadURL,
   deleteObject,
 } from 'firebase/storage';
@@ -34,7 +33,7 @@ const { auth, firestore, storage } = initializeFirebase();
 
 type CreatePostInput = {
   content: string;
-  imageBlobs: string[];
+  images: File[];
   author: {
     name: string;
     username: string;
@@ -43,6 +42,7 @@ type CreatePostInput = {
   privacy: PrivacySetting;
   commenting: PrivacySetting;
   background?: string;
+  onProgress?: (fileName: string, progress: number, status: 'uploading' | 'completed' | 'error') => void;
 };
 
 export const createPost = async (input: CreatePostInput): Promise<string> => {
@@ -51,7 +51,6 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     throw new Error('User not authenticated');
   }
 
-  // 1. Create the initial post document data WITHOUT images to get an ID
   const postData: Omit<Post, 'id' | 'imageUrls'> = {
     authorId: user.uid,
     author: input.author,
@@ -65,19 +64,35 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
 
   const postDocRef = await addDoc(collection(firestore, 'posts'), postData);
 
-  // 2. If there are images, upload them now using the post's ID in the path
   let imageUrls: string[] = [];
-  if (input.imageBlobs && input.imageBlobs.length > 0) {
-    const uploadPromises = input.imageBlobs.map(async (blob, index) => {
-      // Use a unique path for each image, including the post ID
-      const imageRef = ref(storage, `posts/${user.uid}/${postDocRef.id}/image-${index}`);
-      await uploadString(imageRef, blob, 'data_url');
-      return getDownloadURL(imageRef);
+  if (input.images && input.images.length > 0) {
+    const uploadPromises = input.images.map(async (imageFile, index) => {
+      const fileName = `image-${index}`;
+      const imageRef = ref(storage, `posts/${user.uid}/${postDocRef.id}/${fileName}`);
+      const uploadTask = uploadBytesResumable(imageRef, imageFile);
+
+      return new Promise<string>((resolve, reject) => {
+        uploadTask.on('state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            input.onProgress?.(imageFile.name, progress, 'uploading');
+          },
+          (error) => {
+            console.error(`Upload failed for ${imageFile.name}:`, error);
+            input.onProgress?.(imageFile.name, 0, 'error');
+            reject(error);
+          },
+          async () => {
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            input.onProgress?.(imageFile.name, 100, 'completed');
+            resolve(downloadURL);
+          }
+        );
+      });
     });
     imageUrls = await Promise.all(uploadPromises);
   }
 
-  // 3. Update the post document with the image URLs and its own ID
   await updateDoc(postDocRef, {
     id: postDocRef.id,
     imageUrls: imageUrls,

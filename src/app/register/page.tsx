@@ -47,7 +47,8 @@ function RegisterForm() {
 
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+
   const [formData, setFormData] = useState({
     email: '',
     fullName: '',
@@ -153,6 +154,7 @@ function RegisterForm() {
 
       let photoURL = "";
       if (formData.avatar) {
+        setIsAvatarUploading(true);
         const avatarRef = ref(storage, `avatars/${user.uid}`);
         const snapshot = await uploadString(
           avatarRef,
@@ -160,6 +162,7 @@ function RegisterForm() {
           'data_url'
         );
         photoURL = await getDownloadURL(snapshot.ref);
+        setIsAvatarUploading(false);
       }
 
       await updateProfile(user, {
@@ -320,11 +323,16 @@ function RegisterForm() {
       content: (
         <div className="space-y-4 text-center">
           <div className="mx-auto w-32 h-32">
-            <Avatar className="w-full h-full">
+            <Avatar className="w-full h-full relative">
               <AvatarImage src={formData.avatar || undefined} />
               <AvatarFallback>
                 <UserCircle2 className="w-20 h-20 text-muted-foreground" />
               </AvatarFallback>
+               {isAvatarUploading && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full">
+                    <Loader2 className="h-8 w-8 animate-spin text-white" />
+                </div>
+                )}
             </Avatar>
           </div>
 

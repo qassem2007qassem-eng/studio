@@ -40,6 +40,9 @@ function ProfileSettings() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     
+    const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+    const [isCoverUploading, setIsCoverUploading] = useState(false);
+
     const avatarInputRef = useRef<HTMLInputElement>(null);
     const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,24 +72,28 @@ function ProfileSettings() {
         setIsSaving(true);
         try {
             const { auth, storage } = initializeFirebase();
-            let newAvatarUrl = userData.avatarUrl;
+            let newAvatarUrl = avatarUrl;
             if (avatarUrl && avatarUrl !== userData.avatarUrl && avatarUrl.startsWith('data:image')) {
+                setIsAvatarUploading(true);
                 const avatarRef = ref(storage, `avatars/${user.uid}`);
                 const snapshot = await uploadString(avatarRef, avatarUrl, 'data_url');
                 newAvatarUrl = await getDownloadURL(snapshot.ref);
+                setIsAvatarUploading(false);
             }
 
-            let newCoverUrl = userData.coverUrl;
+            let newCoverUrl = coverUrl;
             if (coverUrl && coverUrl !== userData.coverUrl && coverUrl.startsWith('data:image')) {
+                 setIsCoverUploading(true);
                 const coverRef = ref(storage, `covers/${user.uid}`);
                 const snapshot = await uploadString(coverRef, coverUrl, 'data_url');
                 newCoverUrl = await getDownloadURL(snapshot.ref);
+                 setIsCoverUploading(false);
             }
             
             if (auth.currentUser) {
                 await updateAuthProfile(auth.currentUser, {
                     displayName: name,
-                    photoURL: newAvatarUrl
+                    photoURL: newAvatarUrl || undefined
                 });
             }
 
@@ -94,8 +101,8 @@ function ProfileSettings() {
                 name: name,
                 username: username.toLowerCase(),
                 bio: bio,
-                avatarUrl: newAvatarUrl,
-                coverUrl: newCoverUrl,
+                avatarUrl: newAvatarUrl || '',
+                coverUrl: newCoverUrl || '',
             };
 
             await updateProfile(updatedUserData);
@@ -119,6 +126,8 @@ function ProfileSettings() {
             });
         } finally {
             setIsSaving(false);
+            setIsAvatarUploading(false);
+            setIsCoverUploading(false);
         }
     };
 
@@ -169,6 +178,11 @@ function ProfileSettings() {
                                     className="object-cover"
                                 />
                             }
+                             {isCoverUploading && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                    <Loader2 className="h-8 w-8 animate-spin text-white" />
+                                </div>
+                            )}
                          </div>
                     </Card>
                     <Button variant="outline" onClick={() => coverInputRef.current?.click()} disabled={isSaving}>تغيير صورة الغلاف</Button>
@@ -179,9 +193,14 @@ function ProfileSettings() {
                 <div className="space-y-2">
                     <Label>الصورة الشخصية</Label>
                     <div className="flex items-center gap-4">
-                        <Avatar className="h-24 w-24">
+                        <Avatar className="h-24 w-24 relative">
                             <AvatarImage src={avatarUrl || undefined} alt={name} />
                             <AvatarFallback>{name?.charAt(0)}</AvatarFallback>
+                             {isAvatarUploading && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full">
+                                    <Loader2 className="h-8 w-8 animate-spin text-white" />
+                                </div>
+                            )}
                         </Avatar>
                         <Button variant="outline" onClick={() => avatarInputRef.current?.click()} disabled={isSaving}>تغيير الصورة الشخصية</Button>
                         <Input ref={avatarInputRef} className="hidden" type="file" accept="image/*" onChange={(e) => handleFileChange(e, setAvatarUrl)} />

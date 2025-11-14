@@ -10,7 +10,8 @@ import {
   Globe,
   Users,
   Lock,
-  ChevronDown
+  ChevronDown,
+  UploadCloud
 } from 'lucide-react';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,6 +29,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Progress } from '@/components/ui/progress';
+
+interface ImageFile {
+    blobUrl: string;
+    file: File;
+}
+
+interface UploadProgress {
+    [fileName: string]: {
+        progress: number;
+        status: 'uploading' | 'completed' | 'error';
+    };
+}
 
 
 const privacyOptions: { value: PrivacySetting; label: string; icon: React.FC<any> }[] = [
@@ -45,13 +59,34 @@ const backgroundOptions = [
   { id: 'gradient5', value: 'bg-gray-800 text-white' },
 ];
 
+
+const ImageUploadProgress = ({ progress, status }: { progress: number; status: string; }) => (
+    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 rounded-lg">
+        {status === 'uploading' ? (
+            <>
+                <UploadCloud className="h-8 w-8 text-white" />
+                <p className="text-white text-sm font-semibold">جاري الرفع... {progress.toFixed(0)}%</p>
+                <Progress value={progress} className="w-3/4 h-1" />
+            </>
+        ) : status === 'completed' ? (
+            <p className="text-white">اكتمل</p>
+        ) : (
+            <p className="text-red-500">خطأ</p>
+        )}
+    </div>
+);
+
+
 export default function CreatePostPage() {
   const { user, isUserLoading } = useUser();
   const [userData, setUserData] = useState<UserType | null>(null);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [content, setContent] = useState('');
-  const [postImages, setPostImages] = useState<string[]>([]);
+  const [postImages, setPostImages] = useState<ImageFile[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({});
+  const [uploadingFileCount, setUploadingFileCount] = useState(0);
+
   const { toast } = useToast();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -61,6 +96,8 @@ export default function CreatePostPage() {
   const hasImages = postImages.length > 0;
   const selectedBackground = backgroundOptions.find(b => b.id === background);
   const hasBackground = background !== 'default';
+  const isUploading = uploadingFileCount > 0;
+
 
   useEffect(() => {
     if (user && !userData) {
@@ -76,7 +113,6 @@ export default function CreatePostPage() {
   }, [user, userData, isUserLoading]);
 
   useEffect(() => {
-    // If images are added, reset the background
     if (hasImages) {
         setBackground('default');
     }
@@ -85,22 +121,23 @@ export default function CreatePostPage() {
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
-      const newImages: string[] = [];
-      Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          newImages.push(reader.result as string);
-          if (newImages.length === files.length) {
-            setPostImages(prev => [...prev, ...newImages]);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+      const newImages: ImageFile[] = Array.from(files).map(file => ({
+          blobUrl: URL.createObjectURL(file),
+          file: file,
+      }));
+      setPostImages(prev => [...prev, ...newImages]);
     }
   };
 
   const removeImage = (index: number) => {
+    const imageToRemove = postImages[index];
+    URL.revokeObjectURL(imageToRemove.blobUrl);
     setPostImages(prev => prev.filter((_, i) => i !== index));
+    setUploadProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[imageToRemove.file.name];
+        return newProgress;
+    });
   };
 
 
@@ -129,7 +166,7 @@ export default function CreatePostPage() {
     try {
       await createPost({
         content: content.trim(),
-        imageBlobs: postImages,
+        images: postImages.map(img => img.file),
         author: {
           name: profile.name,
           username: profile.username.toLowerCase(),
@@ -138,10 +175,23 @@ export default function CreatePostPage() {
         privacy,
         commenting: 'everyone',
         background: background,
+        onProgress: (fileName, progress, status) => {
+             setUploadProgress(prev => ({
+                ...prev,
+                [fileName]: { progress, status },
+            }));
+
+            if (status === 'uploading' && progress === 0) {
+                setUploadingFileCount(prev => prev + 1);
+            } else if (status === 'completed' || status === 'error') {
+                setUploadingFileCount(prev => Math.max(0, prev - 1));
+            }
+        },
       });
 
       setContent('');
       setPostImages([]);
+      setUploadProgress({});
       toast({
         title: 'نجاح',
         description: 'تم نشر منشورك بنجاح.',
@@ -156,6 +206,7 @@ export default function CreatePostPage() {
       });
     } finally {
       setIsSaving(false);
+      setUploadingFileCount(0);
     }
   };
   
@@ -184,12 +235,19 @@ export default function CreatePostPage() {
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col pb-20">
       <header className="flex items-center justify-between p-4 border-b flex-shrink-0">
-          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <Button variant="ghost" size="icon" onClick={() => router.back()} disabled={isSaving || isUploading}>
               <X className="h-5 w-5" />
           </Button>
           <h1 className="text-lg font-semibold">إنشاء منشور</h1>
-          <Button onClick={handleCreatePost} disabled={isSaving || (!content.trim() && !hasImages)}>
-              {isSaving ? <Loader2 className="animate-spin" /> : 'نشر'}
+          <Button onClick={handleCreatePost} disabled={isSaving || isUploading || (!content.trim() && !hasImages)}>
+              {isUploading ? (
+                  <>
+                    <Loader2 className="animate-spin me-2" />
+                    جاري رفع الصور... ({postImages.length - uploadingFileCount}/{postImages.length})
+                  </>
+                ) : isSaving ? (
+                  <Loader2 className="animate-spin" />
+                ) : 'نشر'}
           </Button>
       </header>
       <main className="flex-1 p-4 space-y-4 overflow-y-auto">
@@ -230,7 +288,7 @@ export default function CreatePostPage() {
               )}
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              disabled={isSaving}
+              disabled={isSaving || isUploading}
               autoFocus
           />
           
@@ -244,8 +302,9 @@ export default function CreatePostPage() {
             )}>
                 {postImages.map((image, index) => (
                   <div key={index} className="relative aspect-square">
-                     <Image src={image} alt={`معاينة الصورة ${index + 1}`} fill className="rounded-lg object-cover" />
-                     <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => removeImage(index)}>
+                     <Image src={image.blobUrl} alt={`معاينة الصورة ${index + 1}`} fill className="rounded-lg object-cover" />
+                     {uploadProgress[image.file.name] && <ImageUploadProgress {...uploadProgress[image.file.name]} />}
+                     <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => removeImage(index)} disabled={isSaving || isUploading}>
                         <X className="h-4 w-4"/>
                      </Button>
                   </div>
@@ -255,7 +314,7 @@ export default function CreatePostPage() {
       </main>
       <footer className="p-4 border-t mt-auto flex-shrink-0 bg-background">
            <div className="flex items-center gap-2 overflow-x-auto pb-2">
-              <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={hasBackground}>
+              <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={hasBackground || isSaving || isUploading}>
                   <ImageIcon className={cn("h-6 w-6", hasBackground ? "text-muted-foreground" : "text-green-500")}/>
                   <span className="sr-only">إضافة صورة</span>
               </Button>
@@ -266,7 +325,7 @@ export default function CreatePostPage() {
                   className="hidden"
                   accept="image/*"
                   multiple
-                  disabled={hasBackground}
+                  disabled={hasBackground || isSaving || isUploading}
                 />
               {!hasImages && backgroundOptions.map(bg => (
                   <button 
@@ -276,6 +335,7 @@ export default function CreatePostPage() {
                           "h-8 w-8 rounded-full border-2 flex-shrink-0",
                           background === bg.id ? "border-primary" : "border-muted",
                       )}
+                      disabled={isSaving || isUploading}
                   >
                       <div className={cn("h-full w-full rounded-full", bg.value.split(' ')[0], bg.id === 'default' && 'flex items-center justify-center text-muted-foreground border')}>
                           {bg.id === 'default' && 'Aa'}
@@ -287,5 +347,3 @@ export default function CreatePostPage() {
     </div>
   );
 }
-
-    
