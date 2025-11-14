@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Loader2,
@@ -29,7 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const visibilityOptions: { value: PrivacySetting; label: string; icon: React.FC<any> }[] = [
+const allVisibilityOptions: { value: PrivacySetting; label: string; icon: React.FC<any> }[] = [
   { value: 'everyone', label: 'الجميع', icon: Globe },
   { value: 'followers', label: 'المتابعون فقط', icon: Users },
   { value: 'only_me', label: 'أنا فقط', icon: Lock },
@@ -72,6 +72,10 @@ export default function CreatePostPage() {
       getCurrentUserProfile().then(profile => {
         if (profile) {
           setUserData(profile as UserType);
+          // If the user's account is private, default to 'followers'
+          if (profile.isPrivate) {
+            setVisibility('followers');
+          }
         }
         setIsDataLoading(false);
       });
@@ -79,6 +83,15 @@ export default function CreatePostPage() {
       setIsDataLoading(false);
     }
   }, [user, userData, isUserLoading]);
+
+  // Filter visibility options based on account privacy
+  const visibilityOptions = useMemo(() => {
+    if (userData?.isPrivate) {
+      return allVisibilityOptions.filter(option => option.value !== 'everyone');
+    }
+    return allVisibilityOptions;
+  }, [userData]);
+
 
   const handleCreatePost = async () => {
     if (!content.trim()) {

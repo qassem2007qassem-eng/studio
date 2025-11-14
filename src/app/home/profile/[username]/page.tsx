@@ -15,7 +15,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { type User, type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams, useRouter } from 'next/navigation';
-import { getUserByUsername, followUser, unfollowUser, checkIfFollowing, getCurrentUserProfile, deleteUserAndContent } from "@/services/user-service";
+import { getUserByUsername, followUser, unfollowUser, getCurrentUserProfile, deleteUserAndContent } from "@/services/user-service";
 import { getPostsForUser } from "@/services/post-service";
 import { useToast } from "@/hooks/use-toast";
 import { FollowListDialog } from "@/components/follow-list-dialog";
@@ -78,10 +78,11 @@ export default function ProfilePage() {
       return;
     }
     setIsFollowStatusLoading(true);
-    const followingStatus = await checkIfFollowing(profileUser.id, { forceRefresh: true });
-    setIsFollowing(followingStatus);
+    const userProfile = await getCurrentUserProfile({ forceRefresh: true });
     
-    if (profileUser.isPrivate && !followingStatus) {
+    setIsFollowing(userProfile?.following?.includes(profileUser.id) || false);
+    
+    if (profileUser.isPrivate && !(userProfile?.following?.includes(profileUser.id))) {
         const q = query(
             collection(firestore, `users/${profileUser.id}/notifications`),
             where('type', '==', 'follow_request'),
@@ -188,10 +189,11 @@ export default function ProfilePage() {
   }
   
   const getFollowButton = () => {
-      if (isTogglingFollow) return <Button disabled><Loader2 className="h-4 w-4 animate-spin" /></Button>;
-      if (isFollowing) return <Button onClick={handleFollowToggle} variant='secondary'><UserCheck className="h-4 w-4 me-2" /> متابَع</Button>;
+      if (isFollowStatusLoading) return <Button disabled><Loader2 className="h-4 w-4 animate-spin" /></Button>
+      if (isFollowing) return <Button onClick={handleFollowToggle} variant='secondary' disabled={isTogglingFollow}><UserCheck className="h-4 w-4 me-2" /> متابَع</Button>;
       if (hasPendingRequest) return <Button disabled variant='secondary'><UserPlus2 className="h-4 w-4 me-2"/> معلق</Button>;
-      return <Button onClick={handleFollowToggle}><UserPlus className="h-4 w-4 me-2" /> متابعة</Button>
+      if (profileUser?.isPrivate) return <Button onClick={handleFollowToggle} disabled={isTogglingFollow}><UserPlus className="h-4 w-4 me-2"/> طلب متابعة</Button>
+      return <Button onClick={handleFollowToggle} disabled={isTogglingFollow}><UserPlus className="h-4 w-4 me-2" /> متابعة</Button>
   }
 
   if (isProfileUserLoading || isCurrentUserLoading) {
@@ -238,7 +240,6 @@ export default function ProfilePage() {
   
   const followerCount = profileUser.followers?.length || 0;
   const followingCount = profileUser.following?.length || 0;
-  const followButtonDisabled = isFollowStatusLoading || isTogglingFollow || isCurrentUserLoading;
 
   return (
     <div className="space-y-6">
