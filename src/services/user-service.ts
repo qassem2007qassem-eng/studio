@@ -320,21 +320,31 @@ const updateProfile = async (
   }
 };
 
-const getUsers = async (pageSize = 20, lastVisible: any = null) => {
+const getUsers = async (pageSize = 20, lastVisible: any = null, includeIds: string[] = [], excludeIds: string[] = []) => {
   try {
     const usersRef = collection(firestore, "users");
     let q;
-    if (lastVisible) {
-      q = query(usersRef, orderBy("createdAt", "desc"), startAfter(lastVisible), limit(pageSize));
+
+    if (includeIds.length > 0) {
+      q = query(usersRef, where('id', 'in', includeIds), limit(pageSize));
     } else {
-      q = query(usersRef, orderBy("createdAt", "desc"), limit(pageSize));
+       if (lastVisible) {
+        q = query(usersRef, orderBy("createdAt", "desc"), startAfter(lastVisible), limit(pageSize));
+      } else {
+        q = query(usersRef, orderBy("createdAt", "desc"), limit(pageSize));
+      }
     }
 
     const querySnapshot = await getDocs(q);
-    const users: User[] = [];
+    let users: User[] = [];
     querySnapshot.forEach((doc) => {
-      users.push({ id: doc.id, ...doc.data() } as User);
+        users.push({ id: doc.id, ...doc.data() } as User);
     });
+
+    if (excludeIds.length > 0) {
+      const excludeSet = new Set(excludeIds);
+      users = users.filter(u => !excludeSet.has(u.id));
+    }
 
     const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
     const hasMore = querySnapshot.docs.length === pageSize;

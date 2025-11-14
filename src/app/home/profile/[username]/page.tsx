@@ -20,7 +20,7 @@ import { getPostsForUser } from "@/services/post-service";
 import { useToast } from "@/hooks/use-toast";
 import { FollowListDialog } from "@/components/follow-list-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useFirebase } from '@/firebase/provider';
 
 
@@ -107,10 +107,10 @@ export default function ProfilePage() {
   }, [profileUser, isCurrentUserLoading, checkFollowStatus]);
 
   const canViewContent = useMemo(() => {
-    if (isProfileUserLoading) return false;
+    if (isProfileUserLoading) return false; // Don't show content if profile is loading
     if (isAdmin || isCurrentUserProfile) return true;
     if (!profileUser?.isPrivate) return true;
-    if (isFollowStatusLoading) return false; 
+    if (isFollowStatusLoading) return false; // Don't show content if follow status is loading
     return isFollowing;
   }, [isProfileUserLoading, isFollowStatusLoading, isCurrentUserProfile, isFollowing, profileUser, isAdmin]);
 

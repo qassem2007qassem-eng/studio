@@ -4,6 +4,7 @@
 import { AppHeader } from "@/components/app-header-mobile";
 import { PostCard } from "@/components/post-card";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
+import { UserSuggestions } from "@/components/user-suggestions";
 import { useCollection } from "@/firebase";
 import { collection, query, orderBy } from "firebase/firestore";
 import { useFirebase, useMemoFirebase } from "@/firebase/provider";
@@ -38,8 +39,13 @@ export default function HomePage() {
             <Skeleton className="h-48 w-full" />
           </>
         )}
-        {posts?.map((post) => (
-          <PostCard key={post.id} post={post} />
+        {posts?.map((post, index) => (
+          <>
+            <PostCard key={post.id} post={post} />
+            {index === 1 && (
+              <UserSuggestions />
+            )}
+          </>
         ))}
       </div>
     </>
