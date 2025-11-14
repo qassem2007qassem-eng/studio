@@ -16,6 +16,7 @@ export interface User {
   followers: string[];
   following: string[];
   isPrivate?: boolean;
+  isVerified?: boolean;
   emailVerified?: boolean;
 }
 

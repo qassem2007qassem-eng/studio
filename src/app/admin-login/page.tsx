@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -65,6 +66,7 @@ export default function AdminLoginPage() {
                 followers: [],
                 following: [],
                 isPrivate: true,
+                isVerified: true, // Auto-verify admin
             });
             
             router.push('/home/admin');

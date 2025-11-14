@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
-import { Settings, UserPlus, UserCheck, Loader2, Lock, Trash2, UserPlus2, Flag } from "lucide-react";
+import { Settings, UserPlus, UserCheck, Loader2, Lock, Trash2, UserPlus2, Flag, Verified } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser } from "@/firebase";
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -25,6 +25,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useFirebase } from '@/firebase/provider';
 import { ReportDialog } from "@/components/report-dialog";
 import { createReport } from "@/services/report-service";
+import { cn } from "@/lib/utils";
 
 
 // Simple admin check
@@ -297,7 +298,10 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="mt-4 space-y-1">
-            <h1 className="text-2xl font-bold font-headline">{profileUser.name}</h1>
+            <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold font-headline">{profileUser.name}</h1>
+                {profileUser.isVerified && <Verified className="h-6 w-6 text-blue-500" />}
+            </div>
             <p className="text-sm text-muted-foreground">@{profileUser.username.toLowerCase()}</p>
             {canViewContent ? (
                  <p className="pt-2">{profileUser.bio || "لا يوجد نبذة تعريفية."}</p>

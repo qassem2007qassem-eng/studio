@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { 
@@ -106,6 +107,7 @@ const createUserProfile = async (
       followers: [],
       following: [],
       isPrivate: false,
+      isVerified: user.email === 'admin@app.com', // Auto-verify admin
     };
     
     await setDoc(userDocRef, userData);
@@ -464,6 +466,26 @@ const respondToFollowRequest = async (notificationId: string, requesterId: strin
   await getCurrentUserProfile({ forceRefresh: true });
 };
 
+const approveVerificationRequest = async (userId: string, reportId: string) => {
+  const adminUser = auth.currentUser;
+  if (!adminUser || adminUser.email !== 'admin@app.com') {
+      throw new Error("Only admins can approve verification requests.");
+  }
+
+  const batch = writeBatch(firestore);
+
+  // Mark the user as verified
+  const userRef = doc(firestore, "users", userId);
+  batch.update(userRef, { isVerified: true });
+
+  // Mark the report as resolved
+  const reportRef = doc(firestore, "reports", reportId);
+  batch.update(reportRef, { status: 'resolved' });
+
+  await batch.commit();
+};
+
+
 export {
   createUserProfile,
   getCurrentUserProfile,
@@ -479,5 +501,6 @@ export {
   getFollowing,
   deleteUserAndContent,
   getUserByEmail,
-  respondToFollowRequest
+  respondToFollowRequest,
+  approveVerificationRequest
 };

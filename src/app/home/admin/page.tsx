@@ -1,17 +1,19 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { useUser, initializeFirebase } from '@/firebase';
+import { useUser } from '@/firebase';
 import { type Report, type User } from '@/lib/types';
 import { getReports, updateReportStatus } from '@/services/report-service';
 import { deletePost } from '@/services/post-service';
-import { deleteUserAndContent, getUserById } from '@/services/user-service';
+import { deleteUserAndContent, getUserById, approveVerificationRequest } from '@/services/user-service';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ShieldAlert, Trash2 } from 'lucide-react';
+import { Loader2, ShieldAlert, Trash2, Verified, UserCheck } from 'lucide-react';
 import Link from 'next/link';
+import { Separator } from '@/components/ui/separator';
 
 // Simple admin check
 const isAdminUser = (user: User | null) => {
@@ -24,6 +26,7 @@ export default function AdminPage() {
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const [reports, setReports] = useState<Report[]>([]);
+  const [verificationRequests, setVerificationRequests] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState<Record<string, boolean>>({});
   const [reportedUsers, setReportedUsers] = useState<Record<string, User>>({});
@@ -31,15 +34,21 @@ export default function AdminPage() {
   const isAdmin = isAdminUser(user as User);
 
   useEffect(() => {
-    if (isUserLoading) return; // Wait until user status is resolved
+    if (isUserLoading) return;
 
     if (isAdmin) {
-      getReports('pending').then(async (fetchedReports) => {
-        setReports(fetchedReports);
+      const fetchAllReports = async () => {
+        setIsLoading(true);
+        const allPendingReports = await getReports('pending');
         
-        // Fetch user data for reports on users
-        const userReportIds = fetchedReports
-            .filter(r => r.reportedEntityType === 'user' && !reportedUsers[r.reportedEntityId])
+        const contentReports = allPendingReports.filter(r => r.reportedEntityType !== 'verification_request');
+        const verifReports = allPendingReports.filter(r => r.reportedEntityType === 'verification_request');
+        
+        setReports(contentReports);
+        setVerificationRequests(verifReports);
+
+        const userReportIds = [...allPendingReports]
+            .filter(r => (r.reportedEntityType === 'user' || r.reportedEntityType === 'verification_request') && !reportedUsers[r.reportedEntityId])
             .map(r => r.reportedEntityId);
         
         if (userReportIds.length > 0) {
@@ -55,7 +64,8 @@ export default function AdminPage() {
         }
 
         setIsLoading(false);
-      });
+      };
+      fetchAllReports();
     } else {
       setIsLoading(false);
     }
@@ -66,6 +76,7 @@ export default function AdminPage() {
     try {
       await action();
       setReports(prev => prev.filter(r => r.id !== reportId));
+      setVerificationRequests(prev => prev.filter(r => r.id !== reportId));
       toast({ title: successMessage });
     } catch (error: any) {
       console.error("Admin action failed:", error);
@@ -92,6 +103,10 @@ export default function AdminPage() {
   const handleDismissReport = (reportId: string) => {
     handleAction(reportId, () => updateReportStatus(reportId, 'dismissed'), "تم تجاهل الإبلاغ.");
   };
+  
+  const handleApproveVerification = (report: Report) => {
+    handleAction(report.id, () => approveVerificationRequest(report.reportedEntityId, report.id), "تم توثيق الحساب بنجاح.");
+  };
 
   if (isLoading || isUserLoading) {
     return <div className="flex justify-center items-center h-screen"><Loader2 className="animate-spin h-8 w-8" /></div>;
@@ -108,24 +123,11 @@ export default function AdminPage() {
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>لوحة تحكم المشرفين</CardTitle>
-          <CardDescription>مراجعة الإبلاغات المعلقة واتخاذ الإجراءات اللازمة.</CardDescription>
-        </CardHeader>
-      </Card>
-
-      {reports.length === 0 ? (
-        <Card>
-            <CardContent className="p-8 text-center text-muted-foreground">
-                <ShieldAlert className="h-10 w-10 mx-auto mb-4" />
-                لا توجد إبلاغات معلقة حاليًا. عمل رائع!
-            </CardContent>
-        </Card>
-      ) : (
-        reports.map((report) => {
+  const renderContentReports = () => {
+    if (reports.length === 0) return null;
+    return (
+      <div className="space-y-4">
+        {reports.map((report) => {
             const reportedUser = reportedUsers[report.reportedEntityId];
             return (
                 <Card key={report.id}>
@@ -178,7 +180,94 @@ export default function AdminPage() {
                     </CardFooter>
                 </Card>
             );
-        })
+        })}
+      </div>
+    );
+  };
+
+  const renderVerificationRequests = () => {
+    if (verificationRequests.length === 0) return null;
+    return (
+        <div className="space-y-4">
+            {verificationRequests.map(report => {
+                const requestedUser = reportedUsers[report.reportedEntityId];
+                if (!requestedUser) return null;
+                 return (
+                    <Card key={report.id}>
+                        <CardHeader>
+                            <CardTitle className="text-lg">طلب توثيق حساب</CardTitle>
+                            <CardDescription>
+                                <Link href={`/home/profile/${requestedUser.username}`} className="hover:underline text-primary">
+                                    @{requestedUser.username}
+                                </Link>
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <p><span className="font-semibold">اسم المستخدم:</span> {requestedUser.name}</p>
+                            <p><span className="font-semibold">البريد الإلكتروني:</span> {requestedUser.email}</p>
+                            <p className="text-sm text-muted-foreground"><span className="font-semibold">تاريخ الطلب:</span> {report.createdAt?.toDate ? new Date(report.createdAt.toDate()).toLocaleDateString('ar') : '...'}</p>
+                        </CardContent>
+                        <CardFooter className="gap-2">
+                             <Button
+                                onClick={() => handleApproveVerification(report)}
+                                disabled={isActionLoading[report.id]}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                             >
+                                {isActionLoading[report.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : <><UserCheck/> توثيق الحساب</>}
+                            </Button>
+                             <Button 
+                                variant="secondary"
+                                onClick={() => handleDismissReport(report.id)}
+                                disabled={isActionLoading[report.id]}
+                            >
+                                {isActionLoading[report.id] ? <Loader2 className="h-4 w-4 animate-spin"/> : "تجاهل الطلب"}
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                )
+            })}
+        </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>لوحة تحكم المشرفين</CardTitle>
+          <CardDescription>مراجعة الإبلاغات وطلبات التوثيق المعلقة.</CardDescription>
+        </CardHeader>
+      </Card>
+      
+      {verificationRequests.length > 0 && (
+         <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Verified className="text-blue-500" /> طلبات التوثيق</CardTitle>
+            </CardHeader>
+             <CardContent>
+                {renderVerificationRequests()}
+            </CardContent>
+        </Card>
+      )}
+      
+      {reports.length > 0 && (
+         <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><ShieldAlert className="text-destructive" /> إبلاغات المحتوى</CardTitle>
+            </CardHeader>
+            <CardContent>
+                {renderContentReports()}
+            </CardContent>
+        </Card>
+      )}
+
+      {reports.length === 0 && verificationRequests.length === 0 && (
+        <Card>
+            <CardContent className="p-8 text-center text-muted-foreground">
+                <ShieldAlert className="h-10 w-10 mx-auto mb-4" />
+                لا توجد إبلاغات أو طلبات معلقة حاليًا. عمل رائع!
+            </CardContent>
+        </Card>
       )}
     </div>
   );
