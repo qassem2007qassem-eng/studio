@@ -27,7 +27,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useAuth, initializeFirebase } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import {
   doc,
   setDoc,
@@ -148,6 +148,9 @@ function RegisterForm() {
       );
       const user = userCredential.user;
 
+      // Send verification email
+      await sendEmailVerification(user);
+
       let photoURL = "";
       if (formData.avatar) {
         const avatarRef = ref(storage, `avatars/${user.uid}`);
@@ -178,14 +181,14 @@ function RegisterForm() {
         coverUrl: "",
         followers: [],
         following: [],
-        emailVerified: false // Set to false initially
+        emailVerified: user.emailVerified
       });
       
       toast({
-        title: "تم إنشاء الحساب",
-        description: "تم إرسال رمز إلى بريدك الإلكتروني. الرجاء التحقق.",
+        title: "الرجاء التحقق من بريدك الإلكتروني",
+        description: "مرحبا بك عزيزي المستخدم لاتفصلك سوا فاصلة عن اكتشاف عالمنا تحقق من بريدك الاكتروني فريق مجمع الطلاب السوري",
       });
-      router.push(`/verify-email?email=${encodeURIComponent(formData.email)}`);
+      router.push('/login');
 
     } catch (error: any) {
       setIsLoading(false);
@@ -453,5 +456,3 @@ export default function RegisterPage() {
         </Suspense>
     );
 }
-
-    

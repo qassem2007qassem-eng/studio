@@ -83,17 +83,19 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const loggedInUser = userCredential.user;
 
-      const userProfileDoc = await getDoc(doc(firestore, 'users', loggedInUser.uid));
-      if (userProfileDoc.exists() && userProfileDoc.data().emailVerified === false) {
-          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
-          toast({
-              title: 'التحقق من البريد الإلكتروني',
-              description: 'الرجاء التحقق من بريدك الإلكتروني أولاً.',
-          });
-          return;
+      if (!loggedInUser.emailVerified && loggedInUser.email?.toLowerCase() !== ADMIN_EMAIL) {
+        await auth.signOut();
+        toast({
+            title: 'التحقق من البريد الإلكتروني',
+            description: 'الرجاء التحقق من بريدك الإلكتروني أولاً. لقد أرسلنا لك رابط التحقق.',
+            variant: 'destructive'
+        });
+        setIsLoading(false);
+        return;
       }
-
+      
       router.push('/home');
+
     } catch (error: any) {
       console.error(error);
       let description = 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.';
@@ -222,5 +224,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
