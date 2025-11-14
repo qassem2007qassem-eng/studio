@@ -5,12 +5,12 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, orderBy, writeBatch } from 'firebase/firestore';
 import { useUser, initializeFirebase } from '@/firebase';
-import { type Group, type Post } from '@/lib/types';
+import { type Group, type Post, type User } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Globe, Lock, UserPlus, LogOut, Loader2, Check, X, ShieldCheck } from 'lucide-react';
+import { Globe, Lock, UserPlus, LogOut, Loader2, Check, X, ShieldCheck, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CreatePostTrigger } from '@/components/create-post-trigger';
@@ -18,6 +18,8 @@ import { PostCard } from '@/components/post-card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { approvePost, rejectPost } from '@/services/post-service';
+import { getUsersByIds } from '@/services/user-service';
+import Link from 'next/link';
 
 function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' | 'pending' }) {
     const [posts, setPosts] = useState<Post[]>([]);
@@ -68,6 +70,58 @@ function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' |
         </div>
     );
 }
+
+function GroupMembers({ memberIds }: { memberIds: string[] }) {
+    const [members, setMembers] = useState<User[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchMembers = async () => {
+            setIsLoading(true);
+            const users = await getUsersByIds(memberIds);
+            setMembers(users);
+            setIsLoading(false);
+        };
+        fetchMembers();
+    }, [memberIds]);
+
+    if (isLoading) {
+        return (
+            <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-4">
+                        <Skeleton className="h-12 w-12 rounded-full" />
+                        <div className="space-y-2">
+                            <Skeleton className="h-4 w-[150px]" />
+                            <Skeleton className="h-4 w-[100px]" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )
+    }
+
+    return (
+         <div className="space-y-4">
+            {members.map(member => (
+                <div key={member.id} className="flex items-center justify-between">
+                    <Link href={`/home/profile/${member.username.toLowerCase()}`} className="flex items-center gap-4">
+                        <Avatar>
+                            <AvatarImage src={undefined} alt={member.name} />
+                            <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <p className="font-semibold">{member.name}</p>
+                            <p className="text-sm text-muted-foreground">@{member.username.toLowerCase()}</p>
+                        </div>
+                    </Link>
+                    {/* Placeholder for member actions (promote, remove, etc.) */}
+                </div>
+            ))}
+        </div>
+    );
+}
+
 
 function PendingPostCard({ post }: { post: Post }) {
     const [isActionLoading, setIsActionLoading] = useState(false);
@@ -228,6 +282,9 @@ export default function GroupDetailPage() {
         );
     }
     
+    const adminTabs = isCreator ? ['pending', 'members'] : [];
+    const defaultTab = "posts";
+
     return (
         <div className="space-y-6">
             <Card className="overflow-hidden">
@@ -292,15 +349,29 @@ export default function GroupDetailPage() {
             )}
             
             {canViewContent ? (
-                 <Tabs defaultValue="posts" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
+                 <Tabs defaultValue={defaultTab} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 md:grid-cols-3">
                         <TabsTrigger value="posts">المنشورات</TabsTrigger>
+                        <TabsTrigger value="members">الأعضاء</TabsTrigger>
                         {isCreator && <TabsTrigger value="pending">المنشورات المعلقة</TabsTrigger>}
                     </TabsList>
+
                     <TabsContent value="posts" className="space-y-6 mt-6">
                          {isMember && <CreatePostTrigger groupId={group.id} />}
                          <GroupPosts groupId={group.id} status="approved" />
                     </TabsContent>
+                    
+                    <TabsContent value="members" className="space-y-6 mt-6">
+                        <Card>
+                            <CardHeader>
+                               <CardTitle className="flex items-center gap-2"><Users/> أعضاء المجموعة ({group.memberIds.length})</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <GroupMembers memberIds={group.memberIds} />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
                     {isCreator && (
                         <TabsContent value="pending" className="space-y-6 mt-6">
                             <GroupPosts groupId={group.id} status="pending" />
@@ -320,3 +391,4 @@ export default function GroupDetailPage() {
     );
 }
 
+    
