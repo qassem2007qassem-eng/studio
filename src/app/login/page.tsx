@@ -24,7 +24,7 @@ import {
   signInWithPopup,
 } from 'firebase/auth';
 import { Separator } from '@/components/ui/separator';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 
@@ -55,26 +55,85 @@ interface SavedUser {
     avatarUrl: string;
 }
 
-const SavedUserLogin = ({ savedUser, onLogin, onSwitchAccount }: { savedUser: SavedUser, onLogin: () => void, onSwitchAccount: () => void }) => {
+const SpecificUserLogin = ({ user, onBack }: { user: SavedUser, onBack: () => void }) => {
+    const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const auth = useAuth();
+    const router = useRouter();
+    const { toast } = useToast();
+    const { firestore } = useFirebase();
+
+    const ADMIN_EMAIL = 'admin@app.com';
+
+     const handleLogin = async (e?: React.FormEvent) => {
+        e?.preventDefault();
+        if (!user.email || !password) {
+            toast({ title: 'خطأ', description: 'الرجاء إدخال كلمة المرور.', variant: 'destructive' });
+            return;
+        }
+        setIsLoading(true);
+
+        try {
+            const userCredential = await signInWithEmailAndPassword(auth, user.email, password);
+            const loggedInUser = userCredential.user;
+
+             if (!loggedInUser.emailVerified && loggedInUser.email?.toLowerCase() !== ADMIN_EMAIL) {
+                await auth.signOut();
+                toast({
+                    title: 'التحقق من البريد الإلكتروني',
+                    description: 'الرجاء التحقق من بريدك الإلكتروني أولاً. لقد أرسلنا لك رابط التحقق.',
+                    variant: 'default'
+                });
+                setIsLoading(false);
+                return;
+            }
+            
+            router.push('/home');
+
+        } catch (error: any) {
+            let description = 'كلمة المرور غير صحيحة.';
+            toast({
+                title: 'خطأ في تسجيل الدخول',
+                description: description,
+                variant: 'destructive',
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
 
     return (
          <Card className="mx-auto w-full max-w-sm">
             <CardHeader className="text-center">
-                <Logo className="mx-auto mb-4" />
                 <Avatar className="mx-auto mb-4 h-24 w-24">
-                    <AvatarImage src={savedUser.avatarUrl} alt={savedUser.name} />
-                    <AvatarFallback>{savedUser.name?.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={user.avatarUrl} alt={user.name} />
+                    <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
-                <CardTitle className="text-xl font-headline">أهلاً بعودتك، {savedUser.name?.split(' ')[0]}</CardTitle>
+                <CardTitle className="text-xl font-headline">أهلاً بعودتك، {user.name?.split(' ')[0]}</CardTitle>
                 <CardDescription>
-                    نقرة واحدة تفصلك عن متابعة التصفح.
+                    أدخل كلمة المرور للمتابعة
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
-                 <Button onClick={onLogin} className="w-full">
-                    متابعة باسم {savedUser.name?.split(' ')[0]}
-                </Button>
-                <Button variant="link" onClick={onSwitchAccount} className="w-full">
+                 <form onSubmit={handleLogin} className="grid gap-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="password">كلمة المرور</Label>
+                        <Input
+                        id="password"
+                        type="password"
+                        required
+                        autoFocus
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={isLoading}
+                        />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading ? <Loader2 className="animate-spin" /> : 'تسجيل الدخول'}
+                    </Button>
+                </form>
+                <Button variant="link" onClick={onBack} className="w-full">
                    تسجيل الدخول بحساب آخر
                 </Button>
             </CardContent>
@@ -95,47 +154,38 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [savedUser, setSavedUser] = useState<SavedUser | null>(null);
-  const [view, setView] = useState<'login' | 'saved_user'>('login');
+  const [savedUsers, setSavedUsers] = useState<SavedUser[]>([]);
+  const [selectedUser, setSelectedUser] = useState<SavedUser | null>(null);
 
   const ADMIN_EMAIL = 'admin@app.com';
 
   useEffect(() => {
-    // If user is already logged in with Firebase, redirect to home page
     if (!isUserLoading && user) {
       router.push('/home');
     }
   }, [user, isUserLoading, router]);
 
   useEffect(() => {
-    // Check for a saved user in localStorage when component mounts and user is not logged in
     if (!user) {
-        const savedUserJson = localStorage.getItem('savedUser');
-        if (savedUserJson) {
-            const parsedUser = JSON.parse(savedUserJson);
-            setSavedUser(parsedUser);
-            setEmail(parsedUser.email);
-            setView('saved_user');
-        } else {
-            setView('login');
+        const savedUsersJson = localStorage.getItem('savedUsers');
+        if (savedUsersJson) {
+            const parsedUsers = JSON.parse(savedUsersJson);
+            setSavedUsers(parsedUsers);
         }
     }
   }, [user]);
 
-  const handleSuccessfulLogin = (loggedInUser: any) => {
-    // We no longer save user here, it's done on logout
-    router.push('/home');
+  if (selectedUser) {
+      return (
+          <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
+            <SpecificUserLogin user={selectedUser} onBack={() => setSelectedUser(null)} />
+          </div>
+      );
   }
-
 
   const handleLogin = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!email || !password) {
-      // For one-tap, we don't have password yet. This is a special case.
-      if (view === 'saved_user' && email) {
-          setView('login'); // Show full login to ask for password
-          return;
-      }
       toast({ title: 'خطأ', description: 'الرجاء إدخال البريد الإلكتروني وكلمة المرور.', variant: 'destructive' });
       return;
     }
@@ -156,12 +206,10 @@ export default function LoginPage() {
         return;
       }
       
-      handleSuccessfulLogin(loggedInUser);
+      router.push('/home');
 
     } catch (error: any) {
-      console.error(error);
       let description = 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.';
-      
       if (
         error.code === 'auth/invalid-credential' ||
         error.code === 'auth/user-not-found' ||
@@ -170,27 +218,16 @@ export default function LoginPage() {
       ) {
         description = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
       }
-
       toast({
         title: 'خطأ في تسجيل الدخول',
         description: description,
         variant: 'destructive',
       });
-      setIsLoading(false);
+    } finally {
+        setIsLoading(false);
     }
   };
   
-  const handleOneTapLoginClick = () => {
-    // This is a UX trick. Since we can't log in without a password,
-    // we switch to the login view, pre-fill the email, and focus the password field.
-    // The user still needs to enter their password.
-    setView('login');
-    // We could try to log them in if their session is still active in Firebase
-    // but the main useEffect already handles that. So we just switch views.
-    setTimeout(() => {
-        document.getElementById('password')?.focus();
-    }, 100);
-  }
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
@@ -217,7 +254,7 @@ export default function LoginPage() {
         });
       }
       
-      handleSuccessfulLogin(googleUser);
+      router.push('/home');
 
     } catch (error: any) {
       console.error("Google sign-in error:", error);
@@ -236,7 +273,6 @@ export default function LoginPage() {
   };
 
 
-  // Show a loading indicator while checking auth status, and don't render the form if the user is logged in
   if (isUserLoading || user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
@@ -244,24 +280,6 @@ export default function LoginPage() {
       </div>
     );
   }
-  
-  if (view === 'saved_user' && savedUser) {
-      return (
-          <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-              <SavedUserLogin 
-                savedUser={savedUser} 
-                onLogin={handleOneTapLoginClick}
-                onSwitchAccount={() => {
-                    localStorage.removeItem('savedUser');
-                    setView('login');
-                    setEmail('');
-                    setSavedUser(null);
-                }} 
-            />
-          </div>
-      )
-  }
-
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
@@ -270,10 +288,37 @@ export default function LoginPage() {
           <Logo className="mx-auto mb-4" />
           <CardTitle className="text-2xl font-headline">تسجيل الدخول</CardTitle>
           <CardDescription>
-            أدخل بريدك الإلكتروني وكلمة المرور للوصول إلى حسابك
+            اختر حسابًا أو سجل الدخول
           </CardDescription>
         </CardHeader>
         <CardContent>
+            {savedUsers.length > 0 && (
+                <>
+                    <div className="mb-4">
+                        <h3 className="text-center text-sm font-medium text-muted-foreground mb-4">تسجيلات الدخول الأخيرة</h3>
+                        <div className="flex justify-center gap-4 flex-wrap">
+                            {savedUsers.map((savedUser, index) => (
+                                <div key={index} className="flex flex-col items-center gap-2 cursor-pointer" onClick={() => setSelectedUser(savedUser)}>
+                                    <Avatar className="h-16 w-16 border-2 border-transparent hover:border-primary">
+                                        <AvatarImage src={savedUser.avatarUrl} alt={savedUser.name} />
+                                        <AvatarFallback>{savedUser.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <p className="text-sm font-medium">{savedUser.name.split(' ')[0]}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                     <div className="relative my-4">
+                        <div className="absolute inset-0 flex items-center">
+                            <span className="w-full border-t" />
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-background px-2 text-muted-foreground">أو</span>
+                        </div>
+                    </div>
+                </>
+            )}
+
           <div className="grid gap-4">
             <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading || isGoogleLoading}>
               {isGoogleLoading ? <Loader2 className="animate-spin" /> : <><GoogleIcon className="me-2 h-4 w-4" /> متابعة باستخدام Google</>}
@@ -326,5 +371,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    

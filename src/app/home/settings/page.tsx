@@ -242,9 +242,29 @@ export default function SettingsPage() {
     const [isLogoutAlertOpen, setIsLogoutAlertOpen] = useState(false);
     const isAdmin = user?.email === 'admin@app.com';
 
-    const performSignOut = async () => {
+    const handleLogout = async () => {
         setIsLoggingOut(true);
         try {
+            const profile = await getCurrentUserProfile();
+            if (profile) {
+                const savedUsersRaw = localStorage.getItem('savedUsers');
+                let savedUsers = savedUsersRaw ? JSON.parse(savedUsersRaw) : [];
+                
+                const userToSave = {
+                    email: profile.email,
+                    name: profile.name,
+                    avatarUrl: profile.avatarUrl,
+                };
+
+                // Remove user if they already exist to move them to the front
+                savedUsers = savedUsers.filter((u: any) => u.email !== profile.email);
+                // Add user to the front of the array
+                savedUsers.unshift(userToSave);
+                // Limit to 5 users
+                savedUsers = savedUsers.slice(0, 5);
+
+                localStorage.setItem('savedUsers', JSON.stringify(savedUsers));
+            }
             await signOut(auth);
             router.push('/login');
         } catch (error) {
@@ -254,24 +274,7 @@ export default function SettingsPage() {
             setIsLogoutAlertOpen(false);
         }
     };
-    
-    const handleSaveAndLogout = async () => {
-        const profile = await getCurrentUserProfile();
-        if (profile) {
-            const userToSave = {
-                email: profile.email,
-                name: profile.name,
-                avatarUrl: profile.avatarUrl,
-            };
-            localStorage.setItem('savedUser', JSON.stringify(userToSave));
-        }
-        await performSignOut();
-    };
 
-    const handleDontSaveAndLogout = async () => {
-        localStorage.removeItem('savedUser');
-        await performSignOut();
-    };
 
     if (isUserLoading) {
          return (
@@ -324,31 +327,12 @@ export default function SettingsPage() {
                         </>
                     )}
                     <Separator />
-                     <Button variant="ghost" className="w-full justify-start gap-4 text-red-500 hover:text-red-600" onClick={() => setIsLogoutAlertOpen(true)} disabled={isLoggingOut}>
+                     <Button variant="ghost" className="w-full justify-start gap-4 text-red-500 hover:text-red-600" onClick={handleLogout} disabled={isLoggingOut}>
                         <LogOut className="h-5 w-5" />
                         <span>{isLoggingOut ? "جاري تسجيل الخروج..." : "تسجيل الخروج"}</span>
                     </Button>
                 </CardContent>
             </Card>
-            
-            <AlertDialog open={isLogoutAlertOpen} onOpenChange={setIsLogoutAlertOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>هل تريد حفظ معلومات تسجيل الدخول؟</AlertDialogTitle>
-                        <AlertDialogDescription>
-                           إذا قمت بالحفظ، ستتمكن من تسجيل الدخول بنقرة واحدة في المرة القادمة.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogAction onClick={handleSaveAndLogout} disabled={isLoggingOut}>
-                            {isLoggingOut ? <Loader2 className="animate-spin" /> : 'نعم، احفظ وخرج'}
-                        </AlertDialogAction>
-                        <AlertDialogCancel onClick={handleDontSaveAndLogout} disabled={isLoggingOut} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                           {isLoggingOut ? <Loader2 className="animate-spin" /> : 'لا، خروج فقط'}
-                        </AlertDialogCancel>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
     )
 }
