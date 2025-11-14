@@ -13,7 +13,6 @@ import {
   query,
   where,
   orderBy,
-  limit,
   Timestamp,
   getDoc,
   updateDoc,
@@ -21,13 +20,11 @@ import {
 import {
   getStorage,
   ref,
-  uploadBytesResumable,
-  getDownloadURL,
   deleteObject,
 } from 'firebase/storage';
 import { initializeFirebase } from '@/firebase';
 import { type Post, type PrivacySetting } from '@/lib/types';
-import { getCurrentUserProfile } from './user-service';
+import { uploadFile } from './storage-service';
 
 const { auth, firestore, storage } = initializeFirebase();
 
@@ -51,56 +48,35 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     throw new Error('User not authenticated');
   }
 
-  // 1. Create the post document first to get an ID
-  const postData: Omit<Post, 'id' | 'imageUrls'> = {
+  // 1. Upload images first using the new centralized service
+  let imageUrls: string[] = [];
+  if (input.images && input.images.length > 0) {
+    const uploadPromises = input.images.map((imageFile) => {
+      const path = `posts/${user.uid}/${Date.now()}_${imageFile.name}`;
+      return uploadFile(imageFile, path, (progress, status) => {
+        input.onProgress?.(imageFile.name, progress, status);
+      });
+    });
+    imageUrls = await Promise.all(uploadPromises);
+  }
+
+  // 2. Once all images are uploaded and URLs are retrieved, create the post document
+  const postData: Omit<Post, 'id'> = {
     authorId: user.uid,
     author: input.author,
     content: input.content,
     createdAt: serverTimestamp() as Timestamp,
     likeIds: [],
+    imageUrls: imageUrls, // Use the retrieved URLs
     privacy: input.privacy,
     commenting: input.commenting,
     background: input.background || 'default',
   };
 
   const postDocRef = await addDoc(collection(firestore, 'posts'), postData);
-
-  // 2. If there are images, upload them using the post ID
-  let imageUrls: string[] = [];
-  if (input.images && input.images.length > 0) {
-    const uploadPromises = input.images.map(async (imageFile, index) => {
-      const fileName = `image-${index}`;
-      // Use the generated post ID in the storage path
-      const imageRef = ref(storage, `posts/${user.uid}/${postDocRef.id}/${fileName}`);
-      const uploadTask = uploadBytesResumable(imageRef, imageFile);
-
-      return new Promise<string>((resolve, reject) => {
-        uploadTask.on('state_changed',
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            input.onProgress?.(imageFile.name, progress, 'uploading');
-          },
-          (error) => {
-            console.error(`Upload failed for ${imageFile.name}:`, error);
-            input.onProgress?.(imageFile.name, 0, 'error');
-            reject(error);
-          },
-          async () => {
-            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-            input.onProgress?.(imageFile.name, 100, 'completed');
-            resolve(downloadURL);
-          }
-        );
-      });
-    });
-    imageUrls = await Promise.all(uploadPromises);
-  }
-
-  // 3. Update the post document with the ID and image URLs
-  await updateDoc(postDocRef, {
-    id: postDocRef.id,
-    imageUrls: imageUrls,
-  });
+  
+  // 3. Update the post with its own ID for consistency
+  await updateDoc(postDocRef, { id: postDocRef.id });
 
   return postDocRef.id;
 };
@@ -168,6 +144,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         if (currentUserId === profileUserId || isAdmin) {
             privacyFilters = ['everyone', 'followers', 'only_me'];
         } else {
+            const { getCurrentUserProfile } = await import('./user-service');
             const profileUser = await getCurrentUserProfile({ userId: profileUserId });
             if (profileUser?.followers?.includes(currentUserId)) {
                 privacyFilters.push('followers');
@@ -197,3 +174,4 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         return [];
     }
 };
+
