@@ -26,6 +26,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useFirebase } from '@/firebase/provider';
 import { ReportDialog } from "@/components/report-dialog";
 import { cn } from "@/lib/utils";
+import { createReport } from "@/services/report-service";
 
 
 // Simple admin check
@@ -123,7 +124,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const fetchPosts = async () => {
-      if (!profileUser || !canViewContent) {
+      if (!profileUser) {
         setUserPosts([]);
         setPostsLoading(false);
         return;
@@ -134,10 +135,10 @@ export default function ProfilePage() {
       setPostsLoading(false);
     };
 
-    if (!isProfileUserLoading && !isFollowStatusLoading) {
+    if (!isProfileUserLoading) {
       fetchPosts();
     }
-  }, [profileUser, canViewContent, currentUser?.uid, isProfileUserLoading, isFollowStatusLoading]);
+  }, [profileUser, currentUser?.uid, isProfileUserLoading]);
 
   const handleFollowToggle = async () => {
     if (!currentUser || !profileUser || isTogglingFollow || isCurrentUserProfile) return;

@@ -50,7 +50,7 @@ export default function HomePage() {
       setIsLoading(true);
 
       try {
-        const userProfile = await getCurrentUserProfile();
+        const userProfile = await getCurrentUserProfile({ forceRefresh: true });
         const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(userProfile, 10);
         setPosts(newPosts);
         setLastVisible(newLastVisible);
@@ -107,7 +107,7 @@ export default function HomePage() {
         {!isLoading && !isUserLoading && posts.length === 0 && (
             <div className="text-center text-muted-foreground pt-10">
                 <p className="text-lg font-semibold">مرحباً بك في StudentHub!</p>
-                <p className="text-sm">يبدو أن صفحتك الرئيسية فارغة.</p>
+                <p className="text-sm">صفحتك الرئيسية فارغة حالياً.</p>
                 <p className="text-sm mt-2">ابدأ بمتابعة بعض الأشخاص لترى منشوراتهم هنا.</p>
                  <Button asChild className="mt-4">
                     <Link href="/home/friends">

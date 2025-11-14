@@ -5,7 +5,6 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   X,
-  Globe,
   Users,
   Lock,
   ChevronDown,
@@ -30,7 +29,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const allVisibilityOptions: { value: PrivacySetting; label: string; icon: React.FC<any> }[] = [
-  { value: 'everyone', label: 'الجميع', icon: Globe },
   { value: 'followers', label: 'المتابعون فقط', icon: Users },
   { value: 'only_me', label: 'أنا فقط', icon: Lock },
 ];
@@ -64,7 +62,7 @@ function CreatePostContent() {
   const groupId = searchParams.get('groupId');
 
 
-  const [visibility, setVisibility] = useState<PrivacySetting>('everyone');
+  const [visibility, setVisibility] = useState<PrivacySetting>('followers');
   const [commenting, setCommenting] = useState<PrivacySetting>('everyone');
   const [background, setBackground] = useState(backgroundOptions[0].id);
   
@@ -76,8 +74,7 @@ function CreatePostContent() {
       getCurrentUserProfile().then(profile => {
         if (profile) {
           setUserData(profile as UserType);
-          // If the user's account is private, default to 'followers'
-          if (profile.isPrivate && !groupId) { // Only change for non-group posts
+          if (profile.isPrivate && !groupId) {
             setVisibility('followers');
           }
         }
@@ -88,16 +85,12 @@ function CreatePostContent() {
     }
   }, [user, userData, isUserLoading, groupId]);
 
-  // Filter visibility options based on account privacy
   const visibilityOptions = useMemo(() => {
     if (groupId) {
         return []; // Hide visibility options for group posts
     }
-    if (userData?.isPrivate) {
-      return allVisibilityOptions.filter(option => option.value !== 'everyone');
-    }
     return allVisibilityOptions;
-  }, [userData, groupId]);
+  }, [groupId]);
 
 
   const handleCreatePost = async () => {
@@ -129,7 +122,9 @@ function CreatePostContent() {
           name: profile.name,
           username: profile.username.toLowerCase(),
         },
-        privacy: groupId ? 'everyone' : visibility, // Group posts are controlled by group privacy
+        // For groups, privacy is handled by the group's public/private status,
+        // and post status handles visibility within the group. A default is needed.
+        privacy: groupId ? 'followers' : visibility,
         commenting: commenting,
         background: background,
         groupId: groupId || undefined,

@@ -2,7 +2,7 @@
 
 import { Timestamp } from "firebase/firestore";
 
-export type PrivacySetting = 'everyone' | 'followers' | 'only_me' | 'none';
+export type PrivacySetting = 'followers' | 'only_me' | 'everyone' | 'none';
 
 export interface User {
   id: string;
