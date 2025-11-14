@@ -39,6 +39,7 @@ export interface Post {
       name: string;
       username: string;
   };
+  groupId?: string; // Optional group ID
   content: string;
   createdAt: Timestamp;
   likeIds?: string[];
@@ -46,6 +47,7 @@ export interface Post {
   privacy: PrivacySetting;
   commenting: PrivacySetting;
   background?: string;
+  status?: 'pending' | 'approved';
 }
 
 export interface AppNotification {
@@ -72,6 +74,16 @@ export interface Report {
     reason: string;
     createdAt: Timestamp;
     status: 'pending' | 'resolved' | 'dismissed' | 'deleted';
+}
+
+export interface Group {
+    id: string;
+    name: string;
+    description: string;
+    creatorId: string;
+    privacy: 'public' | 'private';
+    memberIds: string[];
+    createdAt: Timestamp;
 }
 
     
