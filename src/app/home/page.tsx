@@ -11,6 +11,7 @@ import { useFirebase, useMemoFirebase } from "@/firebase/provider";
 import { type Post } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import React from "react";
 
 export default function HomePage() {
   const { firestore } = useFirebase();
@@ -40,12 +41,12 @@ export default function HomePage() {
           </>
         )}
         {posts?.map((post, index) => (
-          <>
-            <PostCard key={post.id} post={post} />
+          <React.Fragment key={post.id}>
+            <PostCard post={post} />
             {index === 1 && (
               <UserSuggestions />
             )}
-          </>
+          </React.Fragment>
         ))}
       </div>
     </>
