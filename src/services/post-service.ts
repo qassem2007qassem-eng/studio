@@ -128,7 +128,8 @@ export const deletePost = async (postId: string, asAdmin = false): Promise<void>
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
     const postsCollection = collection(firestore, 'posts');
     
-    // RADICAL FIX: Fetch all posts by author, then filter client-side to avoid complex indexes.
+    // RADICAL FIX v4: Simplest possible query. Only fetch by author.
+    // All filtering and sorting will be done client-side.
     const q = query(
         postsCollection,
         where('authorId', '==', profileUserId)
@@ -136,7 +137,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
 
     try {
         const snapshot = await getDocs(q);
-        let allUserPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+        const allUserPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         
         // Manual filter for non-group posts
         let posts = allUserPosts.filter(p => !p.groupId);
@@ -163,7 +164,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
             if (post.privacy === 'only_me') {
                 return false; 
             }
-            return false; // By default, if not owner/follower, don't show
+            return false;
         });
 
     } catch (e) {
@@ -187,7 +188,6 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
     // Filter posts for the feed: from followed users or self, and not in a group.
     const feedQueryConstraints: any[] = [
         where('authorId', 'in', userIdsToQuery),
-        // where('groupId', '==', null) is removed and filtered client-side to prevent index issues.
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
@@ -210,10 +210,8 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
         if (post.authorId === userProfile.id) {
             return true; // Always show own posts
         }
-        if (post.privacy === 'followers') {
-            return true; // The query already ensures we are following the author
-        }
-        // Exclude 'only_me' posts from other users
+        // The query already ensures we are following the author, so 'followers' posts are implicitly allowed.
+        // We just need to exclude 'only_me' posts from other users.
         return post.privacy !== 'only_me';
     });
 
