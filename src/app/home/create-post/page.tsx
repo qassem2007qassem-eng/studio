@@ -48,6 +48,7 @@ const backgroundOptions = [
 export default function CreatePostPage() {
   const { user, isUserLoading } = useUser();
   const [userData, setUserData] = useState<UserType | null>(null);
+  const [isDataLoading, setIsDataLoading] = useState(true);
   const [content, setContent] = useState('');
   const [postImages, setPostImages] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -66,9 +67,12 @@ export default function CreatePostPage() {
         if (profile) {
           setUserData(profile as UserType);
         }
+        setIsDataLoading(false);
       });
+    } else if (!isUserLoading) {
+      setIsDataLoading(false);
     }
-  }, [user, userData]);
+  }, [user, userData, isUserLoading]);
 
   useEffect(() => {
     // If images are added, reset the background
@@ -157,7 +161,7 @@ export default function CreatePostPage() {
   const CurrentPrivacyIcon = privacyOptions.find(p => p.value === privacy)?.icon;
   const selectedBackgroundClass = backgroundOptions.find(b => b.id === background)?.className || '';
 
-  if (isUserLoading) {
+  if (isUserLoading || isDataLoading) {
       return (
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin" />
@@ -177,115 +181,115 @@ export default function CreatePostPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50">
-        <div className="flex flex-col h-full">
-            <header className="flex items-center justify-between p-4 border-b">
-                <Button variant="ghost" size="icon" onClick={() => router.back()}>
-                    <X className="h-5 w-5" />
-                </Button>
-                <h1 className="text-lg font-semibold">إنشاء منشور</h1>
-                <Button onClick={handleCreatePost} disabled={isSaving || (!content.trim() && !hasImages)}>
-                    {isSaving ? <Loader2 className="animate-spin" /> : 'نشر'}
-                </Button>
-            </header>
-            <main className="flex-1 p-4 space-y-4 overflow-y-auto">
-                 <div className="flex items-start gap-3">
-                    <Avatar>
-                        <AvatarImage src={userData.avatarUrl || undefined} alt={userData.name || ''} />
-                        <AvatarFallback>{userData.name?.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                        <p className="font-semibold">{userData.name}</p>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-7 p-1 text-xs">
-                                     {CurrentPrivacyIcon && <CurrentPrivacyIcon className="h-3 w-3 me-1" />}
-                                    {privacyOptions.find(p => p.value === privacy)?.label}
-                                    <ChevronDown className="h-3 w-3 ms-1"/>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                {privacyOptions.map(option => (
-                                    <DropdownMenuItem key={option.value} onSelect={() => setPrivacy(option.value)}>
-                                        <option.icon className="h-4 w-4 me-2"/>
-                                        {option.label}
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </div>
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex flex-col">
+      <header className="flex items-center justify-between p-4 border-b flex-shrink-0">
+          <Button variant="ghost" size="icon" onClick={() => router.back()}>
+              <X className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-semibold">إنشاء منشور</h1>
+          <Button onClick={handleCreatePost} disabled={isSaving || (!content.trim() && !hasImages)}>
+              {isSaving ? <Loader2 className="animate-spin" /> : 'نشر'}
+          </Button>
+      </header>
+      <main className="flex-1 p-4 space-y-4 overflow-y-auto">
+           <div className="flex items-start gap-3">
+              <Avatar>
+                  <AvatarImage src={userData.avatarUrl || undefined} alt={userData.name || ''} />
+                  <AvatarFallback>{userData.name?.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div>
+                  <p className="font-semibold">{userData.name}</p>
+                  <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-7 p-1 text-xs">
+                               {CurrentPrivacyIcon && <CurrentPrivacyIcon className="h-3 w-3 me-1" />}
+                              {privacyOptions.find(p => p.value === privacy)?.label}
+                              <ChevronDown className="h-3 w-3 ms-1"/>
+                          </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                          {privacyOptions.map(option => (
+                              <DropdownMenuItem key={option.value} onSelect={() => setPrivacy(option.value)}>
+                                  <option.icon className="h-4 w-4 me-2"/>
+                                  {option.label}
+                              </DropdownMenuItem>
+                          ))}
+                      </DropdownMenuContent>
+                  </DropdownMenu>
+              </div>
+          </div>
 
-                <div className={cn(
-                    "relative flex items-center justify-center rounded-lg min-h-[144px]",
-                    hasBackground && "min-h-[250px]",
-                    selectedBackgroundClass
-                )}>
-                    <Textarea
-                        placeholder={`بماذا تفكر يا ${userData.name?.split(' ')[0] || ''}؟`}
-                        className={cn(
-                            "w-full bg-transparent border-none focus-visible:ring-0 resize-none",
-                            "text-xl",
-                            hasBackground && "text-3xl font-bold text-center h-auto min-h-[250px] flex items-center justify-center"
-                        )}
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        disabled={isSaving}
-                        autoFocus
-                    />
-                </div>
-                
-                {hasImages && (
-                  <div className={cn(
-                      "grid gap-2",
-                      postImages.length === 1 && "grid-cols-1",
-                      postImages.length === 2 && "grid-cols-2",
-                      postImages.length === 3 && "grid-cols-3",
-                      postImages.length >= 4 && "grid-cols-2",
-                  )}>
-                      {postImages.map((image, index) => (
-                        <div key={index} className="relative aspect-square">
-                           <Image src={image} alt={`معاينة الصورة ${index + 1}`} fill className="rounded-lg object-cover" />
-                           <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => removeImage(index)}>
-                              <X className="h-4 w-4"/>
-                           </Button>
-                        </div>
-                      ))}
+          <div className={cn(
+              "relative flex items-center justify-center rounded-lg min-h-[144px]",
+              hasBackground && "min-h-[250px]",
+              selectedBackgroundClass
+          )}>
+              <Textarea
+                  placeholder={`بماذا تفكر يا ${userData.name?.split(' ')[0] || ''}؟`}
+                  className={cn(
+                      "w-full bg-transparent border-none focus-visible:ring-0 resize-none",
+                      "text-xl",
+                      hasBackground && "text-3xl font-bold text-center h-auto min-h-[250px] flex items-center justify-center"
+                  )}
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  disabled={isSaving}
+                  autoFocus
+              />
+          </div>
+          
+          {hasImages && (
+            <div className={cn(
+                "grid gap-2",
+                postImages.length === 1 && "grid-cols-1",
+                postImages.length === 2 && "grid-cols-2",
+                postImages.length === 3 && "grid-cols-3",
+                postImages.length >= 4 && "grid-cols-2",
+            )}>
+                {postImages.map((image, index) => (
+                  <div key={index} className="relative aspect-square">
+                     <Image src={image} alt={`معاينة الصورة ${index + 1}`} fill className="rounded-lg object-cover" />
+                     <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => removeImage(index)}>
+                        <X className="h-4 w-4"/>
+                     </Button>
                   </div>
-                )}
-            </main>
-            <footer className="p-4 border-t mt-auto">
-                 <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={hasBackground}>
-                        <ImageIcon className="h-6 w-6 text-green-500"/>
-                        <span className="sr-only">إضافة صورة</span>
-                    </Button>
-                     <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleImageChange}
-                        className="hidden"
-                        accept="image/*"
-                        multiple
-                        disabled={hasBackground}
-                      />
-                    {!hasImages && backgroundOptions.map(bg => (
-                        <button 
-                            key={bg.id}
-                            onClick={() => setBackground(bg.id)}
-                            className={cn(
-                                "h-8 w-8 rounded-full border-2",
-                                background === bg.id ? "border-primary" : "border-muted",
-                                bg.className.startsWith('bg-') ? bg.className.split(' ')[0] : 'bg-transparent',
-                                bg.id === 'default' && 'flex items-center justify-center text-muted-foreground'
-                            )}
-                        >
-                            {bg.id === 'default' && 'Aa'}
-                        </button>
-                    ))}
-                </div>
-            </footer>
-        </div>
+                ))}
+            </div>
+          )}
+      </main>
+      <footer className="p-4 border-t mt-auto flex-shrink-0">
+           <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={hasBackground}>
+                  <ImageIcon className="h-6 w-6 text-green-500"/>
+                  <span className="sr-only">إضافة صورة</span>
+              </Button>
+               <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageChange}
+                  className="hidden"
+                  accept="image/*"
+                  multiple
+                  disabled={hasBackground}
+                />
+              {!hasImages && backgroundOptions.map(bg => (
+                  <button 
+                      key={bg.id}
+                      onClick={() => setBackground(bg.id)}
+                      className={cn(
+                          "h-8 w-8 rounded-full border-2",
+                          background === bg.id ? "border-primary" : "border-muted",
+                          bg.className.startsWith('bg-') ? bg.className.split(' ')[0] : 'bg-transparent',
+                          bg.id === 'default' && 'flex items-center justify-center text-muted-foreground'
+                      )}
+                  >
+                      {bg.id === 'default' && 'Aa'}
+                  </button>
+              ))}
+          </div>
+      </footer>
     </div>
   );
 }
+
+    
