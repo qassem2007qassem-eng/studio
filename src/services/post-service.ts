@@ -22,11 +22,9 @@ import {
   ref,
   deleteObject,
 } from 'firebase/storage';
-import { initializeFirebase } from '@/firebase';
+import { auth, firestore, storage } from '@/firebase';
 import { type Post, type PrivacySetting } from '@/lib/types';
 import { uploadFile } from './storage-service';
-
-const { auth, firestore, storage } = initializeFirebase();
 
 type CreatePostInput = {
   content: string;
@@ -48,32 +46,40 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     throw new Error('User not authenticated');
   }
 
-  // 1. Upload images first using the new centralized service
+  // 1. Upload images first to get their URLs
   let imageUrls: string[] = [];
   if (input.images && input.images.length > 0) {
-    const uploadPromises = input.images.map((imageFile) => {
-      const path = `posts/${user.uid}/${Date.now()}_${imageFile.name}`;
+    const uploadPromises = input.images.map((imageFile, index) => {
+      // Create a unique path for each image
+      const path = `posts/${user.uid}/${Date.now()}_${index}_${imageFile.name}`;
       return uploadFile(imageFile, path, (progress, status) => {
         input.onProgress?.(imageFile.name, progress, status);
       });
     });
-    imageUrls = await Promise.all(uploadPromises);
+    
+    try {
+      imageUrls = await Promise.all(uploadPromises);
+    } catch (error) {
+      console.error("Image upload failed, post creation stopped.", error);
+      throw new Error("One or more images failed to upload.");
+    }
   }
 
-  // 2. Once all images are uploaded and URLs are retrieved, create the post document
+  // 2. Create the post document with the retrieved image URLs
   const postData: Omit<Post, 'id'> = {
     authorId: user.uid,
     author: input.author,
     content: input.content,
     createdAt: serverTimestamp() as Timestamp,
     likeIds: [],
-    imageUrls: imageUrls, // Use the retrieved URLs
+    imageUrls: imageUrls,
     privacy: input.privacy,
     commenting: input.commenting,
     background: input.background || 'default',
   };
 
-  const postDocRef = await addDoc(collection(firestore, 'posts'), postData);
+  const postCollectionRef = collection(firestore, 'posts');
+  const postDocRef = await addDoc(postCollectionRef, postData);
   
   // 3. Update the post with its own ID for consistency
   await updateDoc(postDocRef, { id: postDocRef.id });
@@ -174,4 +180,3 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         return [];
     }
 };
-

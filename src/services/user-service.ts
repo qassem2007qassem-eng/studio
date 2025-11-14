@@ -1,13 +1,10 @@
 
-
 'use client';
 
 import { 
-  getAuth,
   type User as AuthUser,
 } from 'firebase/auth';
 import { 
-  getFirestore,
   doc, 
   setDoc, 
   getDoc, 
@@ -27,13 +24,11 @@ import {
   collectionGroup
 } from 'firebase/firestore';
 
-import { initializeFirebase } from '@/firebase';
+import { auth, firestore } from '@/firebase';
 import { type User } from '@/lib/types';
 import { deletePost } from './post-service';
 import { createNotification } from './notification-service';
 import { uploadFile } from './storage-service';
-
-const { auth, firestore } = initializeFirebase();
 
 let currentUserProfileCache: User | null = null;
 let cacheTimestamp: number | null = null;
@@ -99,7 +94,6 @@ const createUserProfile = async (user: AuthUser, username: string, fullName: str
     let photoURL = "";
     if (avatarFile) {
       const path = `avatars/${user.uid}`;
-      // Use the new storage service to upload the file
       photoURL = await uploadFile(avatarFile, path);
     }
 
@@ -213,11 +207,10 @@ const followUser = async (targetUserId: string): Promise<void> => {
     if (!profile) return;
 
 
-    const db = getFirestore();
-    const batch = writeBatch(db);
+    const batch = writeBatch(firestore);
 
-    const currentUserRef = doc(db, "users", currentUser.uid);
-    const targetUserRef = doc(db, "users", targetUserId);
+    const currentUserRef = doc(firestore, "users", currentUser.uid);
+    const targetUserRef = doc(firestore, "users", targetUserId);
 
     batch.update(currentUserRef, {
       following: arrayUnion(targetUserId)
@@ -252,11 +245,10 @@ const unfollowUser = async (targetUserId: string): Promise<void> => {
         throw new Error("No user is logged in.");
     }
 
-    const db = getFirestore();
-    const batch = writeBatch(db);
+    const batch = writeBatch(firestore);
 
-    const currentUserRef = doc(db, "users", currentUser.uid);
-    const targetUserRef = doc(db, "users", targetUserId);
+    const currentUserRef = doc(firestore, "users", currentUser.uid);
+    const targetUserRef = doc(firestore, "users", targetUserId);
 
     batch.update(currentUserRef, {
         following: arrayRemove(targetUserId)
@@ -295,7 +287,7 @@ const updateProfile = async (
     throw new Error('User not authenticated for profile update.');
   }
 
-  const updatedUserData: Partial<User> = { ...updates };
+  const updatedUserData: { [key: string]: any } = { ...updates };
   const returnedUrls: { avatarUrl?: string; coverUrl?: string } = {};
 
   try {
@@ -367,11 +359,10 @@ const deleteUserAndContent = async (userId: string) => {
       throw new Error("Admin cannot delete their own account.");
     }
     
-    const db = getFirestore();
-    const batch = writeBatch(db);
+    const batch = writeBatch(firestore);
 
     // 1. Delete all posts by the user
-    const postsQuery = query(collection(db, 'posts'), where('authorId', '==', userId));
+    const postsQuery = query(collection(firestore, 'posts'), where('authorId', '==', userId));
     const postsSnapshot = await getDocs(postsQuery);
     for (const postDoc of postsSnapshot.docs) {
       // Must use the deletePost service to also delete images from storage
@@ -379,12 +370,12 @@ const deleteUserAndContent = async (userId: string) => {
     }
     
     // 2. Delete all comments by the user (using collectionGroup query)
-    const commentsQuery = query(collectionGroup(db, 'comments'), where('authorId', '==', userId));
+    const commentsQuery = query(collectionGroup(firestore, 'comments'), where('authorId', '==', userId));
     const commentsSnapshot = await getDocs(commentsQuery);
     commentsSnapshot.forEach(commentDoc => batch.delete(commentDoc.ref));
 
     // 3. Remove user from other users' followers/following lists
-    const allUsersRef = collection(db, "users");
+    const allUsersRef = collection(firestore, "users");
     const allUsersSnap = await getDocs(allUsersRef);
     allUsersSnap.forEach(userDoc => {
         const data = userDoc.data();
@@ -397,7 +388,7 @@ const deleteUserAndContent = async (userId: string) => {
     });
 
     // 4. Delete the user document itself
-    const userRef = doc(db, "users", userId);
+    const userRef = doc(firestore, "users", userId);
     batch.delete(userRef);
 
     // 5. Commit all batched writes
@@ -417,7 +408,7 @@ const getFollowers = async (userId: string) => {
     const followerPromises = userDoc.followers.map(id => getUserById(id));
     const followers = await Promise.all(followerPromises);
     
-    return followers.filter(Boolean);
+    return followers.filter(Boolean) as User[];
   } catch (error) {
     console.error("Error getting followers:", error);
     return [];
@@ -432,7 +423,7 @@ const getFollowing = async (userId: string) => {
     const followingPromises = userDoc.following.map(id => getUserById(id));
     const following = await Promise.all(followingPromises);
 
-    return following.filter(Boolean);
+    return following.filter(Boolean) as User[];
   } catch (error) {
     console.error("Error getting following:", error);
     return [];

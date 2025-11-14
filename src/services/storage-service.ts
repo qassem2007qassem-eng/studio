@@ -2,15 +2,12 @@
 'use client';
 
 import {
-  getStorage,
   ref,
   uploadBytesResumable,
   getDownloadURL,
   type UploadTask,
 } from 'firebase/storage';
-import { initializeFirebase } from '@/firebase';
-
-const { storage } = initializeFirebase();
+import { storage } from '@/firebase'; // Import the initialized storage instance
 
 type ProgressCallback = (progress: number, status: 'uploading' | 'completed' | 'error') => void;
 

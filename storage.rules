@@ -4,51 +4,32 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Helper function to check if the user is authenticated.
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Helper function to check if the user is the owner of the file.
-    // It compares the user's UID with the first path segment.
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // Rules for user avatars.
-    // - Users can only create/update their own avatar.
-    // - Any authenticated user can read avatars.
+    // Path for user avatars
     match /avatars/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isOwner(userId);
+      // Anyone can read avatars
+      allow read;
+      // Only the owner can write (create, update, delete) their own avatar
+      allow write: if request.auth.uid == userId;
     }
 
-    // Rules for user cover photos.
-    // - Users can only create/update their own cover photo.
-    // - Any authenticated user can read cover photos.
+    // Path for user cover photos
     match /covers/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isOwner(userId);
+      // Anyone can read cover photos
+      allow read;
+      // Only the owner can write their own cover photo
+      allow write: if request.auth.uid == userId;
     }
 
-    // Rules for post images.
-    // - Any authenticated user can create post images for themselves.
-    // - Any authenticated user can read post images.
-    // - Deletion should be handled by server-side logic (e.g., Cloud Functions).
-    match /posts/{userId}/{postId}/{fileName} {
-      allow read: if isSignedIn();
-      allow create: if isOwner(userId);
-      allow update, delete: if false; // Prevent modification/deletion from client.
-    }
-
-    // Rules for story images/videos.
-    // - Any authenticated user can create stories.
-    // - Any authenticated user can read stories.
-    // - Deletion should be handled by server-side logic (e.g., Cloud Functions for expired stories).
-    match /stories/{userId}/{storyId} {
-      allow read: if isSignedIn();
-      allow create: if isOwner(userId);
-      allow update, delete: if false; // Prevent modification/deletion from client.
+    // Path for images uploaded with posts
+    match /posts/{userId}/{fileName} {
+       // Anyone can read post images
+      allow read;
+       // Only an authenticated user can upload an image, and it must be linked to their own userId
+      allow write: if request.auth.uid == userId;
     }
   }
 }
