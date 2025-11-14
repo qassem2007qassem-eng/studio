@@ -2,7 +2,6 @@
 'use client';
 
 import {
-  getFirestore,
   collection,
   addDoc,
   serverTimestamp,
@@ -15,7 +14,7 @@ import {
 import { initializeFirebase } from '@/firebase';
 import { type Report } from '@/lib/types';
 
-const { auth } = initializeFirebase();
+const { auth, firestore } = initializeFirebase();
 
 type CreateReportInput = {
   reportedEntityId: string;
@@ -28,8 +27,6 @@ export const createReport = async (input: CreateReportInput): Promise<string> =>
   if (!user) {
     throw new Error('User not authenticated');
   }
-
-  const { firestore } = initializeFirebase();
   
   const reportsCollection = collection(firestore, 'reports');
   
@@ -48,7 +45,6 @@ export const createReport = async (input: CreateReportInput): Promise<string> =>
 
 
 export const getReports = async (status: 'pending' | 'resolved' | 'dismissed' = 'pending'): Promise<Report[]> => {
-    const { firestore } = initializeFirebase();
     const reportsCollection = collection(firestore, 'reports');
     const q = query(reportsCollection, where('status', '==', status));
     
@@ -62,7 +58,6 @@ export const getReports = async (status: 'pending' | 'resolved' | 'dismissed' = 
 };
 
 export const updateReportStatus = async (reportId: string, status: 'resolved' | 'dismissed' | 'deleted') => {
-    const { firestore } = initializeFirebase();
     const reportRef = doc(firestore, 'reports', reportId);
     await updateDoc(reportRef, { status });
 }

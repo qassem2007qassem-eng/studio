@@ -7,7 +7,9 @@ import {
   getDownloadURL,
   type UploadTask,
 } from 'firebase/storage';
-import { storage } from '@/firebase'; // Import the initialized storage instance
+import { initializeFirebase } from '@/firebase';
+
+const { storage } = initializeFirebase();
 
 type ProgressCallback = (progress: number, status: 'uploading' | 'completed' | 'error') => void;
 

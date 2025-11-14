@@ -2,7 +2,6 @@
 'use client';
 
 import { 
-  getFirestore, 
   collection, 
   addDoc, 
   serverTimestamp, 

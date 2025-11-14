@@ -2,7 +2,6 @@
 'use client';
 
 import {
-  getFirestore,
   collection,
   addDoc,
   serverTimestamp,
@@ -18,13 +17,15 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import {
-  getStorage,
   ref,
   deleteObject,
 } from 'firebase/storage';
-import { auth, firestore, storage } from '@/firebase';
+import { initializeFirebase } from '@/firebase';
 import { type Post, type PrivacySetting } from '@/lib/types';
 import { uploadFile } from './storage-service';
+import { createNotification } from './notification-service';
+
+const { auth, firestore, storage } = initializeFirebase();
 
 type CreatePostInput = {
   content: string;
@@ -50,8 +51,7 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
   let imageUrls: string[] = [];
   if (input.images && input.images.length > 0) {
     const uploadPromises = input.images.map((imageFile, index) => {
-      // Create a unique path for each image
-      const path = `posts/${user.uid}/${Date.now()}_${index}_${imageFile.name}`;
+      const path = `posts/${user.uid}/${Date.now()}_${imageFile.name}`;
       return uploadFile(imageFile, path, (progress, status) => {
         input.onProgress?.(imageFile.name, progress, status);
       });
@@ -81,7 +81,6 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
   const postCollectionRef = collection(firestore, 'posts');
   const postDocRef = await addDoc(postCollectionRef, postData);
   
-  // 3. Update the post with its own ID for consistency
   await updateDoc(postDocRef, { id: postDocRef.id });
 
   return postDocRef.id;
@@ -108,7 +107,6 @@ export const deletePost = async (postId: string, imageUrls: string[], asAdmin = 
     
     const batch = writeBatch(firestore);
     
-    // Also delete comments subcollection
     const commentsRef = collection(firestore, 'posts', postId, 'comments');
     const commentsSnap = await getDocs(commentsRef);
     commentsSnap.forEach(commentDoc => batch.delete(commentDoc.ref));
@@ -131,12 +129,7 @@ export const deletePost = async (postId: string, imageUrls: string[], asAdmin = 
     }
 }
 
-/**
- * Gets posts for a specific user, handling privacy rules.
- * @param profileUserId The ID of the user whose posts are being requested.
- * @param currentUserId The ID of the currently logged-in user (optional).
- * @returns A promise that resolves to an array of posts.
- */
+
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
     const postsCollection = collection(firestore, 'posts');
     
@@ -145,7 +138,6 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     const currentUser = auth.currentUser;
     const isAdmin = currentUser?.email === 'admin@app.com';
 
-    // If a user is logged in, check if they are viewing their own profile or if they follow the user.
     if (currentUserId) {
         if (currentUserId === profileUserId || isAdmin) {
             privacyFilters = ['everyone', 'followers', 'only_me'];

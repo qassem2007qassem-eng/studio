@@ -23,12 +23,13 @@ import {
   deleteDoc,
   collectionGroup
 } from 'firebase/firestore';
-
-import { auth, firestore } from '@/firebase';
+import { initializeFirebase } from '@/firebase';
 import { type User } from '@/lib/types';
 import { deletePost } from './post-service';
 import { createNotification } from './notification-service';
 import { uploadFile } from './storage-service';
+
+const { auth, firestore } = initializeFirebase();
 
 let currentUserProfileCache: User | null = null;
 let cacheTimestamp: number | null = null;
@@ -95,7 +96,7 @@ const createUserProfile = async (user: AuthUser, username: string, fullName: str
     if (avatarFile) {
       const path = `avatars/${user.uid}`;
       photoURL = await uploadFile(avatarFile, path);
-    }
+    } 
 
     const userDocRef = doc(firestore, "users", user.uid);
     await setDoc(userDocRef, {
