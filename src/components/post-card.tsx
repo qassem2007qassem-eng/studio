@@ -360,7 +360,7 @@ export function PostCard({ post }: PostCardProps) {
         ? `${post.content.substring(0, TEXT_TRUNCATION_LIMIT)}...` 
         : post.content;
     
-    return (
+    const contentElement = (
       <div className={cn(
         "p-4",
         hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg",
@@ -375,12 +375,17 @@ export function PostCard({ post }: PostCardProps) {
         </p>
       </div>
     );
+    
+    if(showTruncated) {
+      return <DialogTrigger asChild>{contentElement}</DialogTrigger>
+    }
+    return contentElement;
   };
 
 
   return (
-    <Sheet>
-      <Dialog>
+    <Dialog>
+      <Sheet>
         <Card className="overflow-hidden bg-card">
             <CardHeader className="p-4">
                 <div className="flex items-center gap-3">
@@ -427,15 +432,7 @@ export function PostCard({ post }: PostCardProps) {
                 </div>
             </CardHeader>
             <CardContent className="space-y-4 p-0">
-                {post.content && (
-                  showTruncated ? (
-                    <DialogTrigger asChild>
-                      {renderPostContent()}
-                    </DialogTrigger>
-                  ) : (
-                    renderPostContent()
-                  )
-                )}
+                {post.content && renderPostContent()}
                 {hasImages && (
                     <div className={cn(
                         "grid gap-2 p-4",
@@ -485,13 +482,14 @@ export function PostCard({ post }: PostCardProps) {
             </CardFooter>
         </Card>
         
-        {showTruncated ? (
+        {showTruncated && (
             <DialogContent showCloseButton={false} className="p-0 border-0 bg-transparent shadow-none max-w-full h-full max-h-full sm:max-w-full sm:h-full sm:max-h-full !rounded-none">
                  <FullScreenPostView post={post} onLike={handleLike} isLiked={isLiked} likeCount={likeCount} commentCount={commentCount} />
             </DialogContent>
-        ) : (
-            <CommentsSheet post={post} />
         )}
+        
+        <CommentsSheet post={post} />
+
         <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
@@ -520,8 +518,8 @@ export function PostCard({ post }: PostCardProps) {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-        <CommentsSheet post={post} />
-      </Dialog>
-    </Sheet>
+      </Sheet>
+    </Dialog>
   );
 }
+
