@@ -128,23 +128,30 @@ export const deletePost = async (postId: string, asAdmin = false): Promise<void>
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
     const postsCollection = collection(firestore, 'posts');
     
+    // This query was causing index issues. Let's simplify it.
+    // We will fetch posts and then filter/sort client-side.
     const q = query(
         postsCollection,
         where('authorId', '==', profileUserId),
         where('groupId', '==', null)
+        // orderBy('createdAt', 'desc') removed to prevent index requirement
     );
 
     try {
         const snapshot = await getDocs(q);
         let posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         
+        // Manual sort after fetching
         posts.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
 
         const isAdmin = auth.currentUser?.email === 'admin@app.com';
+        
+        // If the viewer is the owner or an admin, show all posts
         if (isAdmin || currentUserId === profileUserId) {
             return posts;
         }
-        
+
+        // For other viewers, filter based on privacy settings
         const { getUserById } = await import('./user-service');
         const profileUser = await getUserById(profileUserId);
         const isFollowing = currentUserId ? (profileUser?.followers || []).includes(currentUserId) : false;
@@ -156,7 +163,8 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
             if (post.privacy === 'only_me') {
                 return false; 
             }
-            return false;
+            // In the new model, there is no 'everyone', but if old data exists, we'll treat it as public for this profile page context.
+            return post.privacy === 'everyone';
         });
 
     } catch (e) {
@@ -177,7 +185,8 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
     
     const postsRef = collection(firestore, 'posts');
     
-    const feedQueryConstraints = [
+    // Filter posts for the feed: from followed users or self, and not in a group.
+    const feedQueryConstraints: any[] = [
         where('authorId', 'in', userIdsToQuery),
         where('groupId', '==', null), // Explicitly exclude group posts from the main feed
         orderBy('createdAt', 'desc'),
@@ -192,7 +201,20 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
 
     const querySnapshot = await getDocs(q);
     
-    const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+    const allPosts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+
+    // Client-side filtering for privacy
+    const posts = allPosts.filter(post => {
+        if (post.authorId === userProfile.id) {
+            return true; // Always show own posts
+        }
+        if (post.privacy === 'followers') {
+            return true; // The query already ensures we are following the author
+        }
+        // Exclude 'only_me' posts from other users
+        return post.privacy !== 'only_me';
+    });
+
 
     const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
     const hasMore = querySnapshot.docs.length === pageSize;
