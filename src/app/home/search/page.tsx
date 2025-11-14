@@ -48,9 +48,10 @@ export default function SearchPage() {
     const lowercasedTerm = term.toLowerCase();
     
     const filteredUsers = users.filter(user => 
+        user &&
         user.id !== currentUser?.uid &&
-        (user.name.toLowerCase().includes(lowercasedTerm) || 
-         user.username.toLowerCase().includes(lowercasedTerm))
+        ((user.name && user.name.toLowerCase().includes(lowercasedTerm)) || 
+         (user.username && user.username.toLowerCase().includes(lowercasedTerm)))
     ).slice(0, 15); // Limit results
 
     setResults(filteredUsers);
