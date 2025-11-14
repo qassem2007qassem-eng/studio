@@ -52,41 +52,37 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     throw new Error('User not authenticated');
   }
 
-  const postsCollection = collection(firestore, 'posts');
-  // 1. Create the post document reference *first* to get a unique ID.
-  const postDocRef = doc(postsCollection);
-  
-  let imageUrls: string[] = [];
-  // 2. Upload images using the unique post ID in their path.
-  if (input.imageBlobs && input.imageBlobs.length > 0) {
-      const uploadPromises = input.imageBlobs.map(async (blob, index) => {
-        // Use the post ID and image index for a guaranteed unique path.
-        const imageRef = ref(storage, `posts/${user.uid}/${postDocRef.id}/image-${index}`);
-        await uploadString(imageRef, blob, 'data_url');
-        return getDownloadURL(imageRef);
-      });
-      imageUrls = await Promise.all(uploadPromises);
-  }
-  
-  // 3. Now, create the post data with the obtained image URLs.
-  const postData: Omit<Post, 'id'> = {
+  // 1. Create the initial post document data WITHOUT images
+  const postData: Omit<Post, 'id' | 'imageUrls'> = {
     authorId: user.uid,
     author: input.author,
     content: input.content,
-    imageUrls: imageUrls,
     createdAt: serverTimestamp() as Timestamp,
     likeIds: [],
     privacy: input.privacy,
     commenting: input.commenting,
-    background: input.background || 'default'
+    background: input.background || 'default',
   };
 
-  // 4. Set the document data in Firestore.
-  await setDoc(postDocRef, {
-      ...postData,
-      id: postDocRef.id, // Explicitly set the ID
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+  // 2. Add the post document to Firestore to get a unique ID
+  const postDocRef = await addDoc(collection(firestore, 'posts'), postData);
+
+  // 3. If there are images, upload them now using the post's ID
+  let imageUrls: string[] = [];
+  if (input.imageBlobs && input.imageBlobs.length > 0) {
+    const uploadPromises = input.imageBlobs.map(async (blob, index) => {
+      const imageRef = ref(storage, `posts/${user.uid}/${postDocRef.id}/image-${index}`);
+      await uploadString(imageRef, blob, 'data_url');
+      return getDownloadURL(imageRef);
+    });
+    imageUrls = await Promise.all(uploadPromises);
+  }
+
+  // 4. Update the post document with the image URLs and its own ID
+  await updateDoc(postDocRef, {
+    id: postDocRef.id,
+    imageUrls: imageUrls,
+    updatedAt: serverTimestamp(),
   });
 
   return postDocRef.id;
@@ -184,5 +180,6 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         return [];
     }
 };
+
 
 
