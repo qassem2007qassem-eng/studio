@@ -51,20 +51,24 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
   if (!user) {
     throw new Error('User not authenticated');
   }
+
+  const postsCollection = collection(firestore, 'posts');
+  // 1. Create the post document reference *first* to get a unique ID.
+  const postDocRef = doc(postsCollection);
   
   let imageUrls: string[] = [];
+  // 2. Upload images using the unique post ID in their path.
   if (input.imageBlobs && input.imageBlobs.length > 0) {
-      const uploadPromises = input.imageBlobs.map(async (blob) => {
-        const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
+      const uploadPromises = input.imageBlobs.map(async (blob, index) => {
+        // Use the post ID and image index for a guaranteed unique path.
+        const imageRef = ref(storage, `posts/${user.uid}/${postDocRef.id}/image-${index}`);
         await uploadString(imageRef, blob, 'data_url');
         return getDownloadURL(imageRef);
       });
       imageUrls = await Promise.all(uploadPromises);
   }
   
-  const postsCollection = collection(firestore, 'posts');
-  const postDocRef = doc(postsCollection); // Create a reference with a new ID
-  
+  // 3. Now, create the post data with the obtained image URLs.
   const postData: Omit<Post, 'id'> = {
     authorId: user.uid,
     author: input.author,
@@ -77,6 +81,7 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     background: input.background || 'default'
   };
 
+  // 4. Set the document data in Firestore.
   await setDoc(postDocRef, {
       ...postData,
       id: postDocRef.id, // Explicitly set the ID
@@ -179,4 +184,5 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         return [];
     }
 };
+
 
