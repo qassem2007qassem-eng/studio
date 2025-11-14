@@ -64,6 +64,16 @@ interface PostCardProps {
   post: Post;
 }
 
+const backgroundOptions = [
+  { id: 'default', className: 'bg-transparent text-foreground' },
+  { id: 'bg1', className: 'bg-gradient-to-br from-red-200 to-yellow-200 text-black' },
+  { id: 'bg2', className: 'bg-gradient-to-br from-blue-200 to-purple-200 text-black' },
+  { id: 'bg3', className: 'bg-gradient-to-br from-green-200 to-teal-200 text-black' },
+  { id: 'bg4', className: 'bg-gradient-to-br from-pink-200 to-rose-200 text-black' },
+  { id: 'bg5', className: 'bg-gray-800 text-white' },
+];
+
+
 const safeToDate = (timestamp: string | Timestamp | Date | undefined | null): Date | null => {
     if (!timestamp) return null;
     if (timestamp instanceof Timestamp) {
@@ -267,10 +277,13 @@ export function PostCard({ post }: PostCardProps) {
   }
 
   const hasImages = post.imageUrls && post.imageUrls.length > 0;
+  const postBackgroundClass = backgroundOptions.find(b => b.id === post.background)?.className || 'bg-transparent';
+  const hasBackground = post.background && post.background !== 'default' && !hasImages;
+
 
   return (
     <Dialog>
-        <Card>
+        <Card className={cn(hasBackground && postBackgroundClass, hasBackground && "text-center")}>
             <CardHeader className="p-4">
                 <div className="flex items-center gap-3">
                     <Avatar>
@@ -315,8 +328,15 @@ export function PostCard({ post }: PostCardProps) {
                     </div>
                 </div>
             </CardHeader>
-            <CardContent className="space-y-4 p-4 pt-0">
-                {post.content && <p className="whitespace-pre-wrap">{post.content}</p>}
+            <CardContent className={cn("space-y-4 p-4 pt-0", hasBackground && "flex items-center justify-center min-h-[150px]")}>
+                {post.content && (
+                    <p className={cn(
+                        "whitespace-pre-wrap",
+                        hasBackground && "text-2xl font-bold"
+                    )}>
+                        {post.content}
+                    </p>
+                )}
                 {hasImages && (
                     <div className={cn(
                         "grid gap-2",
@@ -399,4 +419,3 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
-

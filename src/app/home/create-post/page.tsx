@@ -5,7 +5,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ImageIcon,
-  Smile,
   Loader2,
   X,
   Globe,
@@ -37,6 +36,15 @@ const privacyOptions: { value: PrivacySetting; label: string; icon: React.FC<any
   { value: 'only_me', label: 'أنا فقط', icon: Lock },
 ];
 
+const backgroundOptions = [
+  { id: 'default', className: 'bg-transparent text-foreground' },
+  { id: 'bg1', className: 'bg-gradient-to-br from-red-200 to-yellow-200 text-black' },
+  { id: 'bg2', className: 'bg-gradient-to-br from-blue-200 to-purple-200 text-black' },
+  { id: 'bg3', className: 'bg-gradient-to-br from-green-200 to-teal-200 text-black' },
+  { id: 'bg4', className: 'bg-gradient-to-br from-pink-200 to-rose-200 text-black' },
+  { id: 'bg5', className: 'bg-gray-800 text-white' },
+];
+
 export default function CreatePostPage() {
   const { user, isUserLoading } = useUser();
   const [userData, setUserData] = useState<UserType | null>(null);
@@ -47,7 +55,10 @@ export default function CreatePostPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [privacy, setPrivacy] = useState<PrivacySetting>('everyone');
-  const [commenting, setCommenting] = useState<PrivacySetting>('everyone');
+  const [background, setBackground] = useState(backgroundOptions[0].id);
+  
+  const hasImages = postImages.length > 0;
+  const hasBackground = background !== 'default';
 
   useEffect(() => {
     if (user && !userData) {
@@ -58,6 +69,13 @@ export default function CreatePostPage() {
       });
     }
   }, [user, userData]);
+
+  useEffect(() => {
+    // If images are added, reset the background
+    if (hasImages) {
+        setBackground('default');
+    }
+  }, [hasImages])
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -82,7 +100,7 @@ export default function CreatePostPage() {
 
 
   const handleCreatePost = async () => {
-    if (!content.trim() && postImages.length === 0) {
+    if (!content.trim() && !hasImages) {
       toast({
         title: 'خطأ',
         description: 'لا يمكنك إنشاء منشور فارغ.',
@@ -113,7 +131,8 @@ export default function CreatePostPage() {
           avatarUrl: profile.avatarUrl,
         },
         privacy,
-        commenting
+        commenting: 'everyone',
+        background,
       });
 
       setContent('');
@@ -136,6 +155,7 @@ export default function CreatePostPage() {
   };
   
   const CurrentPrivacyIcon = privacyOptions.find(p => p.value === privacy)?.icon;
+  const selectedBackgroundClass = backgroundOptions.find(b => b.id === background)?.className || '';
 
   if (isUserLoading) {
       return (
@@ -164,7 +184,7 @@ export default function CreatePostPage() {
                     <X className="h-5 w-5" />
                 </Button>
                 <h1 className="text-lg font-semibold">إنشاء منشور</h1>
-                <Button onClick={handleCreatePost} disabled={isSaving || (!content.trim() && postImages.length === 0)}>
+                <Button onClick={handleCreatePost} disabled={isSaving || (!content.trim() && !hasImages)}>
                     {isSaving ? <Loader2 className="animate-spin" /> : 'نشر'}
                 </Button>
             </header>
@@ -195,15 +215,27 @@ export default function CreatePostPage() {
                         </DropdownMenu>
                     </div>
                 </div>
-                <Textarea
-                    placeholder={`بماذا تفكر يا ${userData.name?.split(' ')[0] || ''}؟`}
-                    className="w-full h-36 bg-transparent border-none focus-visible:ring-0 text-xl"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    disabled={isSaving}
-                    autoFocus
-                />
-                {postImages.length > 0 && (
+
+                <div className={cn(
+                    "relative flex items-center justify-center rounded-lg min-h-[144px]",
+                    hasBackground && "min-h-[250px]",
+                    selectedBackgroundClass
+                )}>
+                    <Textarea
+                        placeholder={`بماذا تفكر يا ${userData.name?.split(' ')[0] || ''}؟`}
+                        className={cn(
+                            "w-full bg-transparent border-none focus-visible:ring-0 resize-none",
+                            "text-xl",
+                            hasBackground && "text-3xl font-bold text-center h-auto min-h-[250px] flex items-center justify-center"
+                        )}
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        disabled={isSaving}
+                        autoFocus
+                    />
+                </div>
+                
+                {hasImages && (
                   <div className={cn(
                       "grid gap-2",
                       postImages.length === 1 && "grid-cols-1",
@@ -223,10 +255,10 @@ export default function CreatePostPage() {
                 )}
             </main>
             <footer className="p-4 border-t mt-auto">
-                 <div className="grid grid-cols-3 gap-2">
-                    <Button variant="ghost" className="gap-2 text-muted-foreground" onClick={() => fileInputRef.current?.click()}>
-                        <ImageIcon className="h-5 w-5 text-red-500"/>
-                        <span>صورة/فيديو</span>
+                 <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} disabled={hasBackground}>
+                        <ImageIcon className="h-6 w-6 text-green-500"/>
+                        <span className="sr-only">إضافة صورة</span>
                     </Button>
                      <input
                         type="file"
@@ -235,15 +267,22 @@ export default function CreatePostPage() {
                         className="hidden"
                         accept="image/*"
                         multiple
+                        disabled={hasBackground}
                       />
-                    <Button variant="ghost" className="gap-2 text-muted-foreground" disabled>
-                        <Smile className="h-5 w-5 text-yellow-500"/>
-                        <span>شعور/نشاط</span>
-                    </Button>
-                    <Button variant="ghost" className="gap-2 text-muted-foreground" disabled>
-                        <Users className="h-5 w-5 text-blue-500"/>
-                        <span>الإشارة للأصدقاء</span>
-                    </Button>
+                    {!hasImages && backgroundOptions.map(bg => (
+                        <button 
+                            key={bg.id}
+                            onClick={() => setBackground(bg.id)}
+                            className={cn(
+                                "h-8 w-8 rounded-full border-2",
+                                background === bg.id ? "border-primary" : "border-muted",
+                                bg.className.startsWith('bg-') ? bg.className.split(' ')[0] : 'bg-transparent',
+                                bg.id === 'default' && 'flex items-center justify-center text-muted-foreground'
+                            )}
+                        >
+                            {bg.id === 'default' && 'Aa'}
+                        </button>
+                    ))}
                 </div>
             </footer>
         </div>

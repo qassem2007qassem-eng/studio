@@ -47,6 +47,7 @@ export interface Post {
   updatedAt?: Timestamp;
   privacy: PrivacySetting;
   commenting: PrivacySetting;
+  background?: string;
 }
 
 export interface AppNotification {

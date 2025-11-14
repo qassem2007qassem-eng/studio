@@ -41,6 +41,7 @@ type CreatePostInput = {
   };
   privacy: PrivacySetting;
   commenting: PrivacySetting;
+  background?: string;
 };
 
 export const createPost = async (input: CreatePostInput): Promise<string> => {
@@ -51,29 +52,37 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
 
   const { firestore, storage } = initializeFirebase();
   
-  const imageUrls = await Promise.all(
-    input.imageBlobs.map(async (blob) => {
-      const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
-      await uploadString(imageRef, blob, 'data_url');
-      return getDownloadURL(imageRef);
-    })
-  );
+  let imageUrls: string[] = [];
+  if (input.imageBlobs && input.imageBlobs.length > 0) {
+      imageUrls = await Promise.all(
+        input.imageBlobs.map(async (blob) => {
+          const imageRef = ref(storage, `posts/${user.uid}/${Date.now()}-${Math.random()}`);
+          await uploadString(imageRef, blob, 'data_url');
+          return getDownloadURL(imageRef);
+        })
+      );
+  }
   
   const postsCollection = collection(firestore, 'posts');
   
-  const postDocRef = await addDoc(postsCollection, {
+  const postData: Omit<Post, 'id'> = {
     authorId: user.uid,
     author: input.author,
     content: input.content,
     imageUrls: imageUrls,
-    createdAt: serverTimestamp(),
+    createdAt: serverTimestamp() as Timestamp,
     likeIds: [],
     privacy: input.privacy,
     commenting: input.commenting,
-  });
+    background: input.background || 'default'
+  };
 
-  await updateDoc(postDocRef, {
+  const postDocRef = await addDoc(postsCollection, {});
+
+  await setDoc(postDocRef, {
+      ...postData,
       id: postDocRef.id,
+      createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
   });
 
@@ -175,4 +184,3 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         return [];
     }
 };
-
