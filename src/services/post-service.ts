@@ -18,7 +18,6 @@ import {
   Timestamp,
   getDoc,
   updateDoc,
-  setDoc,
 } from 'firebase/firestore';
 import {
   getStorage,
@@ -52,7 +51,7 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     throw new Error('User not authenticated');
   }
 
-  // 1. Create the initial post document data WITHOUT images
+  // 1. Create the initial post document data WITHOUT images to get an ID
   const postData: Omit<Post, 'id' | 'imageUrls'> = {
     authorId: user.uid,
     author: input.author,
@@ -64,13 +63,13 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     background: input.background || 'default',
   };
 
-  // 2. Add the post document to Firestore to get a unique ID
   const postDocRef = await addDoc(collection(firestore, 'posts'), postData);
 
-  // 3. If there are images, upload them now using the post's ID
+  // 2. If there are images, upload them now using the post's ID in the path
   let imageUrls: string[] = [];
   if (input.imageBlobs && input.imageBlobs.length > 0) {
     const uploadPromises = input.imageBlobs.map(async (blob, index) => {
+      // Use a unique path for each image, including the post ID
       const imageRef = ref(storage, `posts/${user.uid}/${postDocRef.id}/image-${index}`);
       await uploadString(imageRef, blob, 'data_url');
       return getDownloadURL(imageRef);
@@ -78,11 +77,10 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     imageUrls = await Promise.all(uploadPromises);
   }
 
-  // 4. Update the post document with the image URLs and its own ID
+  // 3. Update the post document with the image URLs and its own ID
   await updateDoc(postDocRef, {
     id: postDocRef.id,
     imageUrls: imageUrls,
-    updatedAt: serverTimestamp(),
   });
 
   return postDocRef.id;
@@ -102,8 +100,8 @@ export const deletePost = async (postId: string, imageUrls: string[], asAdmin = 
         throw new Error("Post not found.");
     }
     
-    // Admin can delete any post, otherwise check ownership
-    if (!asAdmin && postSnap.data().authorId !== user.uid) {
+    const postAuthorId = postSnap.data().authorId;
+    if (!asAdmin && postAuthorId !== user.uid) {
         throw new Error("User not authorized to delete this post.");
     }
     
@@ -180,6 +178,3 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         return [];
     }
 };
-
-
-

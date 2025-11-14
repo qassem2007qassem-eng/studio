@@ -31,12 +31,12 @@ service firebase.storage {
     }
 
     // Rules for post images.
-    // - Any authenticated user can create post images.
+    // - Any authenticated user can create post images for themselves.
     // - Any authenticated user can read post images.
     // - Deletion should be handled by server-side logic (e.g., Cloud Functions).
-    match /posts/{userId}/{imageId} {
+    match /posts/{userId}/{postId}/{fileName} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      allow create: if isOwner(userId);
       allow update, delete: if false; // Prevent modification/deletion from client.
     }
 
@@ -46,13 +46,8 @@ service firebase.storage {
     // - Deletion should be handled by server-side logic (e.g., Cloud Functions for expired stories).
     match /stories/{userId}/{storyId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
+      allow create: if isOwner(userId);
       allow update, delete: if false; // Prevent modification/deletion from client.
-    }
-
-    // Default rule: Deny all other read/write operations for security.
-    match /{allPaths=**} {
-      allow read, write: if false;
     }
   }
 }

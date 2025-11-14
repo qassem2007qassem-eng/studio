@@ -242,24 +242,30 @@ export default function SettingsPage() {
     const [isLogoutAlertOpen, setIsLogoutAlertOpen] = useState(false);
     const isAdmin = user?.email === 'admin@app.com';
 
-    const handleLogout = async () => {
+    const handleLogout = async (saveInfo: boolean) => {
         setIsLoggingOut(true);
         try {
             const profile = await getCurrentUserProfile();
             if (profile) {
+                let savedUsers: any[] = [];
                 const savedUsersRaw = localStorage.getItem('savedUsers');
-                let savedUsers = savedUsersRaw ? JSON.parse(savedUsersRaw) : [];
+                if (savedUsersRaw) {
+                    savedUsers = JSON.parse(savedUsersRaw);
+                }
                 
-                const userToSave = {
-                    email: profile.email,
-                    name: profile.name,
-                    avatarUrl: profile.avatarUrl,
-                };
-
-                // Remove user if they already exist to move them to the front
+                // Remove the current user if they already exist in the list
                 savedUsers = savedUsers.filter((u: any) => u.email !== profile.email);
-                // Add user to the front of the array
-                savedUsers.unshift(userToSave);
+
+                if (saveInfo) {
+                    const userToSave = {
+                        email: profile.email,
+                        name: profile.name,
+                        avatarUrl: profile.avatarUrl,
+                    };
+                    // Add the current user to the front of the array
+                    savedUsers.unshift(userToSave);
+                }
+                
                 // Limit to 5 users
                 savedUsers = savedUsers.slice(0, 5);
 
@@ -327,12 +333,31 @@ export default function SettingsPage() {
                         </>
                     )}
                     <Separator />
-                     <Button variant="ghost" className="w-full justify-start gap-4 text-red-500 hover:text-red-600" onClick={handleLogout} disabled={isLoggingOut}>
+                     <Button variant="ghost" className="w-full justify-start gap-4 text-red-500 hover:text-red-600" onClick={() => setIsLogoutAlertOpen(true)} disabled={isLoggingOut}>
                         <LogOut className="h-5 w-5" />
                         <span>{isLoggingOut ? "جاري تسجيل الخروج..." : "تسجيل الخروج"}</span>
                     </Button>
                 </CardContent>
             </Card>
+             <AlertDialog open={isLogoutAlertOpen} onOpenChange={setIsLogoutAlertOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>تسجيل الخروج</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            هل تريد حفظ معلومات تسجيل الدخول الخاصة بك لهذا الجهاز؟
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="grid grid-cols-1 sm:grid-cols-3 sm:gap-2 gap-2">
+                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleLogout(false)} className="sm:col-start-2">
+                            لا، خروج فقط
+                        </AlertDialogAction>
+                        <AlertDialogAction onClick={() => handleLogout(true)}>
+                            نعم، احفظ وخرج
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }
