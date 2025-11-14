@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, PlusCircle, User, Shield } from 'lucide-react';
+import { Home, Users, PlusCircle, User, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/firebase';
 import { useEffect, useState } from 'react';
@@ -32,15 +32,13 @@ export function BottomNavBar() {
   }, [user]);
 
   const username = userData?.username?.toLowerCase();
-  // Simple admin check for demo purposes
-  const isAdmin = user?.email === 'admin@app.com' || user?.uid === 'oImAj9urAsZL9zkezvOd7soIrsS2';
 
   const navItems = [
     { href: '/home', icon: Home, label: 'الرئيسية' },
     { href: '/home/friends', icon: Users, label: 'الأصدقاء' },
     { href: '/home/create-post', icon: PlusCircle, label: 'إنشاء', isSpecial: true },
     { href: `/home/profile/${username}`, icon: User, label: 'حسابي', requiresAuth: true },
-    isAdmin ? { href: '/home/admin', icon: Shield, label: 'مشرف' } : { href: '/home/settings', icon: 'settings', label: 'الإعدادات', disabled: true },
+    { href: '/home/settings', icon: Settings, label: 'الإعدادات', requiresAuth: true },
   ];
 
   if (isUserLoading) {
@@ -65,8 +63,12 @@ export function BottomNavBar() {
       <div className="container mx-auto h-full max-w-2xl px-2">
         <div className="grid h-full grid-cols-5 items-center">
           {navItems.map((item) => {
-            if (item.disabled) return <div key={item.href} />;
-            if (item.requiresAuth && (!user || !username)) return <div key={item.href} />;
+            if (item.requiresAuth && (!user || (item.href.includes('/profile/') && !username)))) {
+                return <div key={item.label} className="flex flex-col items-center gap-1 opacity-50">
+                    <item.icon className="h-6 w-6 text-muted-foreground" />
+                    <span className="text-xs font-medium text-muted-foreground">{item.label}</span>
+                </div>;
+            }
 
             const isActive = pathname === item.href;
             const Icon = item.icon;
@@ -94,7 +96,7 @@ export function BottomNavBar() {
                 className={cn(
                   'flex flex-col items-center justify-center text-center gap-1 transition-colors duration-200',
                   isActive ? 'text-primary' : 'text-muted-foreground hover:text-primary',
-                  !user && (item.requiresAuth || item.href === '/home/settings') ? 'pointer-events-none opacity-50' : ''
+                  !user && item.requiresAuth ? 'pointer-events-none opacity-50' : ''
                 )}
               >
                 <Icon className="h-6 w-6" />

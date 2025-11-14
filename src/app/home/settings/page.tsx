@@ -238,7 +238,7 @@ export default function SettingsPage() {
     const router = useRouter();
     const { auth } = initializeFirebase();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
-    const isAdmin = user?.email === 'admin@app.com' || user?.uid === 'oImAj9urAsZL9zkezvOd7soIrsS2';
+    const isAdmin = user?.email === 'admin@app.com';
 
     const handleLogout = async () => {
         setIsLoggingOut(true);
@@ -284,18 +284,26 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <ThemeSettings />
-                    <Separator />
-                    {isAdmin && (
+                     {isAdmin && (
                         <>
-                            <Button asChild variant="ghost" className="w-full justify-start gap-4">
-                                <Link href="/home/admin">
-                                    <Shield className="h-5 w-5" />
-                                    <span>لوحة تحكم المشرفين</span>
-                                </Link>
-                            </Button>
                             <Separator />
+                            <div className="flex items-center justify-between">
+                               <div className="flex items-center gap-4">
+                                     <Shield className="h-5 w-5 text-muted-foreground" />
+                                     <div className="space-y-1">
+                                        <p className="font-medium">لوحة تحكم المشرفين</p>
+                                        <p className="text-xs text-muted-foreground">اذهب إلى /home/admin للوصول.</p>
+                                     </div>
+                                </div>
+                                <Button asChild variant="secondary" size="sm">
+                                    <Link href="/home/admin">
+                                        اذهب
+                                    </Link>
+                                </Button>
+                            </div>
                         </>
                     )}
+                    <Separator />
                      <Button variant="ghost" className="w-full justify-start gap-4 text-red-500 hover:text-red-600" onClick={handleLogout} disabled={isLoggingOut}>
                         <LogOut className="h-5 w-5" />
                         <span>{isLoggingOut ? "جاري تسجيل الخروج..." : "تسجيل الخروج"}</span>
