@@ -211,14 +211,28 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
                 </div>
                 
                 <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/50 to-transparent">
-                    <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
-                        <MoreHorizontal />
-                    </Button>
-                    <DialogClose asChild>
+                     <div className="flex items-center gap-3 text-white">
+                        <Avatar>
+                            <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
+                            <AvatarFallback>{post.author.name?.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                             <Link href={`/home/profile/${post.author.username?.toLowerCase()}`} className="font-semibold hover:underline">
+                                {post.author.name}
+                            </Link>
+                             <p className="text-xs">{safeToDate(post.createdAt) ? formatDistanceToNow(safeToDate(post.createdAt)!) : ''}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
                         <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
-                            <X />
+                            <MoreHorizontal />
                         </Button>
-                    </DialogClose>
+                        <DialogClose asChild>
+                            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
+                                <X />
+                            </Button>
+                        </DialogClose>
+                    </div>
                 </div>
 
                 <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/50 to-transparent text-white">
@@ -230,17 +244,20 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
                         <span>{commentCount} تعليق</span>
                     </div>
                     <Separator className="bg-white/30" />
-                    <div className="grid grid-cols-3 gap-2 mt-2">
+                     <div className="grid w-full grid-cols-3 gap-2">
                         <Button variant="ghost" className="gap-2 text-white hover:bg-white/20 hover:text-white" onClick={onLike}>
                             <Heart className={cn("h-5 w-5", isLiked && "fill-white text-white")} />
                             <span>أعجبني</span>
                         </Button>
-                        <SheetTrigger asChild>
-                            <Button variant="ghost" className="gap-2 text-white hover:bg-white/20 hover:text-white">
-                                <MessageCircle className="h-5 w-5" />
-                                <span>تعليق</span>
-                            </Button>
-                        </SheetTrigger>
+                        <Sheet>
+                           <SheetTrigger asChild>
+                                <Button variant="ghost" className="gap-2 text-white hover:bg-white/20 hover:text-white">
+                                    <MessageCircle className="h-5 w-5" />
+                                    <span>تعليق</span>
+                                </Button>
+                            </SheetTrigger>
+                            <CommentsSheet post={post} />
+                        </Sheet>
                         <Button variant="ghost" className="gap-2 text-white hover:bg-white/20 hover:text-white">
                             <Share2 className="h-5 w-5" />
                             <span>مشاركة</span>
@@ -351,14 +368,11 @@ export function PostCard({ post }: PostCardProps) {
   }, [post.background, hasImages]);
 
   const hasBackground = !!selectedBackground;
-
-
-  const renderPostContent = () => {
-    const contentElement = (
+  
+  const postContent = (
       <div className={cn(
         "p-4",
-        hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg",
-        hasBackground && "cursor-pointer hover:opacity-90 transition-opacity",
+        hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg cursor-pointer hover:opacity-90 transition-opacity",
         selectedBackground?.value,
       )}>
         <p className={cn(
@@ -368,151 +382,152 @@ export function PostCard({ post }: PostCardProps) {
           {post.content}
         </p>
       </div>
-    );
-    
-    if (hasBackground) {
-      return <DialogTrigger asChild>{contentElement}</DialogTrigger>
-    }
-    return contentElement;
-  };
+  );
 
 
   return (
     <Dialog>
-        <Sheet>
-            <Card className="overflow-hidden bg-card">
-                <CardHeader className="p-4">
-                    <div className="flex items-center gap-3">
-                        <Avatar>
-                            <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
-                            <AvatarFallback>{post.author.name?.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="grid gap-0.5">
-                            <Link href={`/home/profile/${post.author.username?.toLowerCase()}`} className="font-semibold hover:underline">
-                            {post.author.name}
-                            </Link>
-                            <p className="text-xs text-muted-foreground">{post.author.username?.toLowerCase()} · {postDate ? formatDistanceToNow(postDate) : ''}</p>
-                        </div>
-                        <div className="me-auto ms-0">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                {(isOwner || isAdmin) && (
-                                    <>
-                                        <DropdownMenuItem disabled>
-                                            <Edit className="ms-2 h-4 w-4" />
-                                            <span>تعديل المنشور</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setIsDeleteAlertOpen(true)} className="text-destructive focus:text-destructive">
-                                            <Trash2 className="ms-2 h-4 w-4" />
-                                            <span>{isAdmin && !isOwner ? "حذف (مشرف)" : "حذف"}</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                    </>
-                                )}
-                                {!isOwner && 
-                                    <DropdownMenuItem onClick={() => setIsReportAlertOpen(true)}>
-                                        <Flag className="ms-2 h-4 w-4" />
-                                        <span>إبلاغ عن المنشور</span>
-                                    </DropdownMenuItem>
-                                }
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-4 p-0">
-                    {post.content && renderPostContent()}
-                    {hasImages && (
-                        <div className={cn(
-                            "grid gap-2 p-4",
-                            post.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2",
-                            post.imageUrls.length > 2 ? "grid-cols-2" : ""
-                        )}>
-                            {post.imageUrls.map((imageUrl, index) => (
-                                <div key={index} className={cn(
-                                    "relative w-full overflow-hidden rounded-lg border",
-                                    post.imageUrls.length === 1 ? "aspect-video" : "aspect-square",
-                                    post.imageUrls.length === 3 && index === 0 ? "col-span-2 row-span-2" : ""
-                                )}>
-                                    <Image
-                                        src={imageUrl}
-                                        alt={`Post image ${index + 1}`}
-                                        data-ai-hint="post image"
-                                        fill
-                                        className="object-cover"
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </CardContent>
-                <CardFooter className="flex flex-col items-start gap-4 p-4">
-                    <div className="flex w-full items-center justify-between text-sm text-muted-foreground">
-                    <p>{likeCount} إعجاب</p>
-                    <p>{commentCount} تعليق</p>
-                    </div>
-                    <Separator />
-                    <div className="grid w-full grid-cols-3 gap-2">
-                        <Button variant="ghost" className="gap-2" onClick={handleLike} disabled={!user}>
-                            <Heart className={cn("h-5 w-5", isLiked && "fill-red-500 text-red-500")} />
-                            <span>أعجبني</span>
+      <Card className="overflow-hidden bg-card">
+        <CardHeader className="p-4">
+            <div className="flex items-center gap-3">
+                <Avatar>
+                    <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
+                    <AvatarFallback>{post.author.name?.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div className="grid gap-0.5">
+                    <Link href={`/home/profile/${post.author.username?.toLowerCase()}`} className="font-semibold hover:underline">
+                    {post.author.name}
+                    </Link>
+                    <p className="text-xs text-muted-foreground">{post.author.username?.toLowerCase()} · {postDate ? formatDistanceToNow(postDate) : ''}</p>
+                </div>
+                <div className="me-auto ms-0">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
                         </Button>
-                        <SheetTrigger asChild>
-                            <Button variant="ghost" className="gap-2">
-                                <MessageCircle className="h-5 w-5" />
-                                <span>تعليق</span>
-                            </Button>
-                        </SheetTrigger>
-                        <Button variant="ghost" className="gap-2">
-                            <Share2 className="h-5 w-5" />
-                            <span>مشاركة</span>
-                        </Button>
-                    </div>
-                </CardFooter>
-            </Card>
-            
-            {hasBackground && (
-                <FullScreenPostView post={post} onLike={handleLike} isLiked={isLiked} likeCount={likeCount} commentCount={commentCount} />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                        {(isOwner || isAdmin) && (
+                            <>
+                                <DropdownMenuItem disabled>
+                                    <Edit className="ms-2 h-4 w-4" />
+                                    <span>تعديل المنشور</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setIsDeleteAlertOpen(true)} className="text-destructive focus:text-destructive">
+                                    <Trash2 className="ms-2 h-4 w-4" />
+                                    <span>{isAdmin && !isOwner ? "حذف (مشرف)" : "حذف"}</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                            </>
+                        )}
+                        {!isOwner && 
+                            <DropdownMenuItem onClick={() => setIsReportAlertOpen(true)}>
+                                <Flag className="ms-2 h-4 w-4" />
+                                <span>إبلاغ عن المنشور</span>
+                            </DropdownMenuItem>
+                        }
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            </div>
+        </CardHeader>
+        <CardContent className="space-y-4 p-0">
+            {post.content && (
+              hasBackground ? (
+                <DialogTrigger asChild>{postContent}</DialogTrigger>
+              ) : (
+                postContent
+              )
             )}
-            
-            <CommentsSheet post={post} />
+            {hasImages && (
+                <div className={cn(
+                    "grid gap-2 p-4",
+                    post.imageUrls.length === 1 ? "grid-cols-1" : "grid-cols-2",
+                    post.imageUrls.length > 2 ? "grid-cols-2" : ""
+                )}>
+                    {post.imageUrls.map((imageUrl, index) => (
+                        <div key={index} className={cn(
+                            "relative w-full overflow-hidden rounded-lg border",
+                            post.imageUrls.length === 1 ? "aspect-video" : "aspect-square",
+                            post.imageUrls.length === 3 && index === 0 ? "col-span-2 row-span-2" : ""
+                        )}>
+                            <Image
+                                src={imageUrl}
+                                alt={`Post image ${index + 1}`}
+                                data-ai-hint="post image"
+                                fill
+                                className="object-cover"
+                            />
+                        </div>
+                    ))}
+                </div>
+            )}
+        </CardContent>
+        <CardFooter className="flex flex-col items-start gap-4 p-4">
+            <div className="flex w-full items-center justify-between text-sm text-muted-foreground">
+            <p>{likeCount} إعجاب</p>
+            <p>{commentCount} تعليق</p>
+            </div>
+            <Separator />
+            <div className="grid w-full grid-cols-3 gap-2">
+                <Button variant="ghost" className="gap-2" onClick={handleLike} disabled={!user}>
+                    <Heart className={cn("h-5 w-5", isLiked && "fill-red-500 text-red-500")} />
+                    <span>أعجبني</span>
+                </Button>
+                <Sheet>
+                   <SheetTrigger asChild>
+                        <Button variant="ghost" className="gap-2">
+                            <MessageCircle className="h-5 w-5" />
+                            <span>تعليق</span>
+                        </Button>
+                    </SheetTrigger>
+                    <CommentsSheet post={post} />
+                </Sheet>
+                <Button variant="ghost" className="gap-2">
+                    <Share2 className="h-5 w-5" />
+                    <span>مشاركة</span>
+                </Button>
+            </div>
+        </CardFooter>
+      </Card>
+      
+      {hasBackground && (
+          <FullScreenPostView post={post} onLike={handleLike} isLiked={isLiked} likeCount={likeCount} commentCount={commentCount} />
+      )}
+      
 
-            <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>هل أنت متأكد تمامًا؟</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            هذا الإجراء لا يمكن التراجع عنه. سيؤدي هذا إلى حذف منشورك بشكل دائم من خوادمنا.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">حذف</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-            <AlertDialog open={isReportAlertOpen} onOpenChange={setIsReportAlertOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>الإبلاغ عن محتوى</AlertDialogTitle>
-                        <AlertDialogDescription>
-                        هل أنت متأكد أنك تريد الإبلاغ عن هذا المنشور؟ سيتم إرسال بلاغك إلى المشرفين للمراجعة.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleReport}>إبلاغ</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </Sheet>
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>هل أنت متأكد تمامًا؟</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      هذا الإجراء لا يمكن التراجع عنه. سيؤدي هذا إلى حذف منشورك بشكل دائم من خوادمنا.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">حذف</AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={isReportAlertOpen} onOpenChange={setIsReportAlertOpen}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>الإبلاغ عن محتوى</AlertDialogTitle>
+                  <AlertDialogDescription>
+                  هل أنت متأكد أنك تريد الإبلاغ عن هذا المنشور؟ سيتم إرسال بلاغك إلى المشرفين للمراجعة.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleReport}>إبلاغ</AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
+
 
 
