@@ -94,14 +94,17 @@ const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<U
 const createUserProfile = async (
   user: AuthUser, 
   details: Pick<User, 'username' | 'name' | 'email' | 'emailVerified'>,
-  avatar?: { base64: string, name: string }
+  avatarFile?: File,
+  onProgress?: (progress: number, status: 'uploading' | 'completed' | 'error') => void
 ): Promise<void> => {
   try {
     let avatarUrl = "";
-    if (avatar) {
-      const path = `avatars/${user.uid}/${avatar.name}`;
-      avatarUrl = await uploadFile(avatar.base64, path);
-    } 
+    if (avatarFile) {
+      const path = `avatars/${user.uid}/${Date.now()}_${avatarFile.name}`;
+      avatarUrl = await uploadFile(avatarFile, path, (progress, status) => {
+        onProgress?.(progress, status);
+      });
+    }
 
     const userDocRef = doc(firestore, "users", user.uid);
     const userData: Omit<User, 'id'> = {
@@ -289,8 +292,8 @@ const checkIfFollowing = async (targetUserId: string, options: GetProfileOptions
 const updateProfile = async (
     userId: string,
     updates: Partial<User>, 
-    avatar?: { base64: string, name: string }, 
-    cover?: { base64: string, name: string }, 
+    avatarFile?: File, 
+    coverFile?: File, 
     onProgress?: (type: 'avatar' | 'cover', progress: number, status: 'uploading' | 'completed' | 'error') => void
 ): Promise<{ avatarUrl?: string; coverUrl?: string }> => {
   
@@ -304,9 +307,9 @@ const updateProfile = async (
   try {
     const uploadPromises: Promise<void>[] = [];
 
-    if (avatar) {
-      const path = `avatars/${userId}/${avatar.name}`;
-      const avatarPromise = uploadFile(avatar.base64, path, (progress, status) => {
+    if (avatarFile) {
+      const path = `avatars/${userId}/${Date.now()}_${avatarFile.name}`;
+      const avatarPromise = uploadFile(avatarFile, path, (progress, status) => {
         onProgress?.('avatar', progress, status);
       }).then(url => {
         updatedUserData.avatarUrl = url;
@@ -315,9 +318,9 @@ const updateProfile = async (
       uploadPromises.push(avatarPromise);
     }
 
-    if (cover) {
-      const path = `covers/${userId}/${cover.name}`;
-      const coverPromise = uploadFile(cover.base64, path, (progress, status) => {
+    if (coverFile) {
+      const path = `covers/${userId}/${Date.now()}_${coverFile.name}`;
+      const coverPromise = uploadFile(coverFile, path, (progress, status) => {
         onProgress?.('cover', progress, status);
       }).then(url => {
         updatedUserData.coverUrl = url;

@@ -46,6 +46,11 @@ export function formatDistanceToNow(date: Date | string | number | Timestamp): s
   }
 }
 
+/**
+ * Converts a File object to a Base64 encoded string.
+ * @param file The file to convert.
+ * @returns A promise that resolves with the Base64 data URL.
+ */
 export const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

@@ -22,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { type User as UserType, type PrivacySetting } from '@/lib/types';
 import { getCurrentUserProfile } from '@/services/user-service';
 import { createPost } from '@/services/post-service';
-import { cn, fileToBase64 } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,8 +32,8 @@ import {
 import { Progress } from '@/components/ui/progress';
 
 interface ImageFile {
-    name: string;
-    base64: string;
+    file: File;
+    preview: string;
 }
 
 interface UploadProgress {
@@ -123,24 +123,24 @@ export default function CreatePostPage() {
     }
   }, [hasImages])
 
-  const handleImageChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (files) {
-        const newImagesPromises = Array.from(files).map(async (file) => {
-            const base64 = await fileToBase64(file);
-            return { name: file.name, base64 };
-        });
-        const newImages = await Promise.all(newImagesPromises);
+        const newImages = Array.from(files).map(file => ({
+            file: file,
+            preview: URL.createObjectURL(file)
+        }));
         setPostImages(prev => [...prev, ...newImages]);
     }
   };
 
   const removeImage = (index: number) => {
     const imageToRemove = postImages[index];
+    URL.revokeObjectURL(imageToRemove.preview); // Clean up blob URL
     setPostImages(prev => prev.filter((_, i) => i !== index));
     setUploadProgress(prev => {
         const newProgress = { ...prev };
-        delete newProgress[imageToRemove.name];
+        delete newProgress[imageToRemove.file.name];
         return newProgress;
     });
   };
@@ -172,7 +172,7 @@ export default function CreatePostPage() {
     try {
       await createPost({
         content: content.trim(),
-        imageBase64s: postImages.map(img => img), // Send name and base64
+        imageFiles: postImages.map(img => img.file), // Pass the actual File objects
         author: {
           name: profile.name,
           username: profile.username.toLowerCase(),
@@ -190,6 +190,7 @@ export default function CreatePostPage() {
       });
 
       setContent('');
+      postImages.forEach(img => URL.revokeObjectURL(img.preview)); // Cleanup all blob URLs
       setPostImages([]);
       setUploadProgress({});
       toast({
@@ -301,8 +302,8 @@ export default function CreatePostPage() {
             )}>
                 {postImages.map((image, index) => (
                   <div key={index} className="relative aspect-square">
-                     <Image src={image.base64} alt={`معاينة الصورة ${index + 1}`} fill className="rounded-lg object-cover" />
-                     {uploadProgress[image.name] && <ImageUploadProgress {...uploadProgress[image.name]} />}
+                     <Image src={image.preview} alt={`معاينة الصورة ${index + 1}`} fill className="rounded-lg object-cover" />
+                     {uploadProgress[image.file.name] && <ImageUploadProgress {...uploadProgress[image.file.name]} />}
                      <Button variant="destructive" size="icon" className="absolute top-2 right-2 h-7 w-7" onClick={() => removeImage(index)} disabled={isSaving || isUploading}>
                         <X className="h-4 w-4"/>
                      </Button>

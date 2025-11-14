@@ -29,7 +29,7 @@ const { auth, firestore, storage } = initializeFirebase();
 
 type CreatePostInput = {
   content: string;
-  imageBase64s: { name: string, base64: string }[];
+  imageFiles: File[];
   author: {
     name: string;
     username: string;
@@ -49,17 +49,20 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
 
   let imageUrls: string[] = [];
 
-  if (input.imageBase64s && input.imageBase64s.length > 0) {
+  if (input.imageFiles && input.imageFiles.length > 0) {
     try {
-      const uploadPromises = input.imageBase64s.map((image) => {
-        const path = `posts/${user.uid}/${Date.now()}_${image.name}`;
-        return uploadFile(image.base64, path, (progress, status) => {
-          input.onProgress?.(image.name, progress, status);
+      const uploadPromises = input.imageFiles.map((file) => {
+        const path = `posts/${user.uid}/${Date.now()}_${file.name}`;
+        // Note: The 'uploadFile' service now expects a File object.
+        return uploadFile(file, path, (progress, status) => {
+          input.onProgress?.(file.name, progress, status);
         });
       });
+      // Wait for all uploads to complete before proceeding
       imageUrls = await Promise.all(uploadPromises);
     } catch (error) {
       console.error("Image upload failed, post creation stopped.", error);
+      // The error from uploadFile will be propagated, so we just re-throw it.
       throw new Error("One or more images failed to upload. Please try again.");
     }
   }
@@ -70,7 +73,7 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     content: input.content,
     createdAt: serverTimestamp() as Timestamp,
     likeIds: [],
-    imageUrls: imageUrls,
+    imageUrls: imageUrls, // Now contains URLs from Firebase Storage
     privacy: input.privacy,
     commenting: input.commenting,
     background: input.background || 'default',

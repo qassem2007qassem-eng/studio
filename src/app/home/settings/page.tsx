@@ -23,7 +23,6 @@ import { useRouter } from "next/navigation";
 import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
-import { fileToBase64 } from "@/lib/utils";
 
 
 function ProfileSettings() {
@@ -37,8 +36,8 @@ function ProfileSettings() {
     const [username, setUsername] = useState("");
     const [bio, setBio] = useState("");
     
-    const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
-    const [coverBase64, setCoverBase64] = useState<string | null>(null);
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [coverFile, setCoverFile] = useState<File | null>(null);
 
     const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
@@ -82,8 +81,8 @@ function ProfileSettings() {
             const updatedUrls = await updateProfile(
                 user.uid,
                 profileUpdates, 
-                avatarBase64 ? { base64: avatarBase64, name: 'avatar.jpg' } : undefined, 
-                coverBase64 ? { base64: coverBase64, name: 'cover.jpg' } : undefined, 
+                avatarFile || undefined, 
+                coverFile || undefined, 
                 (type, progress, status) => {
                    setUploadProgress({ type, progress, status });
                 }
@@ -96,9 +95,9 @@ function ProfileSettings() {
                 });
             }
             
-            setAvatarBase64(null);
+            setAvatarFile(null);
             if (avatarInputRef.current) avatarInputRef.current.value = '';
-            setCoverBase64(null);
+            setCoverFile(null);
             if (coverInputRef.current) coverInputRef.current.value = '';
             
             toast({
@@ -118,16 +117,15 @@ function ProfileSettings() {
         }
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') => {
         const file = e.target.files?.[0];
         if (file) {
-            const base64 = await fileToBase64(file);
             const previewUrl = URL.createObjectURL(file);
             if (type === 'avatar') {
-                setAvatarBase64(base64);
+                setAvatarFile(file);
                 setAvatarPreview(previewUrl);
             } else {
-                setCoverBase64(base64);
+                setCoverFile(file);
                 setCoverPreview(previewUrl);
             }
         }

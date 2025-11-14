@@ -24,7 +24,7 @@ import {
 import { CalendarIcon, Loader2, UserCircle2, CheckCircle, UploadCloud } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { cn, fileToBase64 } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { initializeFirebase } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, type User as AuthUser } from 'firebase/auth';
@@ -37,6 +37,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { createUserProfile } from '@/services/user-service';
+import { Progress } from '@/components/ui/progress';
 
 function RegisterForm() {
   const searchParams = useSearchParams();
@@ -44,6 +45,7 @@ function RegisterForm() {
 
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -52,7 +54,7 @@ function RegisterForm() {
     gender: '',
     username: '',
     password: '',
-    avatarBase64: null as string | null,
+    avatarFile: null as File | null,
     avatarPreview: null as string | null,
   });
   const [usernameError, setUsernameError] = useState<string | null>(null);
@@ -98,13 +100,12 @@ function RegisterForm() {
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-        const base64 = await fileToBase64(file);
         setFormData(prev => ({
             ...prev,
-            avatarBase64: base64,
+            avatarFile: file,
             avatarPreview: URL.createObjectURL(file)
         }));
     }
@@ -120,6 +121,7 @@ function RegisterForm() {
       return;
     }
     setIsLoading(true);
+    setUploadProgress(0);
 
     const usernameLower = formData.username.toLowerCase();
 
@@ -150,7 +152,9 @@ function RegisterForm() {
         name: formData.fullName,
         email: user.email!,
         emailVerified: user.emailVerified,
-      }, formData.avatarBase64 ? { base64: formData.avatarBase64, name: 'avatar.jpg' } : undefined);
+      }, formData.avatarFile || undefined, (progress, status) => {
+        if(status === 'uploading') setUploadProgress(progress);
+      });
       
       await updateProfile(user, {
         displayName: formData.fullName,
@@ -300,8 +304,9 @@ function RegisterForm() {
                 <UserCircle2 className="w-20 h-20 text-muted-foreground" />
               </AvatarFallback>
                {isLoading && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full">
-                    <Loader2 className="h-8 w-8 animate-spin text-white" />
+                <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center rounded-full text-white">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                    {uploadProgress > 0 && <span className="text-xs mt-2">{Math.round(uploadProgress)}%</span>}
                 </div>
                 )}
             </Avatar>
@@ -401,7 +406,7 @@ function RegisterForm() {
                 disabled={!currentStepData.validation() || isLoading}
                 className={cn(step === 1 ? 'col-span-2' : '', (step === 5 && !isFromGoogle) ? 'col-span-2' : '', (step === 3 && isFromGoogle) ? 'col-span-2' : '')}
               >
-                {step === 5 && !formData.avatarBase64 && !isFromGoogle ? 'تخطى' : 'التالي'}
+                {step === 5 && !formData.avatarFile && !isFromGoogle ? 'تخطى' : 'التالي'}
               </Button>
             )}
 
