@@ -5,7 +5,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Heart, MessageCircle, MoreHorizontal, Share2, Flag, Trash2, Edit, X } from "lucide-react";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
 import { type Post, type Comment, type User } from "@/lib/types";
@@ -204,22 +204,14 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
 
     return (
         <DialogContent showCloseButton={false} className="p-0 border-0 bg-transparent shadow-none max-w-full h-full max-h-full sm:max-w-full sm:h-full sm:max-h-full !rounded-none">
-            <DialogTitle className="sr-only">عرض المنشور بملء الشاشة</DialogTitle>
-            <div className="fixed inset-0 z-50 flex flex-col bg-black/70">
+            <DialogTitle className="sr-only">عرض المنشور: {post.content.substring(0, 30)}</DialogTitle>
+             <div className={cn(
+                "fixed inset-0 z-50 flex flex-col", 
+                selectedBackground?.value || 'bg-background'
+            )}>
                 
-                {/* Main Content Area */}
-                <div className={cn(
-                    "flex-grow relative flex items-center justify-center p-8", 
-                    selectedBackground?.value
-                )}>
-                    {/* Inner container to handle scrolling for long text */}
-                    <div className="w-full max-h-full overflow-y-auto">
-                        <p className="text-3xl font-bold whitespace-pre-wrap text-center max-w-full">{post.content}</p>
-                    </div>
-                </div>
-
                 {/* Top Bar */}
-                <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/50 to-transparent">
+                <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/50 to-transparent z-10">
                      <div className="flex items-center gap-3 text-white">
                         <Avatar>
                             <AvatarImage src={post.author.avatarUrl} alt={post.author.name} />
@@ -254,8 +246,18 @@ const FullScreenPostView = ({ post, onLike, isLiked, likeCount, commentCount }: 
                     </div>
                 </div>
 
+                {/* Main Content Area */}
+                <div className="flex-grow flex items-center justify-center p-8 overflow-hidden">
+                     <div className="w-full max-h-full overflow-y-auto">
+                        <p className="text-3xl font-bold whitespace-pre-wrap text-center" style={{ wordBreak: 'break-word' }}>
+                            {post.content}
+                        </p>
+                    </div>
+                </div>
+
+
                 {/* Bottom Bar */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/50 to-transparent text-white">
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/50 to-transparent text-white z-10">
                     <div className="flex justify-between items-center text-sm mb-2">
                         <div className="flex items-center gap-1">
                             {likeCount > 0 && 
@@ -304,6 +306,7 @@ export function PostCard({ post }: PostCardProps) {
   const [likeCount, setLikeCount] = useState(0);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [isReportAlertOpen, setIsReportAlertOpen] = useState(false);
+  const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
   
   const isOwner = user?.uid === post.authorId;
   const isAdmin = user?.email === 'admin@app.com';
@@ -393,31 +396,45 @@ export function PostCard({ post }: PostCardProps) {
 
   const hasBackground = !!selectedBackground;
   
-  const TRUNCATE_LENGTH = 100;
+  const TRUNCATE_LENGTH = 150;
   const isLongText = post.content.length > TRUNCATE_LENGTH;
   
-  const postContentText = isLongText ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content;
+  const handleContentClick = () => {
+    if (hasBackground) {
+        setIsFullScreenOpen(true);
+    }
+  };
   
-  const postContent = (
-      <div className={cn(
-        "p-4",
-        hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg",
-        hasBackground && "cursor-pointer hover:opacity-90 transition-opacity",
-        selectedBackground?.value,
-      )}>
-        <p className={cn(
-          "whitespace-pre-wrap",
-          hasBackground ? "text-2xl font-bold" : "text-base"
-        )}>
-          {hasBackground ? post.content : postContentText}
-        </p>
-      </div>
-  );
+  const renderContent = () => {
+    const contentToShow = (isLongText && !hasBackground) ? `${post.content.substring(0, TRUNCATE_LENGTH)}...` : post.content;
 
-  const PostContentWrapper = hasBackground ? DialogTrigger : 'div';
+    return (
+        <div 
+            onClick={handleContentClick}
+            className={cn(
+                "p-4",
+                hasBackground && "min-h-[200px] flex items-center justify-center text-center rounded-lg cursor-pointer hover:opacity-90 transition-opacity",
+                selectedBackground?.value,
+            )}
+        >
+            <p className={cn(
+              "whitespace-pre-wrap",
+              hasBackground ? "text-2xl font-bold" : "text-base"
+            )}>
+              {contentToShow}
+            </p>
+             {isLongText && !hasBackground && (
+                <span onClick={() => setIsFullScreenOpen(true)} className="text-primary hover:underline cursor-pointer text-sm">
+                    عرض المزيد
+                </span>
+            )}
+        </div>
+    );
+  };
+
 
   return (
-    <Dialog>
+    <Dialog open={isFullScreenOpen} onOpenChange={setIsFullScreenOpen}>
       <Card className="overflow-hidden bg-card">
         <CardHeader className="p-4">
             <div className="flex items-center gap-3">
@@ -464,11 +481,7 @@ export function PostCard({ post }: PostCardProps) {
             </div>
         </CardHeader>
         <CardContent className="space-y-4 p-0">
-            {post.content && (
-              <PostContentWrapper asChild={hasBackground}>
-                {postContent}
-              </PostContentWrapper>
-            )}
+            {post.content && renderContent()}
             {hasImages && (
                 <div className={cn(
                     "grid gap-2 p-4",
@@ -521,7 +534,7 @@ export function PostCard({ post }: PostCardProps) {
         </CardFooter>
       </Card>
       
-      {hasBackground && (
+      {(hasBackground || isLongText) && (
           <FullScreenPostView post={post} onLike={handleLike} isLiked={isLiked} likeCount={likeCount} commentCount={commentCount} />
       )}
       
@@ -557,4 +570,5 @@ export function PostCard({ post }: PostCardProps) {
     </Dialog>
   );
 }
+
 
