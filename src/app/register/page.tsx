@@ -75,7 +75,7 @@ function RegisterForm() {
         email: email,
         avatar: avatar || null,
       }));
-      setStep(3);
+      setStep(3); // Start from step 3 if coming from Google
     }
   }, [searchParams]);
 

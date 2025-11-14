@@ -379,21 +379,6 @@ const getFollowing = async (userId: string) => {
   }
 };
 
-// This function is no longer used for code verification, but we keep it to update the user's status in Firestore.
-// In a real email link flow, Firebase handles verification and updates the user.emailVerified property automatically.
-const markEmailAsVerified = async (email: string) => {
-  const user = await getUserByEmail(email);
-  if (!user) {
-    throw new Error('User not found.');
-  }
-
-  const userRef = doc(firestore, 'users', user.id);
-  await updateDoc(userRef, { emailVerified: true });
-  await getCurrentUserProfile({ forceRefresh: true, userId: user.id });
-  return true;
-}
-
-
 export {
   createUserProfile,
   getCurrentUserProfile,
@@ -408,6 +393,5 @@ export {
   getFollowers,
   getFollowing,
   deleteUserAndContent,
-  markEmailAsVerified,
   getUserByEmail
 };

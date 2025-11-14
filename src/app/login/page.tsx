@@ -55,17 +55,7 @@ interface SavedUser {
     avatarUrl: string;
 }
 
-const SavedUserLogin = ({ savedUser, onSwitchAccount }: { savedUser: SavedUser, onSwitchAccount: () => void }) => {
-    const router = useRouter();
-
-    const handleOneTapLogin = () => {
-        // Since we don't store the password, we can't auto-login.
-        // We can, however, pre-fill the email and prompt for the password.
-        // Or, if using a persistent auth state, this component would just redirect.
-        // For now, this just acts as a visual cue. We'll send them to the main home page
-        // as the main useEffect will handle the redirect if they are truly logged in.
-         router.push('/home');
-    }
+const SavedUserLogin = ({ savedUser, onLogin, onSwitchAccount }: { savedUser: SavedUser, onLogin: () => void, onSwitchAccount: () => void }) => {
 
     return (
          <Card className="mx-auto w-full max-w-sm">
@@ -81,7 +71,7 @@ const SavedUserLogin = ({ savedUser, onSwitchAccount }: { savedUser: SavedUser, 
                 </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4">
-                 <Button onClick={handleOneTapLogin} className="w-full">
+                 <Button onClick={onLogin} className="w-full">
                     متابعة باسم {savedUser.name?.split(' ')[0]}
                 </Button>
                 <Button variant="link" onClick={onSwitchAccount} className="w-full">
@@ -106,6 +96,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   
   const [savedUser, setSavedUser] = useState<SavedUser | null>(null);
+  const [view, setView] = useState<'login' | 'saved_user'>('login');
 
   const ADMIN_EMAIL = 'admin@app.com';
 
@@ -117,33 +108,34 @@ export default function LoginPage() {
   }, [user, isUserLoading, router]);
 
   useEffect(() => {
-    // Check for a saved user in localStorage when component mounts
-    const savedUserJson = localStorage.getItem('savedUser');
-    if (savedUserJson) {
-        setSavedUser(JSON.parse(savedUserJson));
+    // Check for a saved user in localStorage when component mounts and user is not logged in
+    if (!user) {
+        const savedUserJson = localStorage.getItem('savedUser');
+        if (savedUserJson) {
+            const parsedUser = JSON.parse(savedUserJson);
+            setSavedUser(parsedUser);
+            setEmail(parsedUser.email);
+            setView('saved_user');
+        } else {
+            setView('login');
+        }
     }
-  }, []);
+  }, [user]);
 
   const handleSuccessfulLogin = (loggedInUser: any) => {
-    const userDocRef = doc(firestore, 'users', loggedInUser.uid);
-    getDoc(userDocRef).then(docSnap => {
-        if(docSnap.exists()){
-            const userData = docSnap.data();
-            const userToSave: SavedUser = {
-                email: userData.email,
-                name: userData.name,
-                avatarUrl: userData.avatarUrl
-            };
-            localStorage.setItem('savedUser', JSON.stringify(userToSave));
-        }
-    });
+    // We no longer save user here, it's done on logout
     router.push('/home');
   }
 
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!email || !password) {
+      // For one-tap, we don't have password yet. This is a special case.
+      if (view === 'saved_user' && email) {
+          setView('login'); // Show full login to ask for password
+          return;
+      }
       toast({ title: 'خطأ', description: 'الرجاء إدخال البريد الإلكتروني وكلمة المرور.', variant: 'destructive' });
       return;
     }
@@ -158,7 +150,7 @@ export default function LoginPage() {
         toast({
             title: 'التحقق من البريد الإلكتروني',
             description: 'الرجاء التحقق من بريدك الإلكتروني أولاً. لقد أرسلنا لك رابط التحقق.',
-            variant: 'destructive'
+            variant: 'default'
         });
         setIsLoading(false);
         return;
@@ -187,6 +179,18 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+  
+  const handleOneTapLoginClick = () => {
+    // This is a UX trick. Since we can't log in without a password,
+    // we switch to the login view, pre-fill the email, and focus the password field.
+    // The user still needs to enter their password.
+    setView('login');
+    // We could try to log them in if their session is still active in Firebase
+    // but the main useEffect already handles that. So we just switch views.
+    setTimeout(() => {
+        document.getElementById('password')?.focus();
+    }, 100);
+  }
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
@@ -198,11 +202,22 @@ export default function LoginPage() {
       const userDocRef = doc(firestore, 'users', googleUser.uid);
       const userDoc = await getDoc(userDocRef);
 
-      if (userDoc.exists()) {
-        handleSuccessfulLogin(googleUser);
-      } else {
-        router.push(`/register?name=${encodeURIComponent(googleUser.displayName || '')}&email=${encodeURIComponent(googleUser.email || '')}&avatar=${encodeURIComponent(googleUser.photoURL || '')}`);
+      if (!userDoc.exists()) {
+        await setDoc(userDocRef, {
+            id: googleUser.uid,
+            username: googleUser.email?.split('@')[0] || `user_${Date.now()}`.toLowerCase(),
+            email: googleUser.email,
+            name: googleUser.displayName,
+            avatarUrl: googleUser.photoURL,
+            createdAt: serverTimestamp(),
+            followers: [],
+            following: [],
+            isPrivate: false,
+            emailVerified: googleUser.emailVerified
+        });
       }
+      
+      handleSuccessfulLogin(googleUser);
 
     } catch (error: any) {
       console.error("Google sign-in error:", error);
@@ -230,10 +245,19 @@ export default function LoginPage() {
     );
   }
   
-  if (savedUser) {
+  if (view === 'saved_user' && savedUser) {
       return (
           <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-              <SavedUserLogin savedUser={savedUser} onSwitchAccount={() => setSavedUser(null)} />
+              <SavedUserLogin 
+                savedUser={savedUser} 
+                onLogin={handleOneTapLoginClick}
+                onSwitchAccount={() => {
+                    localStorage.removeItem('savedUser');
+                    setView('login');
+                    setEmail('');
+                    setSavedUser(null);
+                }} 
+            />
           </div>
       )
   }

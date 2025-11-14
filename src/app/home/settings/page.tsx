@@ -22,6 +22,7 @@ import { useTheme } from "next-themes";
 import { Switch } from "@/components/ui/switch";
 import { useRouter } from "next/navigation";
 import Link from 'next/link';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 
 function ProfileSettings() {
@@ -238,23 +239,39 @@ export default function SettingsPage() {
     const router = useRouter();
     const { auth } = initializeFirebase();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [isLogoutAlertOpen, setIsLogoutAlertOpen] = useState(false);
     const isAdmin = user?.email === 'admin@app.com';
 
-    const handleLogout = async () => {
+    const performSignOut = async () => {
         setIsLoggingOut(true);
         try {
             await signOut(auth);
-            // We don't clear the savedUser from localStorage here
-            // so the one-tap login can be shown next time.
-            // If the user wants to fully switch accounts, they can use the
-            // "Switch account" button on the login page.
             router.push('/login');
         } catch (error) {
             console.error("Logout error", error);
         } finally {
             setIsLoggingOut(false);
+            setIsLogoutAlertOpen(false);
         }
-    }
+    };
+    
+    const handleSaveAndLogout = async () => {
+        const profile = await getCurrentUserProfile();
+        if (profile) {
+            const userToSave = {
+                email: profile.email,
+                name: profile.name,
+                avatarUrl: profile.avatarUrl,
+            };
+            localStorage.setItem('savedUser', JSON.stringify(userToSave));
+        }
+        await performSignOut();
+    };
+
+    const handleDontSaveAndLogout = async () => {
+        localStorage.removeItem('savedUser');
+        await performSignOut();
+    };
 
     if (isUserLoading) {
          return (
@@ -307,14 +324,31 @@ export default function SettingsPage() {
                         </>
                     )}
                     <Separator />
-                     <Button variant="ghost" className="w-full justify-start gap-4 text-red-500 hover:text-red-600" onClick={handleLogout} disabled={isLoggingOut}>
+                     <Button variant="ghost" className="w-full justify-start gap-4 text-red-500 hover:text-red-600" onClick={() => setIsLogoutAlertOpen(true)} disabled={isLoggingOut}>
                         <LogOut className="h-5 w-5" />
                         <span>{isLoggingOut ? "جاري تسجيل الخروج..." : "تسجيل الخروج"}</span>
                     </Button>
                 </CardContent>
             </Card>
+            
+            <AlertDialog open={isLogoutAlertOpen} onOpenChange={setIsLogoutAlertOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>هل تريد حفظ معلومات تسجيل الدخول؟</AlertDialogTitle>
+                        <AlertDialogDescription>
+                           إذا قمت بالحفظ، ستتمكن من تسجيل الدخول بنقرة واحدة في المرة القادمة.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogAction onClick={handleSaveAndLogout} disabled={isLoggingOut}>
+                            {isLoggingOut ? <Loader2 className="animate-spin" /> : 'نعم، احفظ وخرج'}
+                        </AlertDialogAction>
+                        <AlertDialogCancel onClick={handleDontSaveAndLogout} disabled={isLoggingOut} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                           {isLoggingOut ? <Loader2 className="animate-spin" /> : 'لا، خروج فقط'}
+                        </AlertDialogCancel>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     )
 }
-
-    
