@@ -15,6 +15,7 @@ import Link from 'next/link';
 // Simple admin check
 const isAdminUser = (user: User | null) => {
     if (!user) return false;
+    // This check must match the admin user created for authentication
     return user.email === 'admin@app.com';
 };
 
@@ -29,6 +30,8 @@ export default function AdminPage() {
   const isAdmin = isAdminUser(user);
 
   useEffect(() => {
+    if (isUserLoading) return; // Wait until user status is resolved
+
     if (isAdmin) {
       getReports('pending').then(async (fetchedReports) => {
         setReports(fetchedReports);
@@ -55,7 +58,7 @@ export default function AdminPage() {
     } else {
       setIsLoading(false);
     }
-  }, [isAdmin]);
+  }, [isAdmin, isUserLoading]);
 
   const handleAction = async (reportId: string, action: () => Promise<any>, successMessage: string) => {
     setIsActionLoading(prev => ({ ...prev, [reportId]: true }));
@@ -104,7 +107,7 @@ export default function AdminPage() {
       <Card>
         <CardHeader>
           <CardTitle>غير مصرح به</CardTitle>
-          <CardDescription>ليس لديك الصلاحية للوصول إلى هذه الصفحة.</CardDescription>
+          <CardDescription>ليس لديك الصلاحية للوصول إلى هذه الصفحة. الرجاء تسجيل الدخول بحساب المشرف.</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -135,7 +138,7 @@ export default function AdminPage() {
                     <CardTitle className="text-lg flex justify-between items-center">
                         <span>إبلاغ عن {report.reportedEntityType === 'post' ? 'منشور' : 'مستخدم'}</span>
                         <span className="text-sm font-normal text-muted-foreground">
-                            {new Date(report.createdAt.toDate()).toLocaleDateString('ar')}
+                            {report.createdAt?.toDate ? new Date(report.createdAt.toDate()).toLocaleDateString('ar') : '...'}
                         </span>
                     </CardTitle>
                     <CardDescription>

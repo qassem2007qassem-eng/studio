@@ -58,9 +58,11 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  // Hardcoded admin credentials for demo purposes
   const ADMIN_EMAIL = 'admin@app.com';
-  const ADMIN_PASSWORD = 'admin123'; // Firebase requires a password of at least 6 characters
+  const ADMIN_PASSWORD = 'admin123';
+
+  const isTryingAdminLogin = email === ADMIN_EMAIL;
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,15 +73,9 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // Special admin login check
-      let userCredential;
-      if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-          userCredential = await signInWithEmailAndPassword(auth, ADMIN_EMAIL, ADMIN_PASSWORD);
-      } else {
-          userCredential = await signInWithEmailAndPassword(auth, email, password);
-      }
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
-      if (!userCredential.user.emailVerified && email !== ADMIN_EMAIL) {
+      if (email !== ADMIN_EMAIL && !userCredential.user.emailVerified) {
          toast({
           title: 'لم يتم التحقق من البريد الإلكتروني',
           description: 'لقد تم إرسال رابط تحقق إلى بريدك الإلكتروني. الرجاء التحقق منه لتسجيل الدخول. قد يكون في مجلد الرسائل غير المرغوب فيها.',
@@ -94,7 +90,11 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error(error);
       let description = 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.';
-      if (
+      
+      // Special check for admin login failure
+      if (email === ADMIN_EMAIL && password !== ADMIN_PASSWORD) {
+          description = 'كلمة مرور المشرف غير صحيحة.';
+      } else if (
         error.code === 'auth/invalid-credential' ||
         error.code === 'auth/user-not-found' ||
         error.code === 'auth/wrong-password' ||
@@ -102,6 +102,7 @@ export default function LoginPage() {
       ) {
         description = 'البريد الإلكتروني أو كلمة المرور غير صحيحة.';
       }
+
       toast({
         title: 'خطأ في تسجيل الدخول',
         description: description,
@@ -190,6 +191,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading || isGoogleLoading}
                 />
+                 {isTryingAdminLogin && <p className="text-xs text-muted-foreground text-center pt-1">كلمة مرور المشرف التجريبية: {ADMIN_PASSWORD}</p>}
               </div>
               <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
                 {isLoading ? <Loader2 className="animate-spin" /> : 'تسجيل الدخول'}

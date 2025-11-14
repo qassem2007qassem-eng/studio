@@ -292,12 +292,11 @@ export default function SettingsPage() {
                                      <Shield className="h-5 w-5 text-muted-foreground" />
                                      <div className="space-y-1">
                                         <p className="font-medium">لوحة تحكم المشرفين</p>
-                                        <p className="text-xs text-muted-foreground">اذهب إلى /home/admin للوصول.</p>
                                      </div>
                                 </div>
                                 <Button asChild variant="secondary" size="sm">
                                     <Link href="/home/admin">
-                                        اذهب
+                                        الذهاب إلى لوحة التحكم
                                     </Link>
                                 </Button>
                             </div>
