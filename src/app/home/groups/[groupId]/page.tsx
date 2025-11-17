@@ -123,7 +123,7 @@ function GroupMembers({ memberIds, creatorId }: { memberIds: string[], creatorId
                 <div key={member.id} className="flex items-center justify-between">
                     <Link href={`/home/profile/${member.username.toLowerCase()}`} className="flex items-center gap-4">
                         <Avatar>
-                            <AvatarImage src={undefined} alt={member.name} />
+                            <AvatarImage src={(member as any).profilePictureUrl} alt={member.name} />
                             <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div>
@@ -298,7 +298,7 @@ export default function GroupDetailPage() {
         );
     }
     
-    const adminTabs = isCreator ? ['pending', 'members'] : [];
+    const adminTabs = isCreator ? ['members', 'pending'] : [];
     const defaultTab = "posts";
     const tabCount = 1 + adminTabs.length;
 
@@ -416,5 +416,3 @@ export default function GroupDetailPage() {
         </div>
     );
 }
-
-    

@@ -197,7 +197,7 @@ export const getFeedPosts = async (
     let feedQueryConstraints: any[] = [
         where('authorId', 'in', queryableFollowingIds),
         where('status', '==', 'approved'), // only show approved posts
-        where('privacy', 'in', ['followers', 'everyone']), // show public posts from followed users
+        // where('privacy', 'in', ['followers', 'everyone']), // show public posts from followed users - This can cause index issues. Filter on client or simplify.
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
@@ -211,7 +211,7 @@ export const getFeedPosts = async (
     try {
         const querySnapshot = await getDocs(q);
         
-        const posts = querySnapshot.docs.map(doc => {
+        let posts = querySnapshot.docs.map(doc => {
             const data = doc.data() as Post;
             return { 
                 id: doc.id, 
@@ -220,6 +220,10 @@ export const getFeedPosts = async (
                 updatedAt: data.updatedAt ? data.updatedAt : undefined,
             };
         });
+
+        // Client-side filter for privacy since combining 'in' and 'not-in' or multiple 'in' is not supported for different fields
+        posts = posts.filter(post => post.privacy !== 'only_me' || post.authorId === userId);
+
 
         const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] ?? null;
         const hasMore = querySnapshot.docs.length === pageSize;
@@ -240,7 +244,7 @@ export const getFeedPosts = async (
               }
              const fallbackQuery = query(postsRef, ...fallbackConstraints);
              const snapshot = await getDocs(fallbackQuery);
-              const posts = snapshot.docs.map(doc => doc.data() as Post);
+              const posts = snapshot.docs.map(doc => doc.data() as Post).filter(post => post.privacy !== 'only_me' || post.authorId === userId);
               return { posts, lastVisible: snapshot.docs[snapshot.docs.length - 1] ?? null, hasMore: posts.length === pageSize };
         }
         throw error;

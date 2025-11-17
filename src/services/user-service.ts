@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { 
@@ -202,11 +201,26 @@ const getUsersByIds = async (userIds: string[]): Promise<User[]> => {
   if (userIds.length === 0) {
     return [];
   }
+  // Firestore 'in' queries are limited to 30 items per query.
+  // We need to chunk the userIds array into groups of 30.
+  const chunks: string[][] = [];
+  for (let i = 0; i < userIds.length; i += 30) {
+      chunks.push(userIds.slice(i, i + 30));
+  }
+
   try {
+    const users: User[] = [];
     const usersRef = collection(firestore, 'users');
-    const q = query(usersRef, where('id', 'in', userIds));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
+
+    for (const chunk of chunks) {
+        const q = query(usersRef, where('id', 'in', chunk));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach(doc => {
+            users.push({ id: doc.id, ...doc.data() } as User);
+        });
+    }
+    
+    return users;
   } catch (error) {
     console.error("Error getting users by IDs:", error);
     return [];
