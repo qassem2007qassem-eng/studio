@@ -95,13 +95,13 @@ const createUserProfile = async (
   const { firestore } = initializeFirebase();
   try {
     const userDocRef = doc(firestore, "users", user.uid);
-    const userData: Omit<User, 'id'> = {
+    const userData: Omit<User, 'id'> & { createdAt: any } = {
       username: details.username.toLowerCase(),
       name: details.name,
       email: details.email,
       emailVerified: details.emailVerified,
       bio: "",
-      createdAt: serverTimestamp() as Timestamp,
+      createdAt: serverTimestamp(),
       followers: [],
       following: [],
       isPrivate: false,
@@ -177,24 +177,11 @@ const getUserById = async (userId: string): Promise<User | null> => {
   }
 };
 
-const getTeacherById = async (teacherId: string): Promise<Teacher | null> => {
+const getTeacherById = async (teacherId: string): Promise<User | null> => {
   try {
-    // A teacher is also a user. We fetch from the 'users' collection.
     const userDoc = await getUserById(teacherId);
     if (userDoc && userDoc.email?.endsWith('@teacher.app.com')) {
-       // We can map the User type to a Teacher type if needed, or just use the User object.
-       // For now, let's assume the structure is compatible enough for display purposes.
-       const teacherProfile: Teacher = {
-         id: userDoc.id,
-         name: userDoc.name,
-         email: userDoc.email,
-         bio: userDoc.bio,
-         // profilePictureUrl might not exist on the user object, handle gracefully
-         profilePictureUrl: (userDoc as any).profilePictureUrl || '', 
-         // courseIds is not on the user object, this would need a separate query if required
-         courseIds: [], 
-       };
-       return teacherProfile;
+       return userDoc;
     }
     return null;
   } catch (error) {

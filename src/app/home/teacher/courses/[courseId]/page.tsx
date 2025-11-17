@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, onSnapshot, collection, query, where, orderBy, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { type Course, type Lesson } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,7 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Clock, PlayCircle, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { cn, safeToDate } from '@/lib/utils';
 
 function formatDuration(seconds: number) {
     if (isNaN(seconds) || seconds < 0) return '0 د';
@@ -46,16 +46,26 @@ export default function CourseDetailPage() {
             } else {
                 setCourse(null);
             }
-            setIsLoading(false);
+            // Keep loading true until lessons are also fetched
         }, (error) => {
             console.error("Error fetching course details:", error);
             setIsLoading(false);
         });
 
         const fetchLessons = async () => {
-             const lessonsQuery = query(collection(firestore, 'lessons'), where('courseId', '==', courseId), orderBy('createdAt', 'asc'));
+             const lessonsQuery = query(collection(firestore, 'lessons'), where('courseId', '==', courseId));
              const lessonsSnapshot = await getDocs(lessonsQuery);
-             setLessons(lessonsSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Lesson)));
+             const fetchedLessons = lessonsSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Lesson));
+             
+             // Sort lessons on the client side to avoid composite index requirement
+             fetchedLessons.sort((a, b) => {
+                const dateA = safeToDate(a.createdAt)?.getTime() || 0;
+                const dateB = safeToDate(b.createdAt)?.getTime() || 0;
+                return dateA - dateB; // ascending
+             });
+             
+             setLessons(fetchedLessons);
+             setIsLoading(false); // Set loading to false after both course and lessons are fetched
         }
         fetchLessons();
 
@@ -69,6 +79,7 @@ export default function CourseDetailPage() {
                 <Skeleton className="h-48 w-full" />
                 <Skeleton className="h-10 w-1/3" />
                 <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-40 w-full" />
             </div>
         );
     }

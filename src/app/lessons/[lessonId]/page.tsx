@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
@@ -20,6 +19,7 @@ import Link from 'next/link';
 import { cn, formatDistanceToNow, safeToDate } from '@/lib/utils';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, orderBy, query } from 'firebase/firestore';
+import { TeacherInfoDialog } from '@/components/teacher-info-dialog';
 
 function formatDuration(seconds: number) {
     if (isNaN(seconds) || seconds < 0) return '0 د';
@@ -186,44 +186,58 @@ export default function LessonPlayerPage() {
     const { user } = useUser();
 
     const [lesson, setLesson] = useState<Lesson | null>(null);
-    const [teacher, setTeacher] = useState<Teacher | null>(null);
+    const [teacher, setTeacher] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isLiked, setIsLiked] = useState(false);
+    const [isLiking, setIsLiking] = useState(false);
+
+
+    const fetchLessonData = useCallback(async () => {
+        if (!lessonId) return;
+        setIsLoading(true);
+        const lessonData = await getLessonById(lessonId as string);
+        if (lessonData) {
+            setLesson(lessonData);
+            const teacherData = await getTeacherById(lessonData.teacherId);
+            setTeacher(teacherData);
+            if (user) {
+                setIsLiked(lessonData.likes?.includes(user.uid));
+            }
+        } else {
+            notFound();
+        }
+        setIsLoading(false);
+    }, [lessonId, user]);
+
 
     useEffect(() => {
-        if (!lessonId) return;
-
-        const fetchLessonData = async () => {
-            setIsLoading(true);
-            const lessonData = await getLessonById(lessonId as string);
-            if (lessonData) {
-                setLesson(lessonData);
-                const teacherData = await getTeacherById(lessonData.teacherId);
-                setTeacher(teacherData);
-                if (user) {
-                    setIsLiked(lessonData.likes?.includes(user.uid));
-                }
-            } else {
-                notFound();
-            }
-            setIsLoading(false);
-        };
         fetchLessonData();
-    }, [lessonId, user]);
+    }, [fetchLessonData]);
     
     const handleLikeToggle = async () => {
-        if (!user || !lesson) return;
+        if (!user || !lesson || isLiking) return;
+        setIsLiking(true);
         const newIsLiked = !isLiked;
-        setIsLiked(newIsLiked); // Optimistic update
+        setIsLiked(newIsLiked);
         
         try {
             await toggleLikeLesson(lesson.id, newIsLiked);
-            // Refresh lesson data to get updated like count
             const updatedLesson = await getLessonById(lesson.id);
             setLesson(updatedLesson);
         } catch(e) {
             console.error(e);
             setIsLiked(!newIsLiked); // Revert on error
+        } finally {
+            setIsLiking(false);
+        }
+    }
+    
+    const onFollowStateChange = async () => {
+        // Re-fetch teacher data to update follow status if needed,
+        // although the dialog handles its own state.
+        if (teacher) {
+            const updatedTeacher = await getTeacherById(teacher.id);
+            setTeacher(updatedTeacher);
         }
     }
 
@@ -287,22 +301,25 @@ export default function LessonPlayerPage() {
                         </div>
                     </div>
                      {teacher && (
-                        <div className="flex items-center justify-between">
-                            <Link href={`/home/profile/${teacher.id}`} className="flex items-center gap-3">
-                                <Avatar>
-                                    <AvatarImage src={teacher.profilePictureUrl} alt={teacher.name} />
-                                    <AvatarFallback>{teacher.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <p className="font-semibold">{teacher.name}</p>
-                                    <div className="flex items-center gap-1 text-xs text-primary font-semibold">
-                                        <GraduationCap className="h-4 w-4" />
-                                        <span>معلم</span>
+                        <div className="flex items-center justify-between p-3 border rounded-lg">
+                           <TeacherInfoDialog teacher={teacher} onFollowStateChange={onFollowStateChange}>
+                               <div className="flex items-center gap-3 cursor-pointer">
+                                    <Avatar>
+                                        <AvatarImage src={(teacher as any).avatarUrl} alt={teacher.name} />
+                                        <AvatarFallback>{teacher.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="font-semibold hover:underline">{teacher.name}</p>
+                                        <div className="flex items-center gap-1 text-xs text-primary font-semibold">
+                                            <GraduationCap className="h-4 w-4" />
+                                            <span>معلم</span>
+                                        </div>
                                     </div>
-                                </div>
-                            </Link>
-                             <Button onClick={handleLikeToggle} disabled={!user} variant={isLiked ? 'default' : 'outline'}>
-                                <ThumbsUp className="me-2"/> {isLiked ? 'أعجبني' : 'إعجاب'}
+                               </div>
+                           </TeacherInfoDialog>
+                             <Button onClick={handleLikeToggle} disabled={!user || isLiking} variant={isLiked ? 'default' : 'outline'}>
+                                {isLiking ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <ThumbsUp className="me-2"/>}
+                                {isLiked ? 'أعجبني' : 'إعجاب'}
                             </Button>
                         </div>
                     )}

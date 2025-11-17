@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useUser, initializeFirebase } from '@/firebase';
@@ -148,8 +147,16 @@ export default function TeacherDashboardPage() {
     }
   }, [user, isUserLoading, firestore]);
 
-  if (isUserLoading) {
-    return <div className="flex justify-center items-center h-screen"><Skeleton className="h-48 w-full" /></div>;
+  if (isUserLoading || isLoadingStats) {
+    return <div className="space-y-4">
+      <Skeleton className="h-24 w-full" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Skeleton className="h-28 w-full" />
+        <Skeleton className="h-28 w-full" />
+        <Skeleton className="h-28 w-full" />
+      </div>
+       <Skeleton className="h-40 w-full" />
+    </div>;
   }
 
   if (!user || !user.email?.endsWith('@teacher.app.com')) {
@@ -178,6 +185,20 @@ export default function TeacherDashboardPage() {
             </div>
           </div>
         </CardHeader>
+         <CardContent className="flex justify-end gap-2">
+            <Button asChild>
+                <Link href="/home/teacher/create-lesson">
+                    <PlusCircle className="me-2" />
+                    إضافة درس جديد
+                </Link>
+            </Button>
+            <Button asChild variant="secondary">
+                <Link href="/home/teacher/create-course">
+                    <PlusCircle className="me-2" />
+                    إنشاء دورة جديدة
+                </Link>
+            </Button>
+        </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -187,7 +208,7 @@ export default function TeacherDashboardPage() {
             <Video className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-             {isLoadingStats ? <Skeleton className="h-8 w-10"/> : <div className="text-2xl font-bold">{lessonCount}</div>}
+            <div className="text-2xl font-bold">{lessonCount}</div>
             <p className="text-xs text-muted-foreground">درسًا منشورًا</p>
           </CardContent>
         </Card>
@@ -197,7 +218,7 @@ export default function TeacherDashboardPage() {
             <ListVideo className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoadingStats ? <Skeleton className="h-8 w-10"/> : <div className="text-2xl font-bold">{courseCount}</div>}
+            <div className="text-2xl font-bold">{courseCount}</div>
             <p className="text-xs text-muted-foreground">دورة تعليمية متاحة</p>
           </CardContent>
         </Card>
@@ -207,7 +228,7 @@ export default function TeacherDashboardPage() {
             <BookOpenCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-             {isLoadingStats ? <Skeleton className="h-8 w-14"/> : <div className="text-2xl font-bold">{totalViews}</div>}
+             <div className="text-2xl font-bold">{totalViews}</div>
             <p className="text-xs text-muted-foreground">مشاهدة على كل الدروس</p>
           </CardContent>
         </Card>
@@ -219,44 +240,17 @@ export default function TeacherDashboardPage() {
                 <TabsTrigger value="playlists">قوائم التشغيل</TabsTrigger>
             </TabsList>
             <TabsContent value="courses" className="mt-6 space-y-4">
-                 {isLoadingStats ? (
-                     <div className="flex justify-end gap-2">
-                         <Skeleton className="h-10 w-32" />
-                         <Skeleton className="h-10 w-32" />
-                     </div>
-                 ) : (
-                    <div className="flex justify-end gap-2">
-                        <Button asChild>
-                            <Link href="/home/teacher/create-lesson">
-                                <PlusCircle className="me-2" />
-                                إضافة درس جديد
-                            </Link>
-                        </Button>
-                        <Button asChild variant="secondary">
-                            <Link href="/home/teacher/create-course">
-                                <PlusCircle className="me-2" />
-                                إنشاء دورة جديدة
-                            </Link>
-                        </Button>
-                    </div>
-                 )}
                 <TeacherCourses teacherId={user.uid} />
             </TabsContent>
             <TabsContent value="playlists" className="mt-6 space-y-4">
-                 {isLoadingStats ? (
-                    <div className="flex justify-end">
-                       <Skeleton className="h-10 w-40" />
-                    </div>
-                 ) : (
-                    <div className="flex justify-end">
-                        <Button asChild>
-                            <Link href="/home/teacher/playlists/create">
-                                <PlusCircle className="me-2" />
-                                إنشاء قائمة تشغيل
-                            </Link>
-                        </Button>
-                    </div>
-                 )}
+                 <div className="flex justify-end">
+                    <Button asChild>
+                        <Link href="/home/teacher/playlists/create">
+                            <PlusCircle className="me-2" />
+                            إنشاء قائمة تشغيل
+                        </Link>
+                    </Button>
+                </div>
                 <TeacherPlaylists teacherId={user.uid} />
             </TabsContent>
         </Tabs>
