@@ -26,45 +26,23 @@ import { createReport } from "@/services/report-service";
 import { DeleteAccountDialog } from "@/components/delete-account-dialog";
 
 
-function ProfileSettingsCard() {
+function ProfileSettingsCard({ profile, onProfileUpdate }: { profile: UserType, onProfileUpdate: () => void }) {
     const { toast } = useToast();
-    const { user, isUserLoading } = useUser();
     const { auth } = initializeFirebase();
 
-    const [userData, setUserData] = useState<UserType | null>(null);
-    const [name, setName] = useState("");
-    const [username, setUsername] = useState("");
-    const [bio, setBio] = useState("");
+    const [name, setName] = useState(profile.name || "");
+    const [username, setUsername] = useState(profile.username || "");
+    const [bio, setBio] = useState(profile.bio || "");
     
-    const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     
-    useEffect(() => {
-        if (!isUserLoading && user) {
-            getCurrentUserProfile().then(profile => {
-                if (profile) {
-                    const data = profile as UserType;
-                    setUserData(data);
-                    setName(data.name || '');
-                    setUsername(data.username || '');
-                    setBio(data.bio || '');
-                }
-                 setIsLoading(false);
-            }).catch(() => setIsLoading(false));
-        } else if (!isUserLoading) {
-            setIsLoading(false);
-        }
-    }, [user, isUserLoading]);
-
     const handleSaveChanges = async () => {
-        if (!user || !userData) return;
-
         setIsSaving(true);
         try {
-            const profileUpdates: Partial<User> = { name, username, bio };
+            const profileUpdates: Partial<UserType> = { name, username, bio };
             
             await updateProfile(
-                user.uid,
+                profile.id,
                 profileUpdates
             );
 
@@ -78,6 +56,7 @@ function ProfileSettingsCard() {
                 title: "تم الحفظ",
                 description: "تم تحديث معلومات ملفك الشخصي بنجاح.",
             });
+            onProfileUpdate(); // Notify parent to refetch
         } catch (error: any) {
             console.error("Error updating profile:", error);
             toast({
@@ -89,31 +68,6 @@ function ProfileSettingsCard() {
             setIsSaving(false);
         }
     };
-
-    if (isLoading) {
-        return (
-            <Card>
-                <CardHeader><CardTitle>الملف الشخصي</CardTitle></CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="space-y-2">
-                        <Skeleton className="h-4 w-1/4" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                     <div className="space-y-2">
-                        <Skeleton className="h-4 w-1/4" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                     <div className="space-y-2">
-                        <Skeleton className="h-4 w-1/4" />
-                        <Skeleton className="h-20 w-full" />
-                    </div>
-                </CardContent>
-                <CardFooter>
-                     <Skeleton className="h-10 w-32" />
-                </CardFooter>
-            </Card>
-        )
-    }
 
     return (
         <Card>
@@ -146,29 +100,13 @@ function ProfileSettingsCard() {
     );
 }
 
-function AccountSettingsCard() {
-    const { user, isUserLoading } = useUser();
+function AccountSettingsCard({ profile, onProfileUpdate }: { profile: UserType, onProfileUpdate: () => void }) {
+    const { user } = useUser();
     const { toast } = useToast();
     
-    const [isPrivate, setIsPrivate] = useState(false);
+    const [isPrivate, setIsPrivate] = useState(profile.isPrivate || false);
     const [isSaving, setIsSaving] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
-
     const [isRequestingVerification, setIsRequestingVerification] = useState(false);
-
-
-    useEffect(() => {
-        if (!isUserLoading && user) {
-            getCurrentUserProfile().then(profile => {
-                if (profile) {
-                    setIsPrivate(profile.isPrivate || false);
-                }
-                setIsLoading(false);
-            });
-        } else if (!isUserLoading) {
-            setIsLoading(false);
-        }
-    }, [user, isUserLoading]);
 
     const handlePrivacyChange = async (checked: boolean) => {
         if (!user) return;
@@ -180,6 +118,7 @@ function AccountSettingsCard() {
                 title: "تم تحديث الخصوصية",
                 description: `حسابك الآن ${checked ? 'خاص' : 'عام'}.`,
             });
+            onProfileUpdate(); // Notify parent
         } catch (error: any) {
             toast({ title: "خطأ", description: error.message, variant: 'destructive' });
             setIsPrivate(!checked); // Revert on error
@@ -208,18 +147,6 @@ function AccountSettingsCard() {
         }
     };
 
-     if (isLoading) {
-        return (
-            <Card>
-                <CardHeader><CardTitle>الحساب</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                     <Skeleton className="h-16 w-full" />
-                     <Skeleton className="h-10 w-full" />
-                </CardContent>
-            </Card>
-        )
-    }
-
     return (
         <Card>
             <CardHeader><CardTitle>إعدادات الحساب</CardTitle></CardHeader>
@@ -237,7 +164,7 @@ function AccountSettingsCard() {
                         id="private-account"
                         checked={isPrivate}
                         onCheckedChange={handlePrivacyChange}
-                        disabled={isSaving || isLoading}
+                        disabled={isSaving}
                     />
                 </div>
                  <div className="flex items-center justify-between rounded-lg border p-4">
@@ -261,11 +188,9 @@ function AccountSettingsCard() {
 function DangerZoneCard() {
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const router = useRouter();
-    const {toast} = useToast();
 
     const onAccountDeleted = () => {
         setIsDeleteDialogOpen(false);
-        // Add a query param to show a message on the login page
         router.push('/login?deleted=true');
     };
     
@@ -295,20 +220,63 @@ function DangerZoneCard() {
     )
 }
 
+function SettingsSkeleton() {
+    return (
+        <div className="space-y-8">
+            <Skeleton className="h-10 w-1/3" />
+            <Card>
+                <CardHeader><Skeleton className="h-6 w-1/4" /></CardHeader>
+                <CardContent className="space-y-6">
+                    <div className="space-y-2">
+                        <Skeleton className="h-4 w-1/4" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                     <div className="space-y-2">
+                        <Skeleton className="h-4 w-1/4" />
+                        <Skeleton className="h-10 w-full" />
+                    </div>
+                </CardContent>
+                <CardFooter>
+                     <Skeleton className="h-10 w-32" />
+                </CardFooter>
+            </Card>
+             <Card>
+                <CardHeader><Skeleton className="h-6 w-1/4" /></CardHeader>
+                <CardContent className="space-y-4">
+                     <Skeleton className="h-16 w-full" />
+                </CardContent>
+            </Card>
+        </div>
+    )
+}
+
 
 export default function SettingsPage() {
     const { user, isUserLoading } = useUser();
     const [userProfile, setUserProfile] = useState<UserType | null>(null);
+    const [isProfileLoading, setIsProfileLoading] = useState(true);
     const router = useRouter();
     const { auth } = initializeFirebase();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isLogoutAlertOpen, setIsLogoutAlertOpen] = useState(false);
 
-    useEffect(() => {
+    const fetchProfile = () => {
         if (user) {
-            getCurrentUserProfile().then(setUserProfile);
+            setIsProfileLoading(true);
+            getCurrentUserProfile({ forceRefresh: true }).then(profile => {
+                setUserProfile(profile);
+                setIsProfileLoading(false);
+            });
         }
-    }, [user]);
+    };
+    
+    useEffect(() => {
+        if (!isUserLoading && user) {
+            fetchProfile();
+        } else if (!isUserLoading && !user) {
+            setIsProfileLoading(false);
+        }
+    }, [user, isUserLoading]);
 
     const isAdmin = userProfile?.accountType === 'admin'; 
     const isTeacher = userProfile?.accountType === 'teacher';
@@ -348,16 +316,11 @@ export default function SettingsPage() {
         }
     };
 
-
-    if (isUserLoading || (user && !userProfile)) {
-         return (
-             <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-                <Skeleton className="h-full w-full" />
-            </div>
-        )
+    if (isUserLoading || isProfileLoading) {
+         return <SettingsSkeleton />
     }
 
-    if (!user) {
+    if (!user || !userProfile) {
         return (
              <Card>
                 <CardHeader>
@@ -375,8 +338,8 @@ export default function SettingsPage() {
         <div className="space-y-8">
             <h1 className="text-3xl font-bold font-headline">الإعدادات</h1>
 
-            <ProfileSettingsCard />
-            <AccountSettingsCard />
+            <ProfileSettingsCard profile={userProfile} onProfileUpdate={fetchProfile} />
+            <AccountSettingsCard profile={userProfile} onProfileUpdate={fetchProfile} />
 
             <Card>
                  <CardHeader>

@@ -175,25 +175,29 @@ export const getFeedPosts = async (
     const postsRef = collection(firestore, 'posts');
 
     if (!userId) {
-        return { posts: [], lastVisible: null, hasMore: false };
+        // For non-logged-in users, show some public posts
+        const q = query(postsRef, where('privacy', '==', 'followers'), where('groupId', '==', null), orderBy('createdAt', 'desc'), limit(pageSize));
+         const querySnapshot = await getDocs(q);
+        const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+        return { posts, lastVisible: querySnapshot.docs[querySnapshot.docs.length - 1] ?? null, hasMore: posts.length === pageSize };
     }
 
-    const userProfile = await getCurrentUserProfile({ userId, forceRefresh: true });
+    const userProfile = await getCurrentUserProfile({ userId, forceRefresh: false });
     
-    // Also include the user's own posts in their feed.
+    // User's feed should contain posts from people they follow AND their own posts.
     const followingIds = [...(userProfile?.following || []), userId];
 
-    // If the user isn't following anyone but themselves, we still want to show their own posts.
     if (followingIds.length === 0) {
         return { posts: [], lastVisible: null, hasMore: false };
     }
 
-    // Firestore 'in' queries are limited to 30 items.
+    // Firestore 'in' queries are limited to 30 items. Handle pagination if needed in a real app.
     const queryableFollowingIds = followingIds.slice(0, 30);
 
     let feedQueryConstraints: any[] = [
         where('authorId', 'in', queryableFollowingIds),
-        where('status', '==', 'approved'),
+        where('status', '==', 'approved'), // only show approved posts
+        where('privacy', 'in', ['followers', 'everyone']), // show public posts from followed users
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
