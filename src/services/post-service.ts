@@ -126,9 +126,9 @@ export const deletePost = async (postId: string, asAdmin = false): Promise<void>
 
 
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
-    const { firestore } = initializeFirebase();
+    const { auth, firestore } = initializeFirebase();
     const postsCollection = collection(firestore, 'posts');
-    const isAdmin = initializeFirebase().auth.currentUser?.email === 'admin@app.com';
+    const isAdmin = auth.currentUser?.email === 'admin@app.com';
 
     const isOwner = profileUserId === currentUserId;
 
