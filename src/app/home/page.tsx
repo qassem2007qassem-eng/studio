@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { getFeedPosts } from "@/services/post-service";
 import { type DocumentSnapshot } from "firebase/firestore";
 import { CatLoader } from "@/components/cat-loader";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LogIn } from "lucide-react";
 
 export default function HomePage() {
   const { user: currentUser, isUserLoading } = useUser();
@@ -97,14 +99,39 @@ export default function HomePage() {
     <>
       <AppHeader />
       <Separator />
-      <CreatePostTrigger />
+      
+      {currentUser && <CreatePostTrigger />}
+      
       <div className="space-y-4 pt-6">
         {(isLoading || isUserLoading) && (
           <div className="flex justify-center items-center py-10">
             <CatLoader />
           </div>
         )}
-        {!isLoading && !isUserLoading && posts.length === 0 && (
+        
+        {!isUserLoading && !currentUser && (
+            <Card>
+                <CardHeader>
+                    <div className="flex flex-col items-center text-center gap-2">
+                        <LogIn className="h-12 w-12 text-primary"/>
+                        <CardTitle>مرحباً بك في مجمع الطلاب</CardTitle>
+                        <CardDescription>
+                            سجل دخولك أو أنشئ حساباً جديداً لترى آخر المنشورات من أصدقائك وتشارك أفكارك.
+                        </CardDescription>
+                    </div>
+                </CardHeader>
+                <CardContent className="flex flex-col sm:flex-row gap-2">
+                     <Button asChild className="w-full">
+                        <Link href="/login">تسجيل الدخول</Link>
+                    </Button>
+                     <Button asChild variant="secondary" className="w-full">
+                        <Link href="/register">إنشاء حساب جديد</Link>
+                    </Button>
+                </CardContent>
+            </Card>
+        )}
+
+        {currentUser && !isLoading && posts.length === 0 && (
             <div className="text-center text-muted-foreground pt-10">
                 <p className="text-lg font-semibold">مرحباً بك في StudentHub!</p>
                 <p className="text-sm">صفحتك الرئيسية فارغة حالياً.</p>
@@ -116,6 +143,7 @@ export default function HomePage() {
                 </Button>
             </div>
         )}
+        
         {posts?.map((post, index) => {
            const isLastElement = index === posts.length - 1;
            return (
