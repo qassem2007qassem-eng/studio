@@ -127,50 +127,47 @@ export const deletePost = async (postId: string, asAdmin = false): Promise<void>
 
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
     const postsCollection = collection(firestore, 'posts');
+    const isAdmin = auth.currentUser?.email === 'admin@app.com';
+
+    // Determine the privacy levels we are allowed to see
+    const visiblePrivacyLevels: PrivacySetting[] = ['followers']; // Everyone can see public posts
     
-    // Final fix: Simplest possible query. Only fetch by author.
-    // All filtering and sorting will be done client-side to prevent index errors.
+    const isOwner = profileUserId === currentUserId;
+
+    if (isOwner || isAdmin) {
+        // If owner or admin, they can see everything including their 'only_me' posts
+        visiblePrivacyLevels.push('only_me');
+    } else {
+        // If a visitor is following the profile user, they can see 'followers' posts.
+        // This is already included, so we just need to ensure we don't query for 'only_me'.
+    }
+
     const q = query(
         postsCollection,
-        where('authorId', '==', profileUserId)
+        where('authorId', '==', profileUserId),
+        where('groupId', '==', null), // Ensure we only get profile posts, not group posts
+        where('privacy', 'in', visiblePrivacyLevels),
+        orderBy('createdAt', 'desc')
     );
 
     try {
         const snapshot = await getDocs(q);
-        const allUserPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-        
-        // Manual filter for non-group posts
-        let posts = allUserPosts.filter(p => !p.groupId);
-
-        // Manual sort after fetching
-        posts.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-
-        const isAdmin = auth.currentUser?.email === 'admin@app.com';
-        
-        // If the viewer is the owner or an admin, show all posts (that are not in a group)
-        if (isAdmin || currentUserId === profileUserId) {
-            return posts;
-        }
-
-        // For other viewers, filter based on privacy settings
-        const { getUserById } = await import('./user-service');
-        const profileUser = await getUserById(profileUserId);
-        const isFollowing = currentUserId ? (profileUser?.followers || []).includes(currentUserId) : false;
-
-        return posts.filter(post => {
-            if (post.privacy === 'followers') {
-                return isFollowing;
-            }
-            if (post.privacy === 'only_me') {
-                return false; 
-            }
-            // This case should not be hit if "everyone" is removed, but as a fallback:
-            return false;
-        });
-
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
     } catch (e) {
         console.error("Error fetching user posts:", e);
-        return [];
+        // Fallback for missing index: Fetch by author and filter client-side
+        try {
+            const fallbackQuery = query(postsCollection, where('authorId', '==', profileUserId), where('groupId', '==', null));
+            const snapshot = await getDocs(fallbackQuery);
+            const posts = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() } as Post))
+                .filter(post => visiblePrivacyLevels.includes(post.privacy))
+                .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+            return posts;
+        } catch (finalError) {
+             console.error("Fallback query for user posts also failed:", finalError);
+             return [];
+        }
     }
 };
 
@@ -178,7 +175,6 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
     if (!userProfile) return { posts: [], lastVisible: null, hasMore: false };
 
     const followingIds = userProfile.following || [];
-    // Always include the user's own posts in their feed.
     const userIdsToQuery = Array.from(new Set([userProfile.id, ...followingIds]));
 
     if (userIdsToQuery.length === 0) {
@@ -187,47 +183,39 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
     
     const postsRef = collection(firestore, 'posts');
     
-    // Final fix for feed: Simplify query to prevent index errors.
-    // Fetch by author IDs, then sort and filter client-side.
-    // Removed orderBy from the query itself.
-    const feedQueryConstraints: any[] = [
+    // Optimized query: Filter by authors and public privacy, then order by date.
+    // This requires a composite index on (authorId, privacy, createdAt)
+    let feedQueryConstraints: any[] = [
         where('authorId', 'in', userIdsToQuery),
+        where('privacy', '==', 'followers'), // 'followers' is the public setting
+        where('groupId', '==', null), // Exclude group posts from main feed
+        orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
 
     if (lastVisible) {
-        // We can't use startAfter with a different orderBy, so pagination needs to be simple.
-        // This simplified query might fetch duplicates on subsequent pages if not handled,
-        // but it avoids the index error. For true pagination, a cursor on the sorted field is needed,
-        // which brings back the index issue. We will sort client-side.
+        feedQueryConstraints.push(startAfter(lastVisible));
     }
     
     const q = query(postsRef, ...feedQueryConstraints);
-
-    const querySnapshot = await getDocs(q);
     
-    let allPosts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+    try {
+        const querySnapshot = await getDocs(q);
+        
+        const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
 
-    // Client-side filtering and sorting
-    const posts = allPosts
-        .filter(post => {
-            // Exclude all group posts from the main feed
-            if (post.groupId) {
-                return false;
-            }
-            // Exclude 'only_me' posts from other users
-            if (post.authorId !== userProfile.id && post.privacy === 'only_me') {
-                return false;
-            }
-            return true;
-        })
-        .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+        const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
+        const hasMore = querySnapshot.docs.length === pageSize;
 
-
-    const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
-    const hasMore = querySnapshot.docs.length === pageSize;
-
-    return { posts: posts.slice(0, pageSize), lastVisible: newLastVisible, hasMore };
+        return { posts, lastVisible: newLastVisible, hasMore };
+    } catch (error) {
+        console.error("Error fetching feed posts, may require a composite index:", error);
+        // Provide a helpful message if it's likely an index issue.
+        if (error instanceof Error && error.message.includes('index')) {
+            console.error("Please create the required composite index in your Firestore settings.");
+        }
+         return { posts: [], lastVisible: null, hasMore: false };
+    }
 }
 
 
