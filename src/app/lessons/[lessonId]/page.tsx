@@ -255,10 +255,10 @@ export default function LessonPlayerPage() {
                     {videoId ? (
                         <div className="aspect-video">
                             <iframe
-                                src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+                                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
                                 title={lesson.title}
                                 frameBorder="0"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                                 allowFullScreen
                                 className="w-full h-full"
                             ></iframe>
@@ -288,7 +288,7 @@ export default function LessonPlayerPage() {
                     </div>
                      {teacher && (
                         <div className="flex items-center justify-between">
-                            <Link href={`/home/teacher/${teacher.id}`} className="flex items-center gap-3">
+                            <Link href={`/home/profile/${teacher.id}`} className="flex items-center gap-3">
                                 <Avatar>
                                     <AvatarImage src={teacher.profilePictureUrl} alt={teacher.name} />
                                     <AvatarFallback>{teacher.name.charAt(0)}</AvatarFallback>

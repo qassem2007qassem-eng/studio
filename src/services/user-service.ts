@@ -50,7 +50,6 @@ const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<U
   
   const targetUserId = options.userId || auth.currentUser?.uid;
   if (!targetUserId) {
-    console.log("No user ID provided or user not logged in");
     if (!options.userId) {
         currentUserProfileCache = null;
     }
@@ -76,7 +75,6 @@ const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<U
       }
       return userProfile;
     } else {
-      console.log("User profile not found!");
       if (targetUserId === auth.currentUser?.uid) {
         currentUserProfileCache = null;
       }
@@ -114,7 +112,6 @@ const createUserProfile = async (
     
     await updateDoc(userDocRef, { id: user.uid });
 
-    console.log("User profile created successfully!");
   } catch (error) {
     console.error("Error creating user profile:", error);
     throw error;
@@ -133,7 +130,6 @@ const getUserByUsername = async (username: string): Promise<User | null> => {
       const userDoc = querySnapshot.docs[0];
       return { id: userDoc.id, ...userDoc.data() } as User;
     } else {
-      console.log("User not found!");
       return null;
     }
   } catch (error) {
@@ -153,7 +149,6 @@ const getUserByEmail = async (email: string): Promise<User | null> => {
       const userDoc = querySnapshot.docs[0];
       return { id: userDoc.id, ...userDoc.data() } as User;
     } else {
-      console.log("User not found by email!");
       return null;
     }
   } catch (error) {
@@ -171,7 +166,6 @@ const getUserById = async (userId: string): Promise<User | null> => {
     if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() } as User;
     } else {
-      console.log("User not found by ID!");
       return null;
     }
   } catch (error) {
@@ -182,15 +176,24 @@ const getUserById = async (userId: string): Promise<User | null> => {
 
 const getTeacherById = async (teacherId: string): Promise<Teacher | null> => {
   try {
-    const docRef = doc(firestore, "teachers", teacherId);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() } as Teacher;
-    } else {
-      console.log("Teacher not found by ID!");
-      return null;
+    // A teacher is also a user. We fetch from the 'users' collection.
+    const userDoc = await getUserById(teacherId);
+    if (userDoc && userDoc.email?.endsWith('@teacher.app.com')) {
+       // We can map the User type to a Teacher type if needed, or just use the User object.
+       // For now, let's assume the structure is compatible enough for display purposes.
+       const teacherProfile: Teacher = {
+         id: userDoc.id,
+         name: userDoc.name,
+         email: userDoc.email,
+         bio: userDoc.bio,
+         // profilePictureUrl might not exist on the user object, handle gracefully
+         profilePictureUrl: (userDoc as any).profilePictureUrl || '', 
+         // courseIds is not on the user object, this would need a separate query if required
+         courseIds: [], 
+       };
+       return teacherProfile;
     }
+    return null;
   } catch (error) {
     console.error("Error getting teacher:", error);
     return null;
@@ -348,7 +351,6 @@ const getUsers = async (pageSize = 20, lastVisible: any = null, includeIds: stri
       queryConstraints.push(where('id', 'in', includeIds));
     }
     
-    // Updated this logic to correctly query for teacher emails
     if (teachersOnly) {
        const q = query(usersRef, where('email', '>=', ''), where('email', '<=', '~'));
        const snapshot = await getDocs(q);

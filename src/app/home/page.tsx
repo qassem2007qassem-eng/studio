@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { getFeedPosts } from "@/services/post-service";
 import { type DocumentSnapshot } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogIn } from "lucide-react";
+import { LogIn, Edit } from "lucide-react";
 
 function PostSkeleton() {
   return (
@@ -161,6 +161,15 @@ export default function HomePage() {
 
         {currentUser && !isLoading && posts.length === 0 && !isTeacher && (
            <UserSuggestions />
+        )}
+
+        {currentUser && !isLoading && posts.length === 0 && isTeacher && (
+           <Card>
+                <CardContent className="p-8 text-center text-muted-foreground">
+                    <Edit className="h-10 w-10 mx-auto mb-4" />
+                    لم تقم بنشر أي شيء بعد. ابدأ بالتفاعل مع طلابك!
+                </CardContent>
+            </Card>
         )}
         
         {posts?.map((post, index) => {

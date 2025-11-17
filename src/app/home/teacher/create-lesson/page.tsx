@@ -16,6 +16,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
+function getYouTubeVideoId(url: string): string | null {
+    try {
+        const urlObj = new URL(url);
+        if (urlObj.hostname === 'youtu.be') {
+            return urlObj.pathname.slice(1);
+        }
+        if (urlObj.hostname.includes('youtube.com')) {
+            return urlObj.searchParams.get('v');
+        }
+        return null;
+    } catch (e) {
+        return null;
+    }
+}
+
 function CreateLessonForm() {
     const { user } = useUser();
     const router = useRouter();
@@ -26,8 +41,7 @@ function CreateLessonForm() {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [videoUrl, setVideoUrl] = useState('');
-    const [thumbnailUrl, setThumbnailUrl] = useState('');
-    const [duration, setDuration] = useState(0);
+    const [duration, setDuration] = useState(''); // Use string to handle input correctly
     const [courseId, setCourseId] = useState(searchParams.get('courseId') || '');
     
     const [courses, setCourses] = useState<Course[]>([]);
@@ -49,24 +63,34 @@ function CreateLessonForm() {
 
     const handleCreateLesson = async (e: React.FormEvent) => {
         e.preventDefault();
+        const durationInMinutes = Number(duration);
         if (!user || !firestore) {
             toast({ title: 'خطأ', description: 'يجب تسجيل الدخول لإنشاء درس.', variant: 'destructive' });
             return;
         }
-        if (!title.trim() || !videoUrl.trim() || !courseId || duration <= 0) {
-            toast({ title: 'خطأ', description: 'الرجاء ملء جميع الحقول المطلوبة.', variant: 'destructive' });
+        if (!title.trim() || !videoUrl.trim() || !courseId || !duration || durationInMinutes <= 0) {
+            toast({ title: 'خطأ', description: 'الرجاء ملء جميع الحقول المطلوبة بشكل صحيح.', variant: 'destructive' });
+            return;
+        }
+
+        const videoId = getYouTubeVideoId(videoUrl);
+        if (!videoId) {
+            toast({ title: 'خطأ', description: 'الرجاء إدخال رابط يوتيوب صحيح.', variant: 'destructive' });
             return;
         }
 
         setIsLoading(true);
+
+        const durationInSeconds = durationInMinutes * 60;
+        const autoThumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 
         try {
             const lessonData: Omit<Lesson, 'id'> = {
                 title,
                 description,
                 videoUrl,
-                thumbnailUrl,
-                duration: duration * 60, // Convert minutes to seconds
+                thumbnailUrl: autoThumbnailUrl,
+                duration: durationInSeconds,
                 courseId,
                 teacherId: user.uid,
                 views: 0,
@@ -83,7 +107,7 @@ function CreateLessonForm() {
             const courseSnap = await getDoc(courseRef);
             if (courseSnap.exists()) {
                 const courseData = courseSnap.data() as Course;
-                const newTotalDuration = (courseData.totalDuration || 0) + (duration * 60);
+                const newTotalDuration = (courseData.totalDuration || 0) + durationInSeconds;
                 await updateDoc(courseRef, { 
                     totalDuration: newTotalDuration,
                     lessonIds: arrayUnion(docRef.id)
@@ -104,7 +128,7 @@ function CreateLessonForm() {
         <Card>
             <CardHeader>
                 <CardTitle>إضافة درس جديد</CardTitle>
-                <CardDescription>قم بملء تفاصيل الدرس الجديد الخاص بك.</CardDescription>
+                <CardDescription>قم بملء تفاصيل الدرس الجديد الخاص بك. سيتم جلب الصورة المصغرة تلقائياً من يوتيوب.</CardDescription>
             </CardHeader>
              <form onSubmit={handleCreateLesson}>
                 <CardContent className="space-y-6">
@@ -130,16 +154,12 @@ function CreateLessonForm() {
                         <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="صف ما سيتم تغطيته في هذا الدرس..." disabled={isLoading} />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="videoUrl">رابط الفيديو</Label>
+                        <Label htmlFor="videoUrl">رابط الفيديو (يوتيوب فقط)</Label>
                         <Input id="videoUrl" type="url" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required disabled={isLoading} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="thumbnailUrl">رابط الصورة المصغرة (اختياري)</Label>
-                        <Input id="thumbnailUrl" type="url" value={thumbnailUrl} onChange={(e) => setThumbnailUrl(e.target.value)} placeholder="https://example.com/image.jpg" disabled={isLoading} />
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="duration">مدة الفيديو (بالدقائق)</Label>
-                        <Input id="duration" type="number" value={duration} onChange={(e) => setDuration(Number(e.target.value))} placeholder="15" required min="1" disabled={isLoading} />
+                        <Input id="duration" type="number" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="15" required min="1" disabled={isLoading} />
                     </div>
                 </CardContent>
                 <CardFooter>
