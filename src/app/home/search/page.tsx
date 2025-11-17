@@ -144,15 +144,20 @@ export default function SearchPage() {
 
         // Search Groups
         const groupsRef = collection(firestore, "groups");
-        const groupsQuery = query(groupsRef, where('name', '>=', lowercasedTerm), where('name', '<=', lowercasedTerm + '\uf8ff'), where('privacy', '==', 'public'), limit(15));
+        const groupsQuery = query(groupsRef, where('name', '>=', term), where('name', '<=', term + '\uf8ff'), where('privacy', '==', 'public'), limit(15));
         const groupsSnap = await getDocs(groupsQuery);
         setGroupResults(groupsSnap.docs.map(doc => doc.data() as Group));
 
         // Search Posts (simple content search on public posts)
         const postsRef = collection(firestore, "posts");
-        const postsQuery = query(postsRef, where('content', '>=', lowercasedTerm), where('content', '<=', lowercasedTerm + '\uf8ff'), where('privacy', '==', 'followers'), limit(15));
+        // Simplified query to only search content field.
+        const postsQuery = query(postsRef, where('content', '>=', lowercasedTerm), where('content', '<=', lowercasedTerm + '\uf8ff'), limit(15));
         const postsSnap = await getDocs(postsQuery);
-        setPostResults(postsSnap.docs.map(doc => doc.data() as Post));
+        // Filter for public posts on the client-side
+        const publicPosts = postsSnap.docs
+            .map(doc => doc.data() as Post)
+            .filter(post => post.privacy === 'followers' && !post.groupId); // 'followers' is used as 'public'
+        setPostResults(publicPosts);
         
     } catch(e) {
         console.error("Search failed:", e);
