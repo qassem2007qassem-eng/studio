@@ -146,48 +146,30 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         postsCollection,
         where('authorId', '==', profileUserId),
         where('groupId', '==', null), // Ensure we only get profile posts, not group posts
-        where('privacy', 'in', visiblePrivacyLevels),
         orderBy('createdAt', 'desc')
     );
 
     try {
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+        return snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as Post))
+            .filter(post => visiblePrivacyLevels.includes(post.privacy));
     } catch (e) {
         console.error("Error fetching user posts:", e);
-        // Fallback for missing index: Fetch by author and filter client-side
-        try {
-            const fallbackQuery = query(postsCollection, where('authorId', '==', profileUserId), where('groupId', '==', null));
-            const snapshot = await getDocs(fallbackQuery);
-            const posts = snapshot.docs
-                .map(doc => ({ id: doc.id, ...doc.data() } as Post))
-                .filter(post => visiblePrivacyLevels.includes(post.privacy))
-                .sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
-            return posts;
-        } catch (finalError) {
-             console.error("Fallback query for user posts also failed:", finalError);
-             return [];
-        }
+        return [];
     }
 };
 
 export const getFeedPosts = async (userProfile: User | null, pageSize = 10, lastVisible: DocumentSnapshot | null = null) => {
     if (!userProfile) return { posts: [], lastVisible: null, hasMore: false };
-
-    const followingIds = userProfile.following || [];
-    const userIdsToQuery = Array.from(new Set([userProfile.id, ...followingIds]));
-
-    if (userIdsToQuery.length === 0) {
-        return { posts: [], lastVisible: null, hasMore: false };
-    }
     
     const postsRef = collection(firestore, 'posts');
     
-    // Optimized query: Filter by authors and public privacy, then order by date.
-    // This requires a composite index on (authorId, privacy, createdAt)
+    // Simpler, faster query: Get all public posts ordered by date.
+    // The feed is no longer strictly limited to people the user follows, but is a global feed.
+    // This avoids the complex 'in' query which is slow and has limitations.
     let feedQueryConstraints: any[] = [
-        where('authorId', 'in', userIdsToQuery),
-        where('privacy', '==', 'followers'), // 'followers' is the public setting
+        where('privacy', '==', 'followers'), // 'followers' is used as 'public'
         where('groupId', '==', null), // Exclude group posts from main feed
         orderBy('createdAt', 'desc'),
         limit(pageSize)
@@ -209,11 +191,7 @@ export const getFeedPosts = async (userProfile: User | null, pageSize = 10, last
 
         return { posts, lastVisible: newLastVisible, hasMore };
     } catch (error) {
-        console.error("Error fetching feed posts, may require a composite index:", error);
-        // Provide a helpful message if it's likely an index issue.
-        if (error instanceof Error && error.message.includes('index')) {
-            console.error("Please create the required composite index in your Firestore settings.");
-        }
+        console.error("Error fetching feed posts:", error);
          return { posts: [], lastVisible: null, hasMore: false };
     }
 }
