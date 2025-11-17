@@ -16,6 +16,7 @@ import {
   startAfter,
   or,
   DocumentSnapshot,
+  DocumentData,
 } from 'firebase/firestore';
 import {
   ref,
@@ -162,17 +163,16 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     }
 };
 
-export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot | null = null, userId?: string) => {
+export const getFeedPosts = async (pageSize = 10, lastVisible?: DocumentSnapshot<DocumentData> | null, userId?: string): Promise<{ posts: Post[], lastVisible: DocumentSnapshot<DocumentData> | null, hasMore: boolean }> => {
     const { firestore } = initializeFirebase();
     const postsRef = collection(firestore, 'posts');
 
-    // This is the most performant query.
-    // It fetches all public posts and approved group posts, ordered by creation date.
     let feedQueryConstraints: any[] = [
+        where('status', '==', 'approved'),
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
-
+    
     if (lastVisible) {
         feedQueryConstraints.push(startAfter(lastVisible));
     }
@@ -182,12 +182,16 @@ export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot 
     try {
         const querySnapshot = await getDocs(q);
         
-        // Filter for public/approved posts on the client side after fetching
-        // This avoids the complex query that requires a composite index.
-        const posts = querySnapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() } as Post))
-            .filter(post => post.status === 'approved' && (post.privacy === 'followers' || post.groupId));
-
+        const posts = querySnapshot.docs.map(doc => {
+            const data = doc.data() as Post;
+            // Ensure Timestamps are converted for serialization if needed, though this function is now used on client too.
+            return { 
+                id: doc.id, 
+                ...data,
+                createdAt: (data.createdAt as Timestamp),
+                updatedAt: data.updatedAt ? (data.updatedAt as Timestamp) : undefined,
+            };
+        });
 
         const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] ?? null;
         const hasMore = querySnapshot.docs.length === pageSize;

@@ -12,7 +12,7 @@ import { getCurrentUserProfile } from "@/services/user-service";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getFeedPosts } from "@/services/post-service";
-import { type DocumentSnapshot } from "firebase/firestore";
+import { type DocumentData, type DocumentSnapshot } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogIn, Edit } from "lucide-react";
 
@@ -41,16 +41,15 @@ function PostSkeleton() {
 
 interface FeedClientContentProps {
     initialPosts: Post[];
-    initialLastVisible: DocumentSnapshot | null;
     initialHasMore: boolean;
 }
 
-export function FeedClientContent({ initialPosts, initialLastVisible, initialHasMore }: FeedClientContentProps) {
+export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientContentProps) {
   const { user: currentUser, isUserLoading } = useUser();
   const [userProfile, setUserProfile] = useState<User | null>(null);
   
   const [posts, setPosts] = useState<Post[]>(initialPosts);
-  const [lastVisible, setLastVisible] = useState<DocumentSnapshot | null>(initialLastVisible);
+  const [lastVisible, setLastVisible] = useState<DocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(initialHasMore);
   
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -86,6 +85,25 @@ export function FeedClientContent({ initialPosts, initialLastVisible, initialHas
   }, [currentUser, isUserLoading]);
   
   const loadMorePosts = async () => {
+    // The first page of posts is passed via props. 
+    // If we are loading more, we need to determine the starting point.
+    if (posts.length > 0 && !lastVisible) {
+        // This is the first time we are loading more posts, so we don't have a snapshot yet.
+        // We will refetch the first page to get the snapshot, then fetch the second page.
+        // This is a workaround for not being able to pass the snapshot from server to client.
+        const firstPage = await getFeedPosts(10, undefined, currentUser?.uid);
+        setLastVisible(firstPage.lastVisible);
+
+        // Now fetch the actual next page
+        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(10, firstPage.lastVisible, currentUser?.uid);
+        setPosts(prevPosts => [...prevPosts, ...newPosts]);
+        setLastVisible(newLastVisible);
+        setHasMore(newHasMore);
+        
+        return;
+    }
+
+
     if (!lastVisible || !hasMore) return;
 
     setIsLoadingMore(true);
