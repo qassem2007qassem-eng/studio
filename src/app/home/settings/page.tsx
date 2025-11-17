@@ -264,6 +264,7 @@ export default function SettingsPage() {
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isLogoutAlertOpen, setIsLogoutAlertOpen] = useState(false);
     const isAdmin = user?.email === 'admin@app.com';
+    const isTeacher = user?.email?.endsWith('@teacher.app.com');
 
     const handleLogout = async (saveInfo: boolean) => {
         setIsLoggingOut(true);
@@ -354,18 +355,20 @@ export default function SettingsPage() {
                             </Link>
                         </Button>
                     </div>
-                     {isAdmin && (
+                     {(isAdmin || isTeacher) && (
                         <>
                             <Separator />
                             <div className="flex items-center justify-between">
                                <div className="flex items-center gap-4">
                                      <Shield className="h-5 w-5 text-muted-foreground" />
                                      <div className="space-y-1">
-                                        <p className="font-medium">لوحة تحكم المشرفين</p>
+                                        <p className="font-medium">
+                                            {isAdmin ? "لوحة تحكم المشرفين" : "لوحة تحكم المعلمين"}
+                                        </p>
                                      </div>
                                 </div>
                                 <Button asChild variant="secondary" size="sm">
-                                    <Link href="/home/admin">
+                                    <Link href={isAdmin ? "/home/admin" : "/home/teacher"}>
                                         الانتقال إلى لوحة التحكم
                                     </Link>
                                 </Button>

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import Link from 'next/link';
@@ -27,7 +28,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { initializeFirebase } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, signInWithEmailAndPassword } from 'firebase/auth';
 import {
   collection,
   query,
@@ -129,12 +130,6 @@ function RegisterForm() {
             email: user.email!,
             emailVerified: user.emailVerified,
         });
-        await sendEmailVerification(user);
-        toast({
-            title: "الرجاء التحقق من بريدك الإلكتروني",
-            description: "مرحبا بك عزيزي المستخدم لاتفصلك سوا فاصلة عن اكتشاف عالمنا تحقق من بريدك الاكتروني فريق مجمع الطلاب السوري",
-        });
-        router.push('/login');
       } else { // Teacher account
           const teacherDocRef = doc(firestore, 'teachers', user.uid);
             await setDoc(teacherDocRef, {
@@ -146,13 +141,23 @@ function RegisterForm() {
                 courseIds: [],
                 createdAt: serverTimestamp(),
             });
-            toast({ title: 'نجاح!', description: 'تم إنشاء حساب المعلم الخاص بك. يمكنك الآن تسجيل الدخول.' });
-            router.push('/login');
+            // Also create a regular user profile for the teacher to allow them to post
+            await createUserProfile(user, {
+              username: usernameLower,
+              name: formData.fullName,
+              email: finalEmail,
+              emailVerified: true, // Auto-verify teachers
+            });
       }
       
       await updateProfile(user, {
         displayName: formData.fullName,
       });
+
+      // Sign in the user automatically after registration
+      await signInWithEmailAndPassword(auth, finalEmail, formData.password);
+      router.push('/home');
+
 
     } catch (error: any) {
       setIsLoading(false);
@@ -319,7 +324,7 @@ function RegisterForm() {
               <Button
                 onClick={handleCreateAccount}
                 disabled={isLoading || !currentStepData.validation()}
-                className="col-span-2"
+                className={cn(step > 1 ? 'col-span-1' : 'col-span-2')}
               >
                 {isLoading ? <CatLoader className="mx-auto" /> : 'إنشاء حساب'}
               </Button>

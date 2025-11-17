@@ -27,7 +27,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { GraduationCap } from 'lucide-react';
+import { Shield } from 'lucide-react';
 
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -65,9 +65,7 @@ const SpecificUserLogin = ({ user, onBack }: { user: SavedUser, onBack: () => vo
     const { toast } = useToast();
     const { firestore } = useFirebase();
 
-    const ADMIN_EMAIL = 'admin@app.com';
-
-     const handleLogin = async (e?: React.FormEvent) => {
+    const handleLogin = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (!user.email || !password) {
             toast({ title: 'خطأ', description: 'الرجاء إدخال كلمة المرور.', variant: 'destructive' });
@@ -76,20 +74,7 @@ const SpecificUserLogin = ({ user, onBack }: { user: SavedUser, onBack: () => vo
         setIsLoading(true);
 
         try {
-            const userCredential = await signInWithEmailAndPassword(auth, user.email, password);
-            const loggedInUser = userCredential.user;
-
-             if (!loggedInUser.emailVerified && loggedInUser.email?.toLowerCase() !== ADMIN_EMAIL) {
-                await auth.signOut();
-                toast({
-                    title: 'التحقق من البريد الإلكتروني',
-                    description: 'الرجاء التحقق من بريدك الإلكتروني أولاً. لقد أرسلنا لك رابط التحقق.',
-                    variant: 'default'
-                });
-                setIsLoading(false);
-                return;
-            }
-            
+            await signInWithEmailAndPassword(auth, user.email, password);
             router.push('/home');
 
         } catch (error: any) {
@@ -159,15 +144,9 @@ export default function LoginPage() {
   const [savedUsers, setSavedUsers] = useState<SavedUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<SavedUser | null>(null);
 
-  const ADMIN_EMAIL = 'admin@app.com';
-
   useEffect(() => {
     if (!isUserLoading && user) {
-      if (user.email?.endsWith('@teacher.app.com')) {
-        router.push('/home/teacher');
-      } else {
-        router.push('/home');
-      }
+      router.push('/home');
     }
   }, [user, isUserLoading, router]);
 
@@ -198,25 +177,8 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const loggedInUser = userCredential.user;
-
-      if (!loggedInUser.emailVerified && loggedInUser.email?.toLowerCase() !== ADMIN_EMAIL) {
-        await auth.signOut();
-        toast({
-            title: 'التحقق من البريد الإلكتروني',
-            description: 'الرجاء التحقق من بريدك الإلكتروني أولاً. لقد أرسلنا لك رابط التحقق.',
-            variant: 'default'
-        });
-        setIsLoading(false);
-        return;
-      }
-      
-      if (loggedInUser.email?.endsWith('@teacher.app.com')) {
-        router.push('/home/teacher');
-      } else {
-        router.push('/home');
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push('/home');
 
     } catch (error: any) {
       let description = 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.';
@@ -380,8 +342,8 @@ export default function LoginPage() {
            <Separator className="my-4" />
             <div className="text-center text-sm">
                 <Link href="/admin-login" className="underline text-muted-foreground flex items-center justify-center gap-1">
-                    <GraduationCap className="h-4 w-4"/>
-                    هل أنت معلم؟ تسجيل الدخول للمنصة التعليمية
+                    <Shield className="h-4 w-4"/>
+                    تسجيل دخول المشرف
                 </Link>
             </div>
         </CardContent>
