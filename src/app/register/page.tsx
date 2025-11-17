@@ -20,14 +20,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, CheckCircle, GraduationCap, User } from 'lucide-react';
+import { CalendarIcon, GraduationCap, User } from 'lucide-react';
 import { CatLoader } from '@/components/cat-loader';
 import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { initializeFirebase } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, type User as AuthUser } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import {
   collection,
   query,
@@ -40,12 +40,16 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { createUserProfile } from '@/services/user-service';
 
-function StudentRegisterForm() {
+const TEACHER_EMAIL_SUFFIX = '@teacher.app.com';
+
+
+function RegisterForm() {
   const router = useRouter();
 
   const [step, setStep] = useState(1);
 
   const [formData, setFormData] = useState({
+    accountType: 'student' as 'student' | 'teacher',
     email: '',
     fullName: '',
     dob: undefined as Date | undefined,
@@ -90,6 +94,11 @@ function StudentRegisterForm() {
     setIsLoading(true);
 
     const usernameLower = formData.username.toLowerCase();
+    
+    let finalEmail = formData.email;
+    if (formData.accountType === 'teacher' && !finalEmail.includes('@')) {
+        finalEmail = `${finalEmail}${TEACHER_EMAIL_SUFFIX}`;
+    }
 
     try {
       const usersRef = collection(firestore, 'users');
@@ -108,29 +117,42 @@ function StudentRegisterForm() {
       
       const userCredential = await createUserWithEmailAndPassword(
         auth,
-        formData.email,
+        finalEmail,
         formData.password
       );
       const user = userCredential.user;
 
-      await createUserProfile(user, {
-        username: usernameLower,
-        name: formData.fullName,
-        email: user.email!,
-        emailVerified: user.emailVerified,
-      });
+      if (formData.accountType === 'student') {
+        await createUserProfile(user, {
+            username: usernameLower,
+            name: formData.fullName,
+            email: user.email!,
+            emailVerified: user.emailVerified,
+        });
+        await sendEmailVerification(user);
+        toast({
+            title: "الرجاء التحقق من بريدك الإلكتروني",
+            description: "مرحبا بك عزيزي المستخدم لاتفصلك سوا فاصلة عن اكتشاف عالمنا تحقق من بريدك الاكتروني فريق مجمع الطلاب السوري",
+        });
+        router.push('/login');
+      } else { // Teacher account
+          const teacherDocRef = doc(firestore, 'teachers', user.uid);
+            await setDoc(teacherDocRef, {
+                id: user.uid,
+                name: formData.fullName,
+                email: finalEmail,
+                bio: 'مدرس متخصص في...',
+                profilePictureUrl: '',
+                courseIds: [],
+                createdAt: serverTimestamp(),
+            });
+            toast({ title: 'نجاح!', description: 'تم إنشاء حساب المعلم الخاص بك. يمكنك الآن تسجيل الدخول.' });
+            router.push('/teacher-login');
+      }
       
       await updateProfile(user, {
         displayName: formData.fullName,
       });
-
-      await sendEmailVerification(user);
-      
-      toast({
-        title: "الرجاء التحقق من بريدك الإلكتروني",
-        description: "مرحبا بك عزيزي المستخدم لاتفصلك سوا فاصلة عن اكتشاف عالمنا تحقق من بريدك الاكتروني فريق مجمع الطلاب السوري",
-      });
-      router.push('/login');
 
     } catch (error: any) {
       setIsLoading(false);
@@ -144,7 +166,7 @@ function StudentRegisterForm() {
       }
       toast({
         title: 'خطأ في إنشاء الحساب',
-        description: error.message || description, // Show specific error from services if available
+        description: error.message || description,
         variant: 'destructive',
       });
     }
@@ -152,17 +174,49 @@ function StudentRegisterForm() {
 
   const stepsContent = [
     {
+      title: 'اختر نوع حسابك',
+      field: 'accountType',
+      validation: () => !!formData.accountType,
+      content: (
+        <div className="grid gap-4">
+          <Label>نوع الحساب</Label>
+          <RadioGroup
+            value={formData.accountType}
+            onValueChange={(value: 'student' | 'teacher') => setFormData((p) => ({ ...p, accountType: value }))}
+            className="grid grid-cols-2 gap-2"
+          >
+            <Label
+              htmlFor="student"
+              className="flex flex-col items-center justify-center gap-2 border rounded-md p-4 cursor-pointer hover:bg-accent hover:text-accent-foreground has-[input:checked]:border-primary has-[input:checked]:bg-primary/10"
+            >
+              <User className="h-8 w-8"/>
+              طالب
+              <RadioGroupItem value="student" id="student" className="sr-only" />
+            </Label>
+            <Label
+              htmlFor="teacher"
+              className="flex flex-col items-center justify-center gap-2 border rounded-md p-4 cursor-pointer hover:bg-accent hover:text-accent-foreground has-[input:checked]:border-primary has-[input:checked]:bg-primary/10"
+            >
+              <GraduationCap className="h-8 w-8" />
+              معلم
+              <RadioGroupItem value="teacher" id="teacher" className="sr-only"/>
+            </Label>
+          </RadioGroup>
+        </div>
+      ),
+    },
+    {
       title: 'ما هو بريدك الإلكتروني؟',
       field: 'email',
-      validation: () => formData.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email),
+      validation: () => formData.email && (formData.accountType === 'teacher' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)),
       content: (
         <div className="grid gap-2">
           <Label htmlFor="email">البريد الإلكتروني</Label>
           <Input
             id="email"
             name="email"
-            type="email"
-            placeholder="ahmad@example.com"
+            type={formData.accountType === 'teacher' ? 'text' : 'email'}
+            placeholder={formData.accountType === 'teacher' ? 'ahmad (سيضاف @teacher.app.com)' : 'ahmad@example.com'}
             required
             value={formData.email}
             onChange={handleChange}
@@ -185,71 +239,6 @@ function StudentRegisterForm() {
             value={formData.fullName}
             onChange={handleChange}
           />
-        </div>
-      ),
-    },
-    {
-      title: 'متى تاريخ ميلادك؟',
-      field: 'dob',
-      validation: () => !!formData.dob,
-      content: (
-        <div className="grid gap-2">
-          <Label>تاريخ الميلاد</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={'outline'}
-                className={cn(
-                  'w-full justify-start text-left font-normal',
-                  !formData.dob && 'text-muted-foreground'
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {formData.dob ? format(formData.dob, 'PPP') : <span>اختر تاريخاً</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={formData.dob}
-                onSelect={(date) => setFormData((p) => ({ ...p, dob: date }))}
-                initialFocus
-                captionLayout="dropdown-buttons"
-                fromYear={1950}
-                toYear={new Date().getFullYear() - 10}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
-      ),
-    },
-    {
-      title: 'ما هو جنسك؟',
-      field: 'gender',
-      validation: () => !!formData.gender,
-      content: (
-        <div className="grid gap-4">
-          <Label>الجنس</Label>
-          <RadioGroup
-            defaultValue={formData.gender}
-            onValueChange={(value) => setFormData((p) => ({ ...p, gender: value }))}
-            className="flex gap-4"
-          >
-            <Label
-              htmlFor="male"
-              className="flex items-center gap-2 border rounded-md p-4 flex-1 cursor-pointer hover:bg-accent hover:text-accent-foreground has-[input:checked]:bg-primary has-[input:checked]:text-primary-foreground"
-            >
-              <RadioGroupItem value="male" id="male" />
-              ذكر
-            </Label>
-            <Label
-              htmlFor="female"
-              className="flex items-center gap-2 border rounded-md p-4 flex-1 cursor-pointer hover:bg-accent hover:text-accent-foreground has-[input:checked]:bg-primary has-[input:checked]:text-primary-foreground"
-            >
-              <RadioGroupItem value="female" id="female" />
-              أنثى
-            </Label>
-          </RadioGroup>
         </div>
       ),
     },
@@ -288,6 +277,7 @@ function StudentRegisterForm() {
             value={formData.password}
             onChange={handleChange}
           />
+           {formData.password && formData.password.length < 6 && <p className="text-sm text-destructive">يجب أن تكون كلمة المرور 6 أحرف على الأقل.</p>}
         </div>
       ),
     },
@@ -302,7 +292,7 @@ function StudentRegisterForm() {
         <Logo className="mx-auto mb-4" />
         <CardTitle className="text-2xl font-headline">{currentStepData.title}</CardTitle>
         <CardDescription>
-          {`حساب طالب - الخطوة ${step} من ${stepsContent.length}`}
+          {`إنشاء حساب - الخطوة ${step} من ${stepsContent.length}`}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -347,181 +337,13 @@ function StudentRegisterForm() {
   );
 }
 
-function TeacherRegisterForm({ onBack }: { onBack: () => void }) {
-    const [fullName, setFullName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    
-    const { auth, firestore } = initializeFirebase();
-    const router = useRouter();
-    const { toast } = useToast();
-
-    const TEACHER_EMAIL_SUFFIX = '@teacher.app.com';
-
-    const handleTeacherRegister = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!email || !password || !fullName) {
-            toast({ title: 'خطأ', description: 'الرجاء ملء جميع الحقول.', variant: 'destructive' });
-            return;
-        }
-        
-        let teacherEmail = email.trim();
-        if (!teacherEmail.includes('@')) {
-            teacherEmail = `${teacherEmail}${TEACHER_EMAIL_SUFFIX}`;
-        }
-        
-        setIsLoading(true);
-
-        try {
-            const userCredential = await createUserWithEmailAndPassword(auth, teacherEmail, password);
-            const user = userCredential.user;
-
-            const teacherDocRef = doc(firestore, 'teachers', user.uid);
-            await setDoc(teacherDocRef, {
-                id: user.uid,
-                name: fullName,
-                email: teacherEmail,
-                bio: 'مدرس متخصص في...',
-                profilePictureUrl: '',
-                courseIds: [],
-                createdAt: serverTimestamp(),
-            });
-            
-            toast({ title: 'نجاح!', description: 'تم إنشاء حساب المعلم الخاص بك. يمكنك الآن تسجيل الدخول.' });
-            router.push('/teacher-login');
-
-        } catch (error: any) {
-            console.error("Teacher account creation failed:", error);
-            let description = 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.';
-            if (error.code === 'auth/weak-password') {
-                description = 'كلمة المرور ضعيفة جدًا. يجب أن تتكون من 6 أحرف على الأقل.';
-            } else if (error.code === 'auth/email-already-in-use') {
-                description = 'هذا البريد الإلكتروني مستخدم بالفعل.';
-            } else if (error.code === 'auth/invalid-email') {
-                description = 'البريد الإلكتروني الذي أدخلته غير صالح.';
-            }
-             toast({
-                title: 'خطأ في إنشاء حساب المعلم',
-                description: description,
-                variant: 'destructive',
-             });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    return (
-        <Card className="mx-auto w-full max-w-sm">
-            <CardHeader className="text-center">
-                 <Logo className="mx-auto mb-4" />
-                <CardTitle className="text-2xl font-headline">إنشاء حساب معلم</CardTitle>
-                <CardDescription>
-                    انضم إلى منصتنا كمعلم وشارك معرفتك.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <form onSubmit={handleTeacherRegister} className="grid gap-4">
-                     <div className="grid gap-2">
-                        <Label htmlFor="teacher-fullname">الاسم الكامل</Label>
-                        <Input
-                            id="teacher-fullname"
-                            type="text"
-                            placeholder="أحمد الصالح"
-                            required
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
-                            disabled={isLoading}
-                        />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="teacher-email">البريد الإلكتروني</Label>
-                        <Input
-                            id="teacher-email"
-                            type="text"
-                            placeholder="ahmad أو ahmad@teacher.app.com"
-                            required
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            disabled={isLoading}
-                        />
-                        <p className="text-xs text-muted-foreground">أدخل اسم مستخدم أو بريد إلكتروني كامل.</p>
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="teacher-password">كلمة المرور</Label>
-                        <Input
-                            id="teacher-password"
-                            type="password"
-                            required
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            disabled={isLoading}
-                        />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading ? <CatLoader className="mx-auto" /> : 'إنشاء حساب معلم'}
-                    </Button>
-                </form>
-                <Button variant="link" className="w-full mt-2" onClick={onBack}>العودة</Button>
-            </CardContent>
-        </Card>
-    );
-}
-
-
-function RegisterTypeSelection({ onSelect }: { onSelect: (type: 'student' | 'teacher') => void }) {
-    return (
-        <Card className="mx-auto w-full max-w-sm">
-            <CardHeader className="text-center">
-                <Logo className="mx-auto mb-4" />
-                <CardTitle className="text-2xl font-headline">إنشاء حساب جديد</CardTitle>
-                <CardDescription>
-                    اختر نوع الحساب الذي تريد إنشاؤه.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-4">
-                <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => onSelect('student')}>
-                    <User className="h-8 w-8" />
-                    <span className="font-semibold">إنشاء حساب طالب</span>
-                </Button>
-                <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => onSelect('teacher')}>
-                    <GraduationCap className="h-8 w-8" />
-                     <span className="font-semibold">إنشاء حساب معلم</span>
-                </Button>
-                 <div className="mt-4 text-center text-sm">
-                    لديك حساب بالفعل؟{' '}
-                    <Link href="/login" className="underline">
-                        تسجيل الدخول
-                    </Link>
-                </div>
-            </CardContent>
-        </Card>
-    );
-}
-
-function RegisterPageContent() {
-    const [accountType, setAccountType] = useState<'student' | 'teacher' | null>(null);
-
-    if (accountType === 'student') {
-        return <StudentRegisterForm />;
-    }
-
-    if (accountType === 'teacher') {
-        return <TeacherRegisterForm onBack={() => setAccountType(null)} />;
-    }
-
-    return <RegisterTypeSelection onSelect={setAccountType} />;
-}
-
 
 export default function RegisterPage() {
     return (
         <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-secondary"><CatLoader /></div>}>
             <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-                <RegisterPageContent />
+                <RegisterForm />
             </div>
         </Suspense>
     );
 }
-
-    
