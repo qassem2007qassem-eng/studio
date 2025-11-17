@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { 
@@ -43,6 +41,7 @@ type GetProfileOptions = {
 };
 
 const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<User | null> => {
+  const { auth, firestore } = initializeFirebase();
   if (options.email) {
     const userByEmail = await getUserByEmail(options.email);
     if (userByEmail) return userByEmail;
@@ -93,6 +92,7 @@ const createUserProfile = async (
   user: AuthUser, 
   details: Pick<User, 'username' | 'name' | 'email' | 'emailVerified'>
 ): Promise<void> => {
+  const { firestore } = initializeFirebase();
   try {
     const userDocRef = doc(firestore, "users", user.uid);
     const userData: Omit<User, 'id'> = {
@@ -120,6 +120,7 @@ const createUserProfile = async (
 
 
 const getUserByUsername = async (username: string): Promise<User | null> => {
+  const { firestore } = initializeFirebase();
   if (!username) return null;
   try {
     const usersRef = collection(firestore, "users");
@@ -139,6 +140,7 @@ const getUserByUsername = async (username: string): Promise<User | null> => {
 };
 
 const getUserByEmail = async (email: string): Promise<User | null> => {
+  const { firestore } = initializeFirebase();
   if (!email) return null;
   try {
     const usersRef = collection(firestore, "users");
@@ -159,6 +161,7 @@ const getUserByEmail = async (email: string): Promise<User | null> => {
 
 
 const getUserById = async (userId: string): Promise<User | null> => {
+  const { firestore } = initializeFirebase();
   try {
     const docRef = doc(firestore, "users", userId);
     const docSnap = await getDoc(docRef);
@@ -202,6 +205,7 @@ const getTeacherById = async (teacherId: string): Promise<Teacher | null> => {
 
 
 const getUsersByIds = async (userIds: string[]): Promise<User[]> => {
+  const { firestore } = initializeFirebase();
   if (userIds.length === 0) {
     return [];
   }
@@ -218,6 +222,7 @@ const getUsersByIds = async (userIds: string[]): Promise<User[]> => {
 
 
 const followUser = async (targetUserId: string): Promise<void> => {
+    const { auth, firestore } = initializeFirebase();
     const currentUser = auth.currentUser;
     if (!currentUser) {
       throw new Error("No user is logged in.");
@@ -283,6 +288,7 @@ const followUser = async (targetUserId: string): Promise<void> => {
 
 
 const unfollowUser = async (targetUserId: string): Promise<void> => {
+    const { auth, firestore } = initializeFirebase();
     const currentUser = auth.currentUser;
     if (!currentUser) {
         throw new Error("No user is logged in.");
@@ -323,7 +329,7 @@ const updateProfile = async (
     userId: string,
     updates: Partial<User>
 ): Promise<void> => {
-  
+  const { firestore } = initializeFirebase();
   if (!userId) {
     throw new Error('User not authenticated for profile update.');
   }
@@ -343,6 +349,7 @@ const updateProfile = async (
 };
 
 const getUsers = async (pageSize = 20, lastVisible: any = null, includeIds: string[] = [], excludeIds: string[] = [], teachersOnly = false) => {
+  const { firestore } = initializeFirebase();
   try {
     const usersRef = collection(firestore, "users");
     let queryConstraints = [];
@@ -400,6 +407,7 @@ const getUsers = async (pageSize = 20, lastVisible: any = null, includeIds: stri
 };
 
 const deleteUserAndContent = async (userId: string) => {
+    const { auth, firestore } = initializeFirebase();
     const currentUser = auth.currentUser;
     if (!currentUser || currentUser.email !== 'admin@app.com') {
       throw new Error("Only admins can delete users.");
@@ -479,6 +487,7 @@ const getFollowing = async (userId: string) => {
 };
 
 const respondToFollowRequest = async (notificationId: string, requesterId: string, action: 'accept' | 'decline') => {
+  const { auth, firestore } = initializeFirebase();
   const currentUser = auth.currentUser;
   if (!currentUser) throw new Error("User not authenticated");
 
@@ -508,6 +517,7 @@ const respondToFollowRequest = async (notificationId: string, requesterId: strin
 };
 
 const approveVerificationRequest = async (userId: string, reportId: string) => {
+  const { auth, firestore } = initializeFirebase();
   const adminUser = auth.currentUser;
   if (!adminUser || adminUser.email !== 'admin@app.com') {
       throw new Error("Only admins can approve verification requests.");

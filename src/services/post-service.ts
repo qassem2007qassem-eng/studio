@@ -25,8 +25,6 @@ import { initializeFirebase } from '@/firebase';
 import { type Post, type PrivacySetting, type User, type Group } from '@/lib/types';
 import { createNotification } from './notification-service';
 
-// Removed 'use client' to allow server-side usage
-
 type CreatePostInput = {
   content: string;
   author: {
@@ -134,7 +132,6 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     // Build the query constraints
     const queryConstraints: any[] = [
         where('authorId', '==', profileUserId),
-        where('groupId', '==', null), // Ensure we only get profile posts, not group posts
     ];
     
     if (!isOwner && !isAdmin) {
@@ -165,7 +162,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     }
 };
 
-export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot | null = null) => {
+export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot | null = null, userId?: string) => {
     const { firestore } = initializeFirebase();
     const postsRef = collection(firestore, 'posts');
 

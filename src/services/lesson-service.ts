@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -19,9 +18,8 @@ import { initializeFirebase, useUser } from '@/firebase';
 import { type Lesson, type LessonComment } from '@/lib/types';
 import { getCurrentUserProfile } from './user-service';
 
-const { firestore } = initializeFirebase();
-
 export async function getLessonById(lessonId: string): Promise<Lesson | null> {
+  const { firestore } = initializeFirebase();
   try {
     const lessonRef = doc(firestore, 'lessons', lessonId);
     const lessonSnap = await getDoc(lessonRef);
@@ -39,6 +37,7 @@ export async function getLessonById(lessonId: string): Promise<Lesson | null> {
 }
 
 export async function getLessonsByCourseId(courseId: string): Promise<Lesson[]> {
+  const { firestore } = initializeFirebase();
   try {
     const lessonsQuery = query(collection(firestore, 'lessons'), where('courseId', '==', courseId));
     const querySnapshot = await getDocs(lessonsQuery);
@@ -50,7 +49,7 @@ export async function getLessonsByCourseId(courseId: string): Promise<Lesson[]> 
 }
 
 export async function toggleLikeLesson(lessonId: string, isLiked: boolean): Promise<void> {
-    const { auth } = initializeFirebase();
+    const { auth, firestore } = initializeFirebase();
     const user = auth.currentUser;
     if (!user) throw new Error("User not authenticated.");
 
@@ -73,7 +72,7 @@ export async function toggleLikeLesson(lessonId: string, isLiked: boolean): Prom
 }
 
 export async function addCommentToLesson(lessonId: string, content: string): Promise<string> {
-    const { auth } = initializeFirebase();
+    const { auth, firestore } = initializeFirebase();
     const user = auth.currentUser;
     if (!user) throw new Error("User not authenticated.");
 

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -17,6 +16,7 @@ const { firestore } = initializeFirebase();
 type CreateNotificationInput = Omit<AppNotification, 'id' | 'createdAt' | 'isRead'>;
 
 export const createNotification = async (input: CreateNotificationInput): Promise<string | null> => {
+  const { firestore } = initializeFirebase();
   // Prevent self-notification
   if (input.userId === input.fromUser.id) {
     return null;
@@ -44,6 +44,7 @@ export const createNotification = async (input: CreateNotificationInput): Promis
 
 
 export const markNotificationsAsRead = async (userId: string, notificationIds: string[]): Promise<void> => {
+  const { firestore } = initializeFirebase();
   if (!userId || notificationIds.length === 0) return;
 
   const batch = writeBatch(firestore);
@@ -62,6 +63,7 @@ export const markNotificationsAsRead = async (userId: string, notificationIds: s
 
 
 export const deleteNotification = async (userId: string, notificationId: string): Promise<void> => {
+  const { firestore } = initializeFirebase();
   if (!userId || !notificationId) {
     throw new Error("User ID and Notification ID are required.");
   }
