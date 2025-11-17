@@ -72,6 +72,7 @@ export function FeedClientContent({ initialPosts, initialLastVisible, initialHas
   }, [isLoadingMore, hasMore]);
   
   useEffect(() => {
+    // This effect now ONLY fetches the user profile, it doesn't trigger post fetching.
     if (!isUserLoading) {
       if (currentUser) {
         getCurrentUserProfile({ forceRefresh: true }).then(profile => {
@@ -89,7 +90,7 @@ export function FeedClientContent({ initialPosts, initialLastVisible, initialHas
 
     setIsLoadingMore(true);
     try {
-        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(10, lastVisible);
+        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(10, lastVisible, currentUser?.uid);
         
         setPosts(prevPosts => {
           const postIds = new Set(prevPosts.map(p => p.id));
@@ -108,19 +109,20 @@ export function FeedClientContent({ initialPosts, initialLastVisible, initialHas
   };
 
   const isTeacher = userProfile?.email?.endsWith('@teacher.app.com');
+  const isInitialLoad = (isUserLoading || isProfileLoading) && posts.length === 0;
 
   return (
     <div className="space-y-4 pt-6">
       {currentUser && <CreatePostTrigger />}
       
-      {(isUserLoading || isProfileLoading) && posts.length === 0 && (
+      {isInitialLoad && (
         <div className="space-y-4">
           <PostSkeleton />
           <PostSkeleton />
         </div>
       )}
       
-      {!isUserLoading && !currentUser && (
+      {!isInitialLoad && !currentUser && (
           <Card>
               <CardHeader>
                   <div className="flex flex-col items-center text-center gap-2">
@@ -142,11 +144,11 @@ export function FeedClientContent({ initialPosts, initialLastVisible, initialHas
           </Card>
       )}
 
-      {currentUser && !isProfileLoading && posts.length === 0 && !isTeacher && (
+      {!isInitialLoad && currentUser && posts.length === 0 && !isTeacher && (
          <UserSuggestions />
       )}
 
-      {currentUser && !isProfileLoading && posts.length === 0 && isTeacher && (
+      {!isInitialLoad && currentUser && posts.length === 0 && isTeacher && (
          <Card>
               <CardContent className="p-8 text-center text-muted-foreground">
                   <Edit className="h-10 w-10 mx-auto mb-4" />
@@ -173,11 +175,6 @@ export function FeedClientContent({ initialPosts, initialLastVisible, initialHas
           <PostSkeleton />
         </div>
       )}
-       {!isLoadingMore && hasMore && posts.length > 0 && (
-           <div className="text-center">
-               <Button onClick={loadMorePosts} variant="secondary">تحميل المزيد</Button>
-           </div>
-       )}
        {!hasMore && posts.length > 0 && (
             <p className="text-center text-muted-foreground py-4">لقد وصلت إلى النهاية!</p>
        )}

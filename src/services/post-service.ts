@@ -1,4 +1,3 @@
-
 import {
   collection,
   addDoc,
@@ -166,13 +165,15 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     }
 };
 
-export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot | null = null) => {
+export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot | null = null, currentUserId?: string) => {
     const { firestore } = initializeFirebase();
     const postsRef = collection(firestore, 'posts');
-    
+
+    // Base query for public, non-group posts
     let feedQueryConstraints: any[] = [
-        where('privacy', '==', 'followers'), // 'followers' is used as 'public'
-        where('groupId', '==', null), // Exclude group posts from main feed
+        where('groupId', '==', null),
+        where('status', '==', 'approved'),
+        where('privacy', '==', 'followers'),
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];

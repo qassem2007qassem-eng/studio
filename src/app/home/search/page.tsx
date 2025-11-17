@@ -3,10 +3,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
-import { Search as SearchIcon, UserPlus, UserCheck, Users, Newspaper, UserSquare } from 'lucide-react';
+import { Search as SearchIcon, UserPlus, UserCheck, Users, Newspaper, GraduationCap } from 'lucide-react';
 import { useUser } from '@/firebase';
 import { type User, type Group, type Post } from '@/lib/types';
-import { followUser, unfollowUser, getCurrentUserProfile } from '@/services/user-service';
+import { followUser, unfollowUser, getCurrentUserProfile, getUsers } from '@/services/user-service';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -103,6 +103,7 @@ export default function SearchPage() {
   const [searchTerm, setSearchTerm] = useState('');
   
   const [userResults, setUserResults] = useState<User[]>([]);
+  const [teacherResults, setTeacherResults] = useState<User[]>([]);
   const [groupResults, setGroupResults] = useState<Group[]>([]);
   const [postResults, setPostResults] = useState<Post[]>([]);
   
@@ -126,6 +127,7 @@ export default function SearchPage() {
   const searchAll = useCallback(async (term: string) => {
     if (term.trim() === '') {
       setUserResults([]);
+      setTeacherResults([]);
       setGroupResults([]);
       setPostResults([]);
       setIsLoading(false);
@@ -135,12 +137,17 @@ export default function SearchPage() {
     const lowercasedTerm = term.toLowerCase();
     
     try {
-        // Search Users
+        // Search Users (non-teachers)
         const usersRef = collection(firestore, "users");
         const usersQuery = query(usersRef, where('username', '>=', lowercasedTerm), where('username', '<=', lowercasedTerm + '\uf8ff'), limit(15));
         const usersSnap = await getDocs(usersQuery);
         const fetchedUsers = usersSnap.docs.map(doc => doc.data() as User).filter(user => user.id !== currentUser?.uid);
-        setUserResults(fetchedUsers);
+        
+        const students = fetchedUsers.filter(u => !u.email?.endsWith('@teacher.app.com'));
+        const teachers = fetchedUsers.filter(u => u.email?.endsWith('@teacher.app.com'));
+        
+        setUserResults(students);
+        setTeacherResults(teachers);
 
         // Search Groups
         const groupsRef = collection(firestore, "groups");
@@ -208,7 +215,7 @@ export default function SearchPage() {
         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="ابحث عن مستخدمين، مجموعات، أو منشورات..."
+          placeholder="ابحث عن طلاب، معلمين، أو منشورات..."
           className="w-full pl-10"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -238,8 +245,8 @@ export default function SearchPage() {
        ) : (
             <Tabs defaultValue="users" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="users"><Users className="me-2"/> المستخدمون</TabsTrigger>
-                    <TabsTrigger value="groups"><UserSquare className="me-2"/> المجموعات</TabsTrigger>
+                    <TabsTrigger value="users"><Users className="me-2"/> الطلاب</TabsTrigger>
+                    <TabsTrigger value="teachers"><GraduationCap className="me-2"/> المعلمون</TabsTrigger>
                     <TabsTrigger value="posts"><Newspaper className="me-2"/> المنشورات</TabsTrigger>
                 </TabsList>
                 <TabsContent value="users" className="mt-6">
@@ -249,10 +256,10 @@ export default function SearchPage() {
                        </CardContent>
                     </Card>
                 </TabsContent>
-                <TabsContent value="groups" className="mt-6">
-                     <Card>
+                 <TabsContent value="teachers" className="mt-6">
+                    <Card>
                        <CardContent className="p-4">
-                           <GroupSearchResults groups={groupResults} />
+                           <UserSearchResults users={teacherResults} onFollowToggle={handleFollowToggle} isFollowing={isFollowing} currentUser={currentUser} />
                        </CardContent>
                     </Card>
                 </TabsContent>
