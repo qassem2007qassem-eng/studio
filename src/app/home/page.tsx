@@ -132,16 +132,7 @@ export default function HomePage() {
         )}
 
         {currentUser && !isLoading && posts.length === 0 && (
-            <div className="text-center text-muted-foreground pt-10">
-                <p className="text-lg font-semibold">مرحباً بك في StudentHub!</p>
-                <p className="text-sm">صفحتك الرئيسية فارغة حالياً.</p>
-                <p className="text-sm mt-2">ابدأ بمتابعة بعض الأشخاص لترى منشوراتهم هنا.</p>
-                 <Button asChild className="mt-4">
-                    <Link href="/home/friends">
-                        اكتشف الأصدقاء
-                    </Link>
-                </Button>
-            </div>
+           <UserSuggestions />
         )}
         
         {posts?.map((post, index) => {

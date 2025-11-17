@@ -339,20 +339,31 @@ const updateProfile = async (
   }
 };
 
-const getUsers = async (pageSize = 20, lastVisible: any = null, includeIds: string[] = [], excludeIds: string[] = []) => {
+const getUsers = async (pageSize = 20, lastVisible: any = null, includeIds: string[] = [], excludeIds: string[] = [], teachersOnly = false) => {
   try {
     const usersRef = collection(firestore, "users");
-    let q;
+    let queryConstraints = [];
 
     if (includeIds.length > 0) {
-      q = query(usersRef, where('id', 'in', includeIds), limit(pageSize));
-    } else {
-       if (lastVisible) {
-        q = query(usersRef, orderBy("createdAt", "desc"), startAfter(lastVisible), limit(pageSize));
-      } else {
-        q = query(usersRef, orderBy("createdAt", "desc"), limit(pageSize));
-      }
+      queryConstraints.push(where('id', 'in', includeIds));
     }
+    
+    if (teachersOnly) {
+      queryConstraints.push(where('email', '>=', '@teacher.app.com'));
+      queryConstraints.push(where('email', '<=', '@teacher.app.com\uf8ff'));
+    }
+
+    if (!includeIds.length) {
+       queryConstraints.push(orderBy("createdAt", "desc"));
+       if (lastVisible) {
+          queryConstraints.push(startAfter(lastVisible));
+       }
+    }
+    
+    queryConstraints.push(limit(pageSize));
+    
+    const q = query(usersRef, ...queryConstraints);
+
 
     const querySnapshot = await getDocs(q);
     let users: User[] = [];

@@ -19,44 +19,29 @@ export function UserSuggestions() {
   const [suggestions, setSuggestions] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
-  const { firestore } = useFirebase();
-
-  const followRequestsQuery = useMemoFirebase(() => {
-    if (!currentUser) return null;
-    return query(
-      collection(firestore, `users/${currentUser.uid}/notifications`),
-      where('type', '==', 'follow_request')
-    );
-  }, [currentUser, firestore]);
-
-  const { data: requests } = useCollection<AppNotification>(followRequestsQuery);
-
-  const fetchSuggestions = useCallback(async (profile: User) => {
+  
+  const fetchSuggestions = useCallback(async (profile: User | null) => {
     setIsLoading(true);
     
-    const requesterIds = requests?.map(r => r.fromUser.id) || [];
-    const followingIds = profile.following || [];
-    // Make sure to exclude the current user from suggestions
-    const excludeIds = [currentUser?.uid, ...followingIds, ...requesterIds].filter((id): id is string => !!id);
-
-    // Fetch requesters' full profiles
-    let requesters: User[] = [];
-    if (requesterIds.length > 0) {
-      const { users: requesterUsers } = await getUsers(requesterIds.length, null, requesterIds);
-      requesters = requesterUsers;
+    // Suggest teachers if the user isn't following anyone
+    if (profile && profile.following.length > 0) {
+      setIsLoading(false);
+      setSuggestions([]);
+      return;
     }
+    
+    // Fetch teachers (users with email ending in @teacher.app.com)
+    const { users: teacherUsers } = await getUsers(5, null, [], [], true);
+    
+    // Exclude users already followed or the current user
+    const followingIds = new Set(profile?.following || []);
+    const filteredTeachers = teacherUsers.filter(
+      (teacher) => teacher.id !== currentUser?.uid && !followingIds.has(teacher.id)
+    );
 
-    // Fetch other random users
-    const { users: randomUsers } = await getUsers(5, null, [], excludeIds);
-    
-    // Combine and slice
-    const combinedSuggestions = [...requesters, ...randomUsers].filter(
-      (user, index, self) => index === self.findIndex((u) => u.id === user.id) // Remove duplicates
-    ).slice(0, 5);
-    
-    setSuggestions(combinedSuggestions);
+    setSuggestions(filteredTeachers);
     setIsLoading(false);
-  }, [currentUser?.uid, requests]);
+  }, [currentUser?.uid]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -69,13 +54,12 @@ export function UserSuggestions() {
             setIsLoading(false);
         }
       } else if (!isCurrentUserLoading) {
-        // No user logged in
         setIsLoading(false);
         setSuggestions([]);
       }
     };
     fetchInitialData();
-  }, [currentUser, isCurrentUserLoading, fetchSuggestions, requests]);
+  }, [currentUser, isCurrentUserLoading, fetchSuggestions]);
 
 
   const handleFollow = async (targetUserId: string) => {
@@ -88,7 +72,7 @@ export function UserSuggestions() {
       await followUser(targetUserId);
     } catch (error) {
       console.error("Failed to follow user", error);
-      // Optional: Add the user back on error, though it might be better to just let them disappear.
+      // Optional: Add the user back on error
     }
   };
   
@@ -117,14 +101,28 @@ export function UserSuggestions() {
   }
 
   if (suggestions.length === 0) {
-    return null; // Don't render the card if there are no suggestions
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>مرحباً بك!</CardTitle>
+        </CardHeader>
+        <CardContent>
+            <p className="text-sm text-muted-foreground">صفحتك الرئيسية فارغة حالياً. ابدأ بمتابعة بعض الأشخاص أو استكشف المجموعات لترى منشوراتهم هنا.</p>
+             <Button asChild className="mt-4">
+                <Link href="/home/friends">
+                    اكتشف الأصدقاء
+                </Link>
+            </Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>اقتراحات للمتابعة</CardTitle>
-        <CardDescription>أشخاص قد تعرفهم.</CardDescription>
+        <CardDescription>ابدأ بمتابعة هؤلاء المعلمين لترى محتواهم التعليمي.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {suggestions.map(user => (
@@ -136,6 +134,7 @@ export function UserSuggestions() {
               </Avatar>
               <div>
                 <p className="font-semibold">{user.name}</p>
+                 <p className="text-xs text-muted-foreground">@{user.username.toLowerCase()}</p>
               </div>
             </Link>
             <Button 

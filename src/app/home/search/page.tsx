@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Search as SearchIcon, UserPlus, UserCheck, Users, Newspaper, UserSquare } from 'lucide-react';
 import { useUser } from '@/firebase';
 import { type User, type Group, type Post } from '@/lib/types';
-import { getUsers, followUser, unfollowUser, getCurrentUserProfile } from '@/services/user-service';
+import { followUser, unfollowUser, getCurrentUserProfile } from '@/services/user-service';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -133,37 +133,32 @@ export default function SearchPage() {
     }
     setIsLoading(true);
     const lowercasedTerm = term.toLowerCase();
+    
+    try {
+        // Search Users
+        const usersRef = collection(firestore, "users");
+        const usersQuery = query(usersRef, where('username', '>=', lowercasedTerm), where('username', '<=', lowercasedTerm + '\uf8ff'), limit(15));
+        const usersSnap = await getDocs(usersQuery);
+        const fetchedUsers = usersSnap.docs.map(doc => doc.data() as User).filter(user => user.id !== currentUser?.uid);
+        setUserResults(fetchedUsers);
 
-    // Search Users
-    const usersQuery = query(collection(firestore, "users"), or(where('username', '>=', lowercasedTerm), where('name', '>=', lowercasedTerm)), limit(15));
-    const usersSnap = await getDocs(usersQuery);
-    const filteredUsers = usersSnap.docs
-        .map(doc => doc.data() as User)
-        .filter(user => 
-            user &&
-            user.id !== currentUser?.uid &&
-            ((user.name && user.name.toLowerCase().includes(lowercasedTerm)) || 
-             (user.username && user.username.toLowerCase().includes(lowercasedTerm)))
-        );
-    setUserResults(filteredUsers);
+        // Search Groups
+        const groupsRef = collection(firestore, "groups");
+        const groupsQuery = query(groupsRef, where('name', '>=', lowercasedTerm), where('name', '<=', lowercasedTerm + '\uf8ff'), where('privacy', '==', 'public'), limit(15));
+        const groupsSnap = await getDocs(groupsQuery);
+        setGroupResults(groupsSnap.docs.map(doc => doc.data() as Group));
 
-    // Search Groups
-    const groupsQuery = query(collection(firestore, "groups"), where('name', '>=', lowercasedTerm), where('privacy', '==', 'public'), limit(15));
-    const groupsSnap = await getDocs(groupsQuery);
-    const filteredGroups = groupsSnap.docs
-        .map(doc => doc.data() as Group)
-        .filter(group => group.name.toLowerCase().includes(lowercasedTerm));
-    setGroupResults(filteredGroups);
-
-    // Search Posts (simple content search on public posts)
-    const postsQuery = query(collection(firestore, "posts"), where('content', '>=', lowercasedTerm), where('privacy', '==', 'followers'), limit(15));
-    const postsSnap = await getDocs(postsQuery);
-    const filteredPosts = postsSnap.docs
-        .map(doc => doc.data() as Post)
-        .filter(post => post.content.toLowerCase().includes(lowercasedTerm));
-    setPostResults(filteredPosts);
-
-    setIsLoading(false);
+        // Search Posts (simple content search on public posts)
+        const postsRef = collection(firestore, "posts");
+        const postsQuery = query(postsRef, where('content', '>=', lowercasedTerm), where('content', '<=', lowercasedTerm + '\uf8ff'), where('privacy', '==', 'followers'), limit(15));
+        const postsSnap = await getDocs(postsQuery);
+        setPostResults(postsSnap.docs.map(doc => doc.data() as Post));
+        
+    } catch(e) {
+        console.error("Search failed:", e);
+    } finally {
+        setIsLoading(false);
+    }
   }, [currentUser?.uid, firestore]);
 
   useEffect(() => {
@@ -268,5 +263,3 @@ export default function SearchPage() {
     </div>
   );
 }
-
-    
