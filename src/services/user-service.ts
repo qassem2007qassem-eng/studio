@@ -1,5 +1,6 @@
 
 
+
 'use client';
 
 import { 
@@ -92,7 +93,7 @@ const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<U
 
 const createUserProfile = async (
   user: AuthUser, 
-  details: Pick<User, 'username' | 'name' | 'email' | 'emailVerified'>
+  details: Pick<User, 'username' | 'name' | 'email' | 'emailVerified' | 'accountType'>
 ): Promise<void> => {
   const { firestore } = initializeFirebase();
   try {
@@ -102,6 +103,7 @@ const createUserProfile = async (
       name: details.name,
       email: details.email,
       emailVerified: details.emailVerified,
+      accountType: details.accountType,
       bio: "",
       createdAt: serverTimestamp(),
       followers: [],
@@ -181,10 +183,8 @@ const getUserById = async (userId: string): Promise<User | null> => {
 
 const getTeacherById = async (teacherId: string): Promise<User | null> => {
   try {
-    // A teacher is a user. Fetch their main user profile first.
     const userDoc = await getUserById(teacherId);
-    // Then, verify they are a teacher by their email.
-    if (userDoc && userDoc.email?.endsWith('@teacher.app.com')) {
+    if (userDoc && userDoc.accountType === 'teacher') {
        return userDoc;
     }
     return null;
@@ -217,10 +217,8 @@ const getTeachersByIds = async (teacherIds: string[]): Promise<User[]> => {
     return [];
   }
   try {
-    // Teachers have regular user profiles. We can fetch them directly from the 'users' collection.
-    // This is more efficient than querying the 'teachers' collection separately.
     const usersData = await getUsersByIds(teacherIds);
-    return usersData.filter(user => user.email?.endsWith('@teacher.app.com'));
+    return usersData.filter(user => user.accountType === 'teacher');
   } catch (error) {
     console.error("Error getting teachers by IDs:", error);
     return [];
@@ -359,25 +357,14 @@ const getUsers = async (pageSize = 20, lastVisible: any = null, includeIds: stri
   const { firestore } = initializeFirebase();
   try {
     const usersRef = collection(firestore, "users");
-    let queryConstraints = [];
+    let queryConstraints: any[] = [];
 
     if (includeIds.length > 0) {
       queryConstraints.push(where('id', 'in', includeIds));
     }
     
     if (teachersOnly) {
-       const q = query(usersRef, where('email', '>=', ''), where('email', '<=', '~'));
-       const snapshot = await getDocs(q);
-       let teacherUsers = snapshot.docs
-         .map(d => d.data() as User)
-         .filter(u => u.email.endsWith('@teacher.app.com'));
-      
-      if (excludeIds.length > 0) {
-        const excludeSet = new Set(excludeIds);
-        teacherUsers = teacherUsers.filter(u => !excludeSet.has(u.id));
-      }
-
-       return { users: teacherUsers.slice(0, pageSize), lastVisible: null, hasMore: teacherUsers.length > pageSize };
+       queryConstraints.push(where('accountType', '==', 'teacher'));
     }
 
     if (!includeIds.length) {

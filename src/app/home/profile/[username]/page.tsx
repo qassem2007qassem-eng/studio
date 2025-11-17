@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import Image from "next/image";
@@ -28,12 +29,6 @@ import { cn } from "@/lib/utils";
 import { createReport } from "@/services/report-service";
 import { getCoursesByIds } from "@/services/course-service";
 
-
-// Simple admin check
-const isAdminUser = (user: User | null) => {
-    if (!user) return false;
-    return user.email === 'admin@app.com';
-};
 
 function TeacherPlaylists({ teacherId }: { teacherId: string }) {
     const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -145,8 +140,8 @@ export default function ProfilePage() {
       return currentUser.uid === profileUser.id;
   }, [currentUser, profileUser]);
 
-  const isAdmin = isAdminUser(currentUser as User | null);
-  const isTeacher = profileUser?.email?.endsWith('@teacher.app.com');
+  const isAdmin = profileUser?.accountType === 'admin';
+  const isTeacher = profileUser?.accountType === 'teacher';
 
   const fetchProfileUser = useCallback(async () => {
     if (!usernameFromUrl) return;

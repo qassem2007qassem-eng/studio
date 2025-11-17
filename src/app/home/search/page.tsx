@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -137,14 +138,14 @@ export default function SearchPage() {
     const lowercasedTerm = term.toLowerCase();
     
     try {
-        // Search Users (non-teachers)
+        // Search Users (students and teachers)
         const usersRef = collection(firestore, "users");
         const usersQuery = query(usersRef, where('username', '>=', lowercasedTerm), where('username', '<=', lowercasedTerm + '\uf8ff'), limit(15));
         const usersSnap = await getDocs(usersQuery);
         const fetchedUsers = usersSnap.docs.map(doc => doc.data() as User).filter(user => user.id !== currentUser?.uid);
         
-        const students = fetchedUsers.filter(u => !u.email?.endsWith('@teacher.app.com'));
-        const teachers = fetchedUsers.filter(u => u.email?.endsWith('@teacher.app.com'));
+        const students = fetchedUsers.filter(u => u.accountType === 'student');
+        const teachers = fetchedUsers.filter(u => u.accountType === 'teacher');
         
         setUserResults(students);
         setTeacherResults(teachers);

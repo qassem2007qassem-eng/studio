@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -259,12 +260,20 @@ function AccountSettingsCard() {
 
 export default function SettingsPage() {
     const { user, isUserLoading } = useUser();
+    const [userProfile, setUserProfile] = useState<UserType | null>(null);
     const router = useRouter();
     const { auth } = initializeFirebase();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isLogoutAlertOpen, setIsLogoutAlertOpen] = useState(false);
-    const isAdmin = user?.email === 'admin@app.com';
-    const isTeacher = user?.email?.endsWith('@teacher.app.com');
+
+    useEffect(() => {
+        if (user) {
+            getCurrentUserProfile().then(setUserProfile);
+        }
+    }, [user]);
+
+    const isAdmin = userProfile?.accountType === 'admin'; // Assuming admin is a type
+    const isTeacher = userProfile?.accountType === 'teacher';
 
     const handleLogout = async (saveInfo: boolean) => {
         setIsLoggingOut(true);
@@ -302,7 +311,7 @@ export default function SettingsPage() {
     };
 
 
-    if (isUserLoading) {
+    if (isUserLoading || (user && !userProfile)) {
          return (
              <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
                 <Skeleton className="h-full w-full" />

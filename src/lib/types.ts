@@ -18,6 +18,7 @@ export interface User {
   isPrivate?: boolean;
   isVerified?: boolean;
   emailVerified?: boolean;
+  accountType: 'student' | 'teacher';
 }
 
 export interface Comment {

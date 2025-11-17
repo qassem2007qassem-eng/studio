@@ -123,14 +123,15 @@ function RegisterForm() {
       );
       const user = userCredential.user;
 
-      if (formData.accountType === 'student') {
-        await createUserProfile(user, {
-            username: usernameLower,
-            name: formData.fullName,
-            email: user.email!,
-            emailVerified: user.emailVerified,
-        });
-      } else { // Teacher account
+      await createUserProfile(user, {
+          username: usernameLower,
+          name: formData.fullName,
+          email: finalEmail,
+          emailVerified: user.emailVerified,
+          accountType: formData.accountType,
+      });
+
+      if (formData.accountType === 'teacher') {
           const teacherDocRef = doc(firestore, 'teachers', user.uid);
             await setDoc(teacherDocRef, {
                 id: user.uid,
@@ -140,13 +141,6 @@ function RegisterForm() {
                 profilePictureUrl: '',
                 courseIds: [],
                 createdAt: serverTimestamp(),
-            });
-            // Also create a regular user profile for the teacher to allow them to post
-            await createUserProfile(user, {
-              username: usernameLower,
-              name: formData.fullName,
-              email: finalEmail,
-              emailVerified: true, // Auto-verify teachers
             });
       }
       
