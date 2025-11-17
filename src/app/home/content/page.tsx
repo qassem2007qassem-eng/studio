@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -9,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayCircle } from 'lucide-react';
 import Link from 'next/link';
-import { getUsersByIds } from '@/services/user-service';
+import { getTeachersByIds } from '@/services/user-service';
 
 function formatDuration(seconds: number) {
     if (isNaN(seconds) || seconds < 0) return '0 د';
@@ -55,7 +56,7 @@ export default function ContentPage() {
 
                 if (fetchedLessons.length > 0) {
                     const teacherIds = [...new Set(fetchedLessons.map(l => l.teacherId))];
-                    const teacherData = await getUsersByIds(teacherIds);
+                    const teacherData = await getTeachersByIds(teacherIds);
                     const teacherMap = teacherData.reduce((acc, teacher) => {
                         acc[teacher.id] = teacher;
                         return acc;
@@ -119,7 +120,7 @@ export default function ContentPage() {
                                 {teacher && (
                                      <div className="flex items-center gap-2 pt-1">
                                         <Avatar className="h-6 w-6">
-                                            <AvatarImage src={undefined} alt={teacher.name} />
+                                            <AvatarImage src={(teacher as any).profilePictureUrl} alt={teacher.name} />
                                             <AvatarFallback>{teacher.name.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <span className="text-xs text-muted-foreground font-medium hover:underline">

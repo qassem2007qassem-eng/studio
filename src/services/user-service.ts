@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -203,6 +204,24 @@ const getUsersByIds = async (userIds: string[]): Promise<User[]> => {
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
   } catch (error) {
     console.error("Error getting users by IDs:", error);
+    return [];
+  }
+};
+
+const getTeachersByIds = async (teacherIds: string[]): Promise<User[]> => {
+  const { firestore } = initializeFirebase();
+  if (teacherIds.length === 0) {
+    return [];
+  }
+  try {
+    const usersRef = collection(firestore, 'users');
+    const q = query(usersRef, where('id', 'in', teacherIds));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs
+      .map(doc => doc.data() as User)
+      .filter(user => user.email?.endsWith('@teacher.app.com'));
+  } catch (error) {
+    console.error("Error getting teachers by IDs:", error);
     return [];
   }
 };
@@ -530,6 +549,7 @@ export {
   getUserByUsername,
   getUserById,
   getUsersByIds,
+  getTeachersByIds,
   followUser,
   unfollowUser,
   checkIfFollowing,
