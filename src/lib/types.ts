@@ -133,6 +133,7 @@ export interface LessonComment {
     };
     content: string;
     createdAt: Timestamp;
+    parentId?: string | null;
 }
 
 export interface Playlist {

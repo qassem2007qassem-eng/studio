@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -83,7 +84,7 @@ export async function toggleLikeLesson(lessonId: string, isLiked: boolean): Prom
     }
 }
 
-export async function addCommentToLesson(lessonId: string, content: string): Promise<string> {
+export async function addCommentToLesson(lessonId: string, content: string, parentId?: string): Promise<string> {
     const { auth, firestore } = initializeFirebase();
     const user = auth.currentUser;
     if (!user) throw new Error("User not authenticated.");
@@ -101,6 +102,7 @@ export async function addCommentToLesson(lessonId: string, content: string): Pro
             name: profile.name,
             username: profile.username,
         },
+        parentId: parentId || null,
         createdAt: serverTimestamp(),
     };
 

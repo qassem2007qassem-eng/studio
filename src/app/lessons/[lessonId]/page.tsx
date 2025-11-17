@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
@@ -14,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { ThumbsUp, Eye, Clock, PlayCircle, GraduationCap } from 'lucide-react';
+import { ThumbsUp, Eye, Clock, PlayCircle, GraduationCap, MessageSquareReply } from 'lucide-react';
 import Link from 'next/link';
 import { cn, formatDistanceToNow, safeToDate } from '@/lib/utils';
 import { useCollection } from '@/firebase/firestore/use-collection';
@@ -46,6 +47,78 @@ function getYouTubeVideoId(url: string): string | null {
     }
 }
 
+function ReplyForm({ lessonId, parentId, onReplySuccess }: { lessonId: string, parentId: string, onReplySuccess: () => void }) {
+    const { user } = useUser();
+    const [replyText, setReplyText] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!user || !replyText.trim()) return;
+        setIsSubmitting(true);
+        try {
+            await addCommentToLesson(lessonId, replyText, parentId);
+            setReplyText('');
+            onReplySuccess();
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+         <form onSubmit={handleSubmit} className="flex gap-2 w-full mt-2">
+            <Input
+                placeholder="اكتب ردًا..."
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                disabled={!user || isSubmitting}
+                className="h-9"
+            />
+            <Button type="submit" size="sm" disabled={!user || !replyText.trim() || isSubmitting}>
+                {isSubmitting ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'رد'}
+            </Button>
+        </form>
+    );
+}
+
+function CommentWithReplies({ comment, allComments, lessonId }: { comment: LessonComment, allComments: LessonComment[], lessonId: string }) {
+    const { user } = useUser();
+    const [showReplyForm, setShowReplyForm] = useState(false);
+    const replies = useMemo(() => allComments.filter(c => c.parentId === comment.id).sort((a,b) => (safeToDate(a.createdAt)?.getTime() || 0) - (safeToDate(b.createdAt)?.getTime() || 0)), [allComments, comment.id]);
+
+    return (
+        <div className="flex items-start gap-3">
+            <Avatar className="h-8 w-8">
+                <AvatarImage alt={comment.author.name} />
+                <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1">
+                <div className="bg-muted p-3 rounded-lg">
+                    <Link href={`/home/profile/${comment.author.username?.toLowerCase()}`} className="font-semibold text-sm hover:underline">
+                        {comment.author.name}
+                    </Link>
+                    <p className="text-sm">{comment.content}</p>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                    <p className="text-xs text-muted-foreground">{safeToDate(comment.createdAt) ? formatDistanceToNow(safeToDate(comment.createdAt)!) : ''}</p>
+                    {user && <Button variant="ghost" size="sm" className="h-auto px-2 py-1 text-xs" onClick={() => setShowReplyForm(!showReplyForm)}>
+                        <MessageSquareReply className="me-1 h-3 w-3" />
+                        رد
+                    </Button>}
+                </div>
+                {showReplyForm && (
+                     <ReplyForm lessonId={lessonId} parentId={comment.id} onReplySuccess={() => setShowReplyForm(false)} />
+                )}
+                <div className="mt-4 space-y-4 ps-6 border-s-2">
+                     {replies.map(reply => <CommentWithReplies key={reply.id} comment={reply} allComments={allComments} lessonId={lessonId} />)}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 
 function LessonComments({ lessonId }: { lessonId: string }) {
     const { user } = useUser();
@@ -59,6 +132,8 @@ function LessonComments({ lessonId }: { lessonId: string }) {
     }, [lessonId, firestore]);
 
     const { data: comments, isLoading } = useCollection<LessonComment>(commentsQuery);
+    
+    const topLevelComments = useMemo(() => comments?.filter(c => !c.parentId) || [], [comments]);
 
     const handleSubmitComment = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -94,23 +169,9 @@ function LessonComments({ lessonId }: { lessonId: string }) {
                 <Separator />
                 <div className="space-y-4">
                     {isLoading && <p>جاري تحميل التعليقات...</p>}
-                    {comments && comments.length > 0 ? (
-                        comments.map(comment => (
-                             <div key={comment.id} className="flex items-start gap-3">
-                                <Avatar className="h-8 w-8">
-                                    <AvatarImage alt={comment.author.name} />
-                                    <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1">
-                                    <div className="bg-muted p-3 rounded-lg">
-                                        <Link href={`/home/profile/${comment.author.username?.toLowerCase()}`} className="font-semibold text-sm hover:underline">
-                                            {comment.author.name}
-                                        </Link>
-                                        <p className="text-sm">{comment.content}</p>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground mt-1">{safeToDate(comment.createdAt) ? formatDistanceToNow(safeToDate(comment.createdAt)!) : ''}</p>
-                                </div>
-                            </div>
+                    {comments && topLevelComments.length > 0 ? (
+                        topLevelComments.map(comment => (
+                           <CommentWithReplies key={comment.id} comment={comment} allComments={comments} lessonId={lessonId} />
                         ))
                     ) : (
                         !isLoading && <p className="text-center text-muted-foreground py-6">لا توجد تعليقات بعد. كن أول من يعلق!</p>
@@ -192,7 +253,7 @@ export default function LessonPlayerPage() {
     const [isLiking, setIsLiking] = useState(false);
 
 
-    const fetchLessonData = useCallback(async () => {
+    const fetchLessonData = useCallback(async (currentUserId?: string) => {
         if (!lessonId) return;
         setIsLoading(true);
         const lessonData = await getLessonById(lessonId as string);
@@ -200,33 +261,55 @@ export default function LessonPlayerPage() {
             setLesson(lessonData);
             const teacherData = await getTeacherById(lessonData.teacherId);
             setTeacher(teacherData);
-            if (user) {
-                setIsLiked(lessonData.likes?.includes(user.uid));
+            if (currentUserId) {
+                setIsLiked(lessonData.likes?.includes(currentUserId));
             }
         } else {
             notFound();
         }
         setIsLoading(false);
-    }, [lessonId, user]);
+    }, [lessonId]);
 
 
     useEffect(() => {
-        fetchLessonData();
-    }, [fetchLessonData]);
+        fetchLessonData(user?.uid);
+    }, [fetchLessonData, user?.uid]);
     
     const handleLikeToggle = async () => {
         if (!user || !lesson || isLiking) return;
         setIsLiking(true);
         const newIsLiked = !isLiked;
-        setIsLiked(newIsLiked);
         
+        // Optimistic update
+        setIsLiked(newIsLiked);
+        setLesson(prev => {
+            if (!prev) return null;
+            const currentLikes = prev.likes || [];
+            if (newIsLiked) {
+                return {...prev, likes: [...currentLikes, user.uid]};
+            } else {
+                return {...prev, likes: currentLikes.filter(id => id !== user.uid)};
+            }
+        });
+
         try {
             await toggleLikeLesson(lesson.id, newIsLiked);
-            const updatedLesson = await getLessonById(lesson.id);
-            setLesson(updatedLesson);
+            // Optional: Re-fetch for consistency, but optimistic update is usually enough
+            // const updatedLesson = await getLessonById(lesson.id);
+            // setLesson(updatedLesson);
         } catch(e) {
             console.error(e);
-            setIsLiked(!newIsLiked); // Revert on error
+            // Revert on error
+             setIsLiked(!newIsLiked);
+             setLesson(prev => {
+                if (!prev) return null;
+                const currentLikes = prev.likes || [];
+                if (!newIsLiked) {
+                    return {...prev, likes: [...currentLikes, user.uid]};
+                } else {
+                    return {...prev, likes: currentLikes.filter(id => id !== user.uid)};
+                }
+            });
         } finally {
             setIsLiking(false);
         }
@@ -318,7 +401,7 @@ export default function LessonPlayerPage() {
                                </div>
                            </TeacherInfoDialog>
                              <Button onClick={handleLikeToggle} disabled={!user || isLiking} variant={isLiked ? 'default' : 'outline'}>
-                                {isLiking ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <ThumbsUp className="me-2"/>}
+                                {isLiking ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-primary" /> : <ThumbsUp className="me-2"/>}
                                 {isLiked ? 'أعجبني' : 'إعجاب'}
                             </Button>
                         </div>
