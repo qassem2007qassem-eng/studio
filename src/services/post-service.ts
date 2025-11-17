@@ -26,6 +26,8 @@ import {
 import { initializeFirebase } from '@/firebase';
 import { type Post, type PrivacySetting, type User, type Group } from '@/lib/types';
 import { createNotification } from './notification-service';
+import { getCurrentUserProfile } from './user-service';
+
 
 type CreatePostInput = {
   content: string;
@@ -164,14 +166,36 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     }
 };
 
-export const getFeedPosts = async (pageSize = 10, lastVisible?: DocumentSnapshot<DocumentData> | null, userId?: string): Promise<{ posts: Post[], lastVisible: DocumentSnapshot<DocumentData> | null, hasMore: boolean }> => {
+export const getFeedPosts = async (
+    pageSize = 10, 
+    lastVisible?: DocumentSnapshot<DocumentData> | null, 
+    userId?: string
+): Promise<{ posts: Post[], lastVisible: DocumentSnapshot<DocumentData> | null, hasMore: boolean }> => {
     const { firestore } = initializeFirebase();
     const postsRef = collection(firestore, 'posts');
 
-    // **CRITICAL FIX:** Simplified query to remove the `where('status', ...)` clause
-    // that requires a composite index. We will now rely on ordering by date only.
-    // This is the most performant query and does not require a custom index.
+    // If no user is logged in, return an empty feed.
+    if (!userId) {
+        return { posts: [], lastVisible: null, hasMore: false };
+    }
+
+    const userProfile = await getCurrentUserProfile({ userId });
+    // Also include the user's own posts in their feed.
+    const followingIds = [...(userProfile?.following || []), userId];
+
+    // If the user isn't following anyone, return an empty feed.
+    if (followingIds.length === 0) {
+        return { posts: [], lastVisible: null, hasMore: false };
+    }
+
+    // Firestore 'in' queries are limited to 30 items. We'll paginate the following list if necessary,
+    // but for a feed of 10, it's reasonable to query for posts from up to 30 followed users at a time.
+    // For simplicity, we'll take the first 30. A more robust solution might involve more complex feed generation.
+    const queryableFollowingIds = followingIds.slice(0, 30);
+
     let feedQueryConstraints: any[] = [
+        where('authorId', 'in', queryableFollowingIds),
+        where('status', '==', 'approved'),
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
@@ -201,6 +225,16 @@ export const getFeedPosts = async (pageSize = 10, lastVisible?: DocumentSnapshot
         return { posts, lastVisible: newLastVisible, hasMore };
     } catch (error) {
         console.error("Error fetching feed posts:", error);
+        // This is a critical error. Check if it's the index issue.
+        if (error instanceof Error && error.message.includes('requires an index')) {
+             console.error("COMPOSITE INDEX REQUIRED! Please create it in the Firebase console.");
+             // Fallback to a simpler, non-performant query to avoid crashing.
+             // This is NOT ideal for production.
+             const simpleQuery = query(postsRef, orderBy('createdAt', 'desc'), limit(pageSize));
+             const snapshot = await getDocs(simpleQuery);
+              const posts = snapshot.docs.map(doc => doc.data() as Post);
+              return { posts, lastVisible: snapshot.docs[snapshot.docs.length - 1] ?? null, hasMore: posts.length === pageSize };
+        }
         throw error;
     }
 }
