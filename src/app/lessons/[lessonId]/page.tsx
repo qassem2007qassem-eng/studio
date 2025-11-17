@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { ThumbsUp, Eye, Clock, PlayCircle } from 'lucide-react';
+import { ThumbsUp, Eye, Clock, PlayCircle, GraduationCap } from 'lucide-react';
 import Link from 'next/link';
 import { cn, formatDistanceToNow, safeToDate } from '@/lib/utils';
 import { CatLoader } from '@/components/cat-loader';
@@ -289,14 +289,17 @@ export default function LessonPlayerPage() {
                     </div>
                      {teacher && (
                         <div className="flex items-center justify-between">
-                            <Link href={`/home/profile/${teacher.email.split('@')[0]}`} className="flex items-center gap-3">
+                            <Link href={`/home/teacher/${teacher.id}`} className="flex items-center gap-3">
                                 <Avatar>
                                     <AvatarImage src={teacher.profilePictureUrl} alt={teacher.name} />
                                     <AvatarFallback>{teacher.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div>
                                     <p className="font-semibold">{teacher.name}</p>
-                                    <p className="text-xs text-muted-foreground">مدرس</p>
+                                    <div className="flex items-center gap-1 text-xs text-primary font-semibold">
+                                        <GraduationCap className="h-4 w-4" />
+                                        <span>معلم</span>
+                                    </div>
                                 </div>
                             </Link>
                              <Button onClick={handleLikeToggle} disabled={!user} variant={isLiked ? 'default' : 'outline'}>

@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, PlusCircle, User, Search, UserSquare } from 'lucide-react';
+import { Home, Users, PlusCircle, User, UserSquare, BookOpenCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/firebase';
 import { useEffect, useState } from 'react';
@@ -35,7 +35,7 @@ export function BottomNavBar() {
 
   const navItems = [
     { href: '/home', icon: Home, label: 'الرئيسية' },
-    { href: '/home/friends', icon: Users, label: 'الأصدقاء' },
+    { href: '/home/content', icon: BookOpenCheck, label: 'المحتوى' },
     { href: '/home/create-post', icon: PlusCircle, label: 'إنشاء', isSpecial: true },
     { href: '/home/groups', icon: UserSquare, label: 'مجموعات' },
     { href: `/home/profile/${username}`, icon: User, label: 'حسابي', requiresAuth: true },
