@@ -23,12 +23,10 @@ function TeacherCourses({ teacherId }: { teacherId: string }) {
         if (teacherId) {
             const fetchCourses = async () => {
                 setIsLoading(true);
-                // Simplified query to avoid composite index
                 const coursesQuery = query(collection(firestore, 'courses'), where('teacherId', '==', teacherId));
                 const coursesSnapshot = await getDocs(coursesQuery);
                 const fetchedCourses = coursesSnapshot.docs.map(doc => doc.data() as Course);
                 
-                // Sort on the client side
                 fetchedCourses.sort((a, b) => {
                     const dateA = safeToDate(a.createdAt)?.getTime() || 0;
                     const dateB = safeToDate(b.createdAt)?.getTime() || 0;
@@ -145,8 +143,10 @@ export default function TeacherDashboardPage() {
         setIsLoadingStats(false);
       };
       fetchTeacherStats();
+    } else if (!isUserLoading) {
+        setIsLoadingStats(false);
     }
-  }, [user, firestore]);
+  }, [user, isUserLoading, firestore]);
 
   if (isUserLoading) {
     return <div className="flex justify-center items-center h-screen"><Skeleton className="h-48 w-full" /></div>;
@@ -219,7 +219,12 @@ export default function TeacherDashboardPage() {
                 <TabsTrigger value="playlists">قوائم التشغيل</TabsTrigger>
             </TabsList>
             <TabsContent value="courses" className="mt-6 space-y-4">
-                 {!isUserLoading && user && (
+                 {isLoadingStats ? (
+                     <div className="flex justify-end gap-2">
+                         <Skeleton className="h-10 w-32" />
+                         <Skeleton className="h-10 w-32" />
+                     </div>
+                 ) : (
                     <div className="flex justify-end gap-2">
                         <Button asChild>
                             <Link href="/home/teacher/create-lesson">
@@ -238,7 +243,11 @@ export default function TeacherDashboardPage() {
                 <TeacherCourses teacherId={user.uid} />
             </TabsContent>
             <TabsContent value="playlists" className="mt-6 space-y-4">
-                 {!isUserLoading && user && (
+                 {isLoadingStats ? (
+                    <div className="flex justify-end">
+                       <Skeleton className="h-10 w-40" />
+                    </div>
+                 ) : (
                     <div className="flex justify-end">
                         <Button asChild>
                             <Link href="/home/teacher/playlists/create">
