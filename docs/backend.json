@@ -43,12 +43,18 @@
           "type": "array",
           "description": "List of user IDs this user follows.",
           "items": { "type": "string" }
+        },
+        "accountType": {
+          "type": "string",
+          "enum": ["student", "teacher"],
+          "description": "The type of account, either student or teacher."
         }
       },
       "required": [
         "id",
         "username",
-        "email"
+        "email",
+        "accountType"
       ]
     },
     "Post": {
@@ -324,21 +330,6 @@
       },
       "required": ["id", "name", "creatorId", "privacy", "createdAt"]
     },
-    "Teacher": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Teacher",
-      "type": "object",
-      "description": "Represents a teacher account with educational content.",
-      "properties": {
-        "id": { "type": "string", "description": "Unique identifier for the Teacher entity, same as Auth UID." },
-        "name": { "type": "string", "description": "The teacher's full name." },
-        "email": { "type": "string", "format": "email", "description": "The teacher's email address." },
-        "bio": { "type": "string", "description": "A short biography of the teacher." },
-        "profilePictureUrl": { "type": "string", "format": "uri", "description": "URL of the teacher's profile picture." },
-        "courseIds": { "type": "array", "items": { "type": "string" }, "description": "List of course IDs created by this teacher." }
-      },
-      "required": ["id", "name", "email"]
-    },
     "Course": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Course",
@@ -368,11 +359,12 @@
         "thumbnailUrl": { "type": "string", "format": "uri", "description": "URL of the lesson's thumbnail image." },
         "duration": { "type": "number", "description": "Duration of the video in seconds." },
         "courseId": { "type": "string", "description": "The ID of the course this lesson belongs to." },
+        "teacherId": { "type": "string", "description": "The ID of the teacher who created the lesson."},
         "views": { "type": "number", "description": "Number of times the lesson has been viewed." },
-        "likes": { "type": "number", "description": "Number of likes the lesson has received." },
+        "likes": { "type": "array", "items": { "type": "string" }, "description": "List of user IDs who liked the lesson." },
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp for when the lesson was created." }
       },
-      "required": ["id", "title", "videoUrl", "duration", "courseId", "createdAt"]
+      "required": ["id", "title", "videoUrl", "duration", "courseId", "teacherId", "createdAt"]
     },
     "LessonComment": {
         "$schema": "http://json-schema.org/draft-07/schema#",
@@ -384,7 +376,8 @@
             "lessonId": { "type": "string", "description": "The ID of the lesson being commented on." },
             "authorId": { "type": "string", "description": "The ID of the user who wrote the comment." },
             "content": { "type": "string", "description": "The text content of the comment." },
-            "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp for when the comment was created." }
+            "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp for when the comment was created." },
+            "parentId": { "type": ["string", "null"], "description": "The ID of the parent comment if this is a reply."}
         },
         "required": ["id", "lessonId", "authorId", "content", "createdAt"]
     },
@@ -537,14 +530,6 @@
         }
       },
       {
-        "path": "/teachers/{teacherId}",
-        "definition": {
-          "entityName": "Teacher",
-          "schema": { "$ref": "#/backend/entities/Teacher" },
-          "description": "Stores teacher profiles."
-        }
-      },
-      {
         "path": "/courses/{courseId}",
         "definition": {
           "entityName": "Course",
@@ -553,11 +538,11 @@
         }
       },
       {
-        "path": "/courses/{courseId}/lessons/{lessonId}",
+        "path": "/lessons/{lessonId}",
         "definition": {
           "entityName": "Lesson",
           "schema": { "$ref": "#/backend/entities/Lesson" },
-          "description": "Stores lessons for a specific course."
+          "description": "Stores all lessons, allowing for global queries like 'latest lessons'."
         }
       },
       {
@@ -577,7 +562,7 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support the Syrian Student Hub application, emphasizing secure data access and efficient querying. It leverages path-based ownership for user-specific data and membership maps for collaborative entities to ensure authorization independence and simplify security rules. The design explicitly avoids hierarchical authorization dependencies by denormalizing authorization-relevant data, enabling atomic operations and improving debuggability. Segregation of data into collections with homogeneous security postures simplifies security rules and enhances maintainability.\n\nSpecifically:\n\n*   **Users Collection:** Stores user profiles with standard profile information. It now includes arrays for 'followers' and 'following' to denormalize this data for simpler lookups, per the new user-provided service code.\n*   **Posts Collection:** Stores all the posts, with the authorId and denormalized data such as `likeIds` for efficient data retrieval. It can now optionally belong to a group via `groupId`. It supports listing all posts. The `authorId` links the post to a specific user.\n*   **Comments Subcollection:** Located under each post, this stores comments related to that specific post.  It ensures that comments are always associated with their parent post and facilitates easy retrieval of comments for a given post.\n*   **Notifications Subcollection:** Located under each user, stores notifications related to that specific user.\n*   **Reports Collection:** Stores reports of inappropriate content. This collection is now added to support the new reporting feature.\n*   **Summaries Subcollection:** Located under each user, this stores summaries generated by users.\n*  **Groups Collection:** Stores all user-created groups, with member information denormalized for efficient access control.\n* **Teachers, Courses, Lessons, Playlists:** Added a new set of collections to support the educational section, separating teacher content from general user content for clarity and scalability."
+    "reasoning": "The Firestore structure is designed to support the Syrian Student Hub application, emphasizing secure data access and efficient querying. It leverages path-based ownership for user-specific data and membership maps for collaborative entities to ensure authorization independence and simplify security rules. The design explicitly avoids hierarchical authorization dependencies by denormalizing authorization-relevant data, enabling atomic operations and improving debuggability. Segregation of data into collections with homogeneous security postures simplifies security rules and enhances maintainability.\n\nSpecifically:\n\n*   **Users Collection:** Stores user profiles with standard profile information. It now includes arrays for 'followers' and 'following' to denormalize this data for simpler lookups, per the new user-provided service code.\n*   **Posts Collection:** Stores all the posts, with the authorId and denormalized data such as `likeIds` for efficient data retrieval. It can now optionally belong to a group via `groupId`. It supports listing all posts. The `authorId` links the post to a specific user.\n*   **Comments Subcollection:** Located under each post, this stores comments related to that specific post.  It ensures that comments are always associated with their parent post and facilitates easy retrieval of comments for a given post.\n*   **Notifications Subcollection:** Located under each user, stores notifications related to that specific user.\n*   **Reports Collection:** Stores reports of inappropriate content. This collection is now added to support the new reporting feature.\n*   **Summaries Subcollection:** Located under each user, this stores summaries generated by users.\n*  **Groups Collection:** Stores all user-created groups, with member information denormalized for efficient access control.\n* **Courses, Lessons, Playlists:** Added a new set of collections to support the educational section, separating teacher content from general user content for clarity and scalability."
   }
 }
 
