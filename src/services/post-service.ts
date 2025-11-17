@@ -143,7 +143,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         queryConstraints.push(where('privacy', '==', 'followers'));
     }
 
-    const q = query(postsCollection, ...queryConstraints);
+    const q = query(postsCollection, ...queryConstraints, orderBy('createdAt', 'desc'));
 
     try {
         const snapshot = await getDocs(q);
@@ -151,13 +151,13 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         
         // This is a simplified approach. A more complex app might need to merge queries.
         if (isOwner) {
-            const onlyMeQuery = query(collection(firestore, 'posts'), where('authorId', '==', profileUserId), where('privacy', '==', 'only_me'));
+            const onlyMeQuery = query(collection(firestore, 'posts'), where('authorId', '==', profileUserId), where('privacy', '==', 'only_me'), orderBy('createdAt', 'desc'));
             const onlyMeSnapshot = await getDocs(onlyMeQuery);
             const onlyMePosts = onlyMeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-            posts = [...posts, ...onlyMePosts];
+             // Combine and re-sort
+            posts = [...posts.filter(p => p.privacy !== 'only_me'), ...onlyMePosts]
+                  .sort((a,b) => (b.createdAt.seconds - a.createdAt.seconds));
         }
-
-        posts.sort((a,b) => (b.createdAt.seconds - a.createdAt.seconds));
 
         return posts;
     } catch (e) {
@@ -174,23 +174,21 @@ export const getFeedPosts = async (
     const { firestore } = initializeFirebase();
     const postsRef = collection(firestore, 'posts');
 
-    // If no user is logged in, return an empty feed.
     if (!userId) {
         return { posts: [], lastVisible: null, hasMore: false };
     }
 
-    const userProfile = await getCurrentUserProfile({ userId });
+    const userProfile = await getCurrentUserProfile({ userId, forceRefresh: true });
+    
     // Also include the user's own posts in their feed.
     const followingIds = [...(userProfile?.following || []), userId];
 
-    // If the user isn't following anyone, return an empty feed.
+    // If the user isn't following anyone but themselves, we still want to show their own posts.
     if (followingIds.length === 0) {
         return { posts: [], lastVisible: null, hasMore: false };
     }
 
-    // Firestore 'in' queries are limited to 30 items. We'll paginate the following list if necessary,
-    // but for a feed of 10, it's reasonable to query for posts from up to 30 followed users at a time.
-    // For simplicity, we'll take the first 30. A more robust solution might involve more complex feed generation.
+    // Firestore 'in' queries are limited to 30 items.
     const queryableFollowingIds = followingIds.slice(0, 30);
 
     let feedQueryConstraints: any[] = [
@@ -225,13 +223,19 @@ export const getFeedPosts = async (
         return { posts, lastVisible: newLastVisible, hasMore };
     } catch (error) {
         console.error("Error fetching feed posts:", error);
-        // This is a critical error. Check if it's the index issue.
-        if (error instanceof Error && error.message.includes('requires an index')) {
-             console.error("COMPOSITE INDEX REQUIRED! Please create it in the Firebase console.");
-             // Fallback to a simpler, non-performant query to avoid crashing.
-             // This is NOT ideal for production.
-             const simpleQuery = query(postsRef, orderBy('createdAt', 'desc'), limit(pageSize));
-             const snapshot = await getDocs(simpleQuery);
+         if (error instanceof Error && error.message.includes('requires an index')) {
+             console.error("COMPOSITE INDEX REQUIRED! Please create it in the Firebase console. Falling back to a simpler query.");
+             // Fallback query without the status filter to avoid crashing.
+             let fallbackConstraints = [
+                where('authorId', 'in', queryableFollowingIds),
+                orderBy('createdAt', 'desc'),
+                limit(pageSize)
+             ];
+              if (lastVisible) {
+                fallbackConstraints.push(startAfter(lastVisible));
+              }
+             const fallbackQuery = query(postsRef, ...fallbackConstraints);
+             const snapshot = await getDocs(fallbackQuery);
               const posts = snapshot.docs.map(doc => doc.data() as Post);
               return { posts, lastVisible: snapshot.docs[snapshot.docs.length - 1] ?? null, hasMore: posts.length === pageSize };
         }

@@ -181,7 +181,9 @@ const getUserById = async (userId: string): Promise<User | null> => {
 
 const getTeacherById = async (teacherId: string): Promise<User | null> => {
   try {
+    // A teacher is a user. Fetch their main user profile first.
     const userDoc = await getUserById(teacherId);
+    // Then, verify they are a teacher by their email.
     if (userDoc && userDoc.email?.endsWith('@teacher.app.com')) {
        return userDoc;
     }
@@ -216,12 +218,9 @@ const getTeachersByIds = async (teacherIds: string[]): Promise<User[]> => {
   }
   try {
     // Teachers have regular user profiles. We can fetch them directly from the 'users' collection.
-    const usersRef = collection(firestore, 'users');
-    const q = query(usersRef, where('id', 'in', teacherIds));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs
-      .map(doc => doc.data() as User)
-      .filter(user => user.email?.endsWith('@teacher.app.com')); // Ensure they are actually teachers
+    // This is more efficient than querying the 'teachers' collection separately.
+    const usersData = await getUsersByIds(teacherIds);
+    return usersData.filter(user => user.email?.endsWith('@teacher.app.com'));
   } catch (error) {
     console.error("Error getting teachers by IDs:", error);
     return [];

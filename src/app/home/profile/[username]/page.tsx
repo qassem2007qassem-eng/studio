@@ -213,12 +213,10 @@ export default function ProfilePage() {
       setPostsLoading(false);
     };
 
-    if (!isProfileUserLoading && !isTeacher) { // Only fetch posts if not a teacher
+    if (!isProfileUserLoading) {
       fetchPosts();
-    } else {
-      setPostsLoading(false);
     }
-  }, [profileUser, currentUser?.uid, isProfileUserLoading, isTeacher]);
+  }, [profileUser, currentUser?.uid, isProfileUserLoading]);
 
   const handleFollowToggle = async () => {
     if (!currentUser || !profileUser || isTogglingFollow || isCurrentUserProfile) return;
