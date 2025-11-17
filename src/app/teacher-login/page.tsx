@@ -34,7 +34,10 @@ export default function TeacherLoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const teacherEmail = email.endsWith(TEACHER_EMAIL_SUFFIX) ? email : `${email}${TEACHER_EMAIL_SUFFIX}`;
+    let teacherEmail = email.trim();
+    if (!teacherEmail.includes('@')) {
+        teacherEmail = `${teacherEmail}${TEACHER_EMAIL_SUFFIX}`;
+    }
     
     setIsLoading(true);
 
@@ -98,8 +101,8 @@ export default function TeacherLoginPage() {
               <Label htmlFor="email">بريد المعلم الإلكتروني</Label>
               <Input
                 id="email"
-                type="email"
-                placeholder="example@teacher.app.com"
+                type="text"
+                placeholder="example أو example@teacher.app.com"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

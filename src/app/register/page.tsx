@@ -366,7 +366,10 @@ function TeacherRegisterForm({ onBack }: { onBack: () => void }) {
             return;
         }
         
-        const teacherEmail = email.endsWith(TEACHER_EMAIL_SUFFIX) ? email : `${email}${TEACHER_EMAIL_SUFFIX}`;
+        let teacherEmail = email.trim();
+        if (!teacherEmail.includes('@')) {
+            teacherEmail = `${teacherEmail}${TEACHER_EMAIL_SUFFIX}`;
+        }
         
         setIsLoading(true);
 
@@ -435,14 +438,14 @@ function TeacherRegisterForm({ onBack }: { onBack: () => void }) {
                         <Label htmlFor="teacher-email">البريد الإلكتروني</Label>
                         <Input
                             id="teacher-email"
-                            type="email"
-                            placeholder="ahmad"
+                            type="text"
+                            placeholder="ahmad أو ahmad@teacher.app.com"
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             disabled={isLoading}
                         />
-                        <p className="text-xs text-muted-foreground">سيتم إضافة @teacher.app.com تلقائياً.</p>
+                        <p className="text-xs text-muted-foreground">أدخل اسم مستخدم أو بريد إلكتروني كامل.</p>
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="teacher-password">كلمة المرور</Label>
@@ -520,3 +523,5 @@ export default function RegisterPage() {
         </Suspense>
     );
 }
+
+    
