@@ -137,34 +137,29 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         where('groupId', '==', null), // Ensure we only get profile posts, not group posts
         orderBy('createdAt', 'desc')
     ];
-
-    // If the viewer is not the owner and not an admin, filter out 'only_me' posts at the query level
+    
     if (!isOwner && !isAdmin) {
+        // If not the owner or an admin, only fetch public posts.
         queryConstraints.push(where('privacy', '==', 'followers'));
+    } else {
+        // If owner or admin, we can fetch all and filter client-side, or do two queries.
+        // For simplicity and since Firestore doesn't support 'OR' on different fields with range operators,
+        // we fetch all for the owner/admin. 'only_me' posts are included.
     }
+
 
     const q = query(postsCollection, ...queryConstraints);
 
     try {
         const snapshot = await getDocs(q);
-        // If owner or admin, we need to fetch all and then filter in client if needed,
-        // because we can't do a query with ('in', ['followers', 'only_me']) and a range operator (orderBy) on another field.
-        // But since we moved the privacy filter into the query for non-owners, this is more efficient.
         let posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         
-        // For owners/admins, if we queried everything, we'd need to filter now.
-        // But the current logic is to query only what's necessary based on role.
-        if (isOwner || isAdmin) {
-             // This re-query is to include 'only_me' posts for the owner, as Firestore doesn't support 'OR' on different fields with range operators.
-             // A more performant approach would be two separate queries and merging, but this is simpler for now.
-             const allPostsQuery = query(
-                collection(firestore, 'posts'),
-                where('authorId', '==', profileUserId),
-                where('groupId', '==', null),
-                orderBy('createdAt', 'desc')
-             );
-             const allSnapshot = await getDocs(allPostsQuery);
-             posts = allSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+        // This is a simplified approach. A more complex app might need to merge queries.
+        if (isOwner) {
+            const onlyMeQuery = query(collection(firestore, 'posts'), where('authorId', '==', profileUserId), where('privacy', '==', 'only_me'));
+            const onlyMeSnapshot = await getDocs(onlyMeQuery);
+            const onlyMePosts = onlyMeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+            posts = [...posts, ...onlyMePosts].sort((a,b) => (b.createdAt.seconds - a.createdAt.seconds));
         }
 
         return posts;
@@ -195,7 +190,7 @@ export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot 
         
         const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
 
-        const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1];
+        const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] ?? null;
         const hasMore = querySnapshot.docs.length === pageSize;
 
         return { posts, lastVisible: newLastVisible, hasMore };
