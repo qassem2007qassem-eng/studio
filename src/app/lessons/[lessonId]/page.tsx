@@ -364,46 +364,53 @@ export default function LessonPlayerPage() {
 
                 <div className="space-y-4">
                     <h1 className="text-2xl font-bold font-headline">{lesson.title}</h1>
+                    
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                            <Eye className="h-4 w-4" />
-                            <span>{lesson.views} مشاهدات</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            <ThumbsUp className="h-4 w-4" />
-                             <span>{lesson.likes?.length || 0} إعجابات</span>
-                        </div>
+                        {teacher && (
+                            <TeacherInfoDialog teacher={teacher} onFollowStateChange={onFollowStateChange}>
+                               <div className="flex items-center gap-2 cursor-pointer">
+                                    <Avatar className="h-9 w-9">
+                                        <AvatarImage src={(teacher as any).profilePictureUrl || undefined} alt={teacher.name} />
+                                        <AvatarFallback>{teacher.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="font-semibold text-foreground hover:underline">{teacher.name}</span>
+                               </div>
+                           </TeacherInfoDialog>
+                        )}
                          <div className="flex items-center gap-1">
                             <Clock className="h-4 w-4" />
                             <span>{safeToDate(lesson.createdAt) ? formatDistanceToNow(safeToDate(lesson.createdAt)!) : ''}</span>
                         </div>
                     </div>
-                     {teacher && (
-                        <div className="flex items-center justify-between p-3 border rounded-lg">
-                           <TeacherInfoDialog teacher={teacher} onFollowStateChange={onFollowStateChange}>
-                               <div className="flex items-center gap-3 cursor-pointer">
-                                    <Avatar>
-                                        <AvatarImage src={(teacher as any).profilePictureUrl || undefined} alt={teacher.name} />
-                                        <AvatarFallback>{teacher.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-semibold hover:underline">{teacher.name}</p>
-                                        <div className="flex items-center gap-1 text-xs text-primary font-semibold">
-                                            <GraduationCap className="h-4 w-4" />
-                                            <span>معلم</span>
-                                        </div>
-                                    </div>
-                               </div>
-                           </TeacherInfoDialog>
-                             <Button onClick={handleLikeToggle} disabled={!user || isLiking} variant={isLiked ? 'default' : 'outline'}>
+                     <Card className="bg-muted/50">
+                        <CardContent className="p-3 flex items-center justify-around">
+                             <div className="flex items-center gap-2 text-sm">
+                                <Eye className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                    <p className="font-bold">{lesson.views}</p>
+                                    <p className="text-xs text-muted-foreground">مشاهدة</p>
+                                </div>
+                            </div>
+                             <div className="flex items-center gap-2 text-sm">
+                                <ThumbsUp className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                    <p className="font-bold">{lesson.likes?.length || 0}</p>
+                                    <p className="text-xs text-muted-foreground">إعجاب</p>
+                                </div>
+                            </div>
+                            <Button onClick={handleLikeToggle} disabled={!user || isLiking} variant={isLiked ? 'default' : 'outline'} size="sm">
                                 {isLiking ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-primary" /> : <ThumbsUp className="me-2"/>}
                                 {isLiked ? 'أعجبني' : 'إعجاب'}
                             </Button>
-                        </div>
-                    )}
+                        </CardContent>
+                    </Card>
+
                     {lesson.description && (
-                        <Card className="bg-muted/50">
-                            <CardContent className="p-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-lg">عن الدرس</CardTitle>
+                            </CardHeader>
+                            <CardContent>
                                 <p className="text-sm whitespace-pre-wrap">{lesson.description}</p>
                             </CardContent>
                         </Card>
@@ -423,3 +430,5 @@ export default function LessonPlayerPage() {
         </div>
     );
 }
+
+    
