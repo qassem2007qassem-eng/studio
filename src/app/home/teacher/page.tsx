@@ -12,6 +12,7 @@ import { type Course, type Lesson } from '@/lib/types';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import Link from 'next/link';
 import { safeToDate } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function TeacherDashboardPage() {
   const { user, isUserLoading } = useUser();
