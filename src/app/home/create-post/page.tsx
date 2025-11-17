@@ -70,7 +70,7 @@ function CreatePostContent() {
   const hasBackground = background !== 'default';
 
   useEffect(() => {
-    if (user && !userData) {
+    if (user && !isUserLoading) {
       getCurrentUserProfile().then(profile => {
         if (profile) {
           setUserData(profile as UserType);
@@ -83,7 +83,7 @@ function CreatePostContent() {
     } else if (!isUserLoading) {
       setIsDataLoading(false);
     }
-  }, [user, userData, isUserLoading, groupId]);
+  }, [user, isUserLoading, groupId]);
 
   const visibilityOptions = useMemo(() => {
     if (groupId) {
