@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { 
@@ -214,12 +215,13 @@ const getTeachersByIds = async (teacherIds: string[]): Promise<User[]> => {
     return [];
   }
   try {
+    // Teachers have regular user profiles. We can fetch them directly from the 'users' collection.
     const usersRef = collection(firestore, 'users');
     const q = query(usersRef, where('id', 'in', teacherIds));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs
       .map(doc => doc.data() as User)
-      .filter(user => user.email?.endsWith('@teacher.app.com'));
+      .filter(user => user.email?.endsWith('@teacher.app.com')); // Ensure they are actually teachers
   } catch (error) {
     console.error("Error getting teachers by IDs:", error);
     return [];

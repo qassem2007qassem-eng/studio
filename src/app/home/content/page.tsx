@@ -120,8 +120,8 @@ export default function ContentPage() {
                                 {teacher && (
                                      <div className="flex items-center gap-2 pt-1">
                                         <Avatar className="h-6 w-6">
-                                            <AvatarImage src={(teacher as any).profilePictureUrl} alt={teacher.name} />
-                                            <AvatarFallback>{teacher.name.charAt(0)}</AvatarFallback>
+                                            <AvatarImage src={(teacher as any).profilePictureUrl || undefined} alt={teacher.name} />
+                                            <AvatarFallback>{teacher.name?.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <span className="text-xs text-muted-foreground font-medium hover:underline">
                                              <Link href={`/home/profile/${teacher.username.toLowerCase()}`}>{teacher.name}</Link>
