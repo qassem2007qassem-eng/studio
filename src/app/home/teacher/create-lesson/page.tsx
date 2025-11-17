@@ -123,6 +123,8 @@ function CreateLessonForm() {
             setIsLoading(false);
         }
     };
+    
+    const isFormValid = !!(title.trim() && videoUrl.trim() && courseId && duration && Number(duration) > 0);
 
     return (
         <Card>
@@ -163,7 +165,7 @@ function CreateLessonForm() {
                     </div>
                 </CardContent>
                 <CardFooter>
-                    <Button type="submit" className="w-full" disabled={isLoading || isCoursesLoading || !courseId}>
+                    <Button type="submit" className="w-full" disabled={isLoading || isCoursesLoading || !isFormValid}>
                         {isLoading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'إضافة الدرس'}
                     </Button>
                 </CardFooter>
