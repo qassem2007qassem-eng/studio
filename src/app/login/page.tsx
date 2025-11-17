@@ -27,6 +27,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { GraduationCap } from 'lucide-react';
 
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -162,7 +163,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.push('/home');
+      if (user.email?.endsWith('@teacher.app.com')) {
+        router.push('/home/teacher');
+      } else {
+        router.push('/home');
+      }
     }
   }, [user, isUserLoading, router]);
 
@@ -207,7 +212,11 @@ export default function LoginPage() {
         return;
       }
       
-      router.push('/home');
+      if (loggedInUser.email?.endsWith('@teacher.app.com')) {
+        router.push('/home/teacher');
+      } else {
+        router.push('/home');
+      }
 
     } catch (error: any) {
       let description = 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.';
@@ -368,6 +377,13 @@ export default function LoginPage() {
               إنشاء حساب
             </Link>
           </div>
+           <Separator className="my-4" />
+            <div className="text-center text-sm">
+                <Link href="/admin-login" className="underline text-muted-foreground flex items-center justify-center gap-1">
+                    <GraduationCap className="h-4 w-4"/>
+                    هل أنت معلم؟ تسجيل الدخول للمنصة التعليمية
+                </Link>
+            </div>
         </CardContent>
       </Card>
     </div>

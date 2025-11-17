@@ -64,7 +64,7 @@ export default function TeacherDashboardPage() {
           <CardDescription>هذه الصفحة مخصصة للمعلمين فقط. الرجاء تسجيل الدخول بحساب معلم.</CardDescription>
         </CardHeader>
         <CardContent>
-            <Button onClick={() => router.push('/teacher-login')}>الانتقال إلى صفحة تسجيل دخول المعلمين</Button>
+            <Button onClick={() => router.push('/login')}>الانتقال إلى صفحة تسجيل الدخول</Button>
         </CardContent>
       </Card>
     );

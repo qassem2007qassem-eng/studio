@@ -147,7 +147,7 @@ function RegisterForm() {
                 createdAt: serverTimestamp(),
             });
             toast({ title: 'نجاح!', description: 'تم إنشاء حساب المعلم الخاص بك. يمكنك الآن تسجيل الدخول.' });
-            router.push('/teacher-login');
+            router.push('/login');
       }
       
       await updateProfile(user, {
