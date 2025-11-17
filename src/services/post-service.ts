@@ -168,6 +168,7 @@ export const getFeedPosts = async (pageSize = 10, lastVisible?: DocumentSnapshot
     const postsRef = collection(firestore, 'posts');
 
     let feedQueryConstraints: any[] = [
+        where('status', '==', 'approved'),
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
@@ -181,19 +182,15 @@ export const getFeedPosts = async (pageSize = 10, lastVisible?: DocumentSnapshot
     try {
         const querySnapshot = await getDocs(q);
         
-        const posts = querySnapshot.docs
-            .map(doc => {
-                const data = doc.data() as Post;
-                return { 
-                    id: doc.id, 
-                    ...data,
-                    createdAt: data.createdAt,
-                    updatedAt: data.updatedAt ? data.updatedAt : undefined,
-                };
-            })
-            // Filter for public/approved posts on the client side to avoid complex queries
-            .filter(post => post.status === 'approved' && (post.privacy === 'followers' || !post.privacy));
-
+        const posts = querySnapshot.docs.map(doc => {
+            const data = doc.data() as Post;
+            return { 
+                id: doc.id, 
+                ...data,
+                createdAt: data.createdAt,
+                updatedAt: data.updatedAt ? data.updatedAt : undefined,
+            };
+        });
 
         const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] ?? null;
         const hasMore = querySnapshot.docs.length === pageSize;
@@ -201,7 +198,7 @@ export const getFeedPosts = async (pageSize = 10, lastVisible?: DocumentSnapshot
         return { posts, lastVisible: newLastVisible, hasMore };
     } catch (error) {
         console.error("Error fetching feed posts:", error);
-         return { posts: [], lastVisible: null, hasMore: false };
+        throw error;
     }
 }
 
