@@ -88,4 +88,53 @@ export interface Group {
     moderationRequired: boolean; // If true, posts need approval
 }
 
+export interface Teacher {
+  id: string;
+  name: string;
+  email: string;
+  bio?: string;
+  profilePictureUrl?: string;
+  courseIds?: string[];
+}
+
+export interface Course {
+  id: string;
+  title: string;
+  description?: string;
+  thumbnailUrl?: string;
+  teacherId: string;
+  lessonIds: string[];
+  totalDuration: number; // in seconds
+  createdAt: Timestamp;
+}
+
+export interface Lesson {
+  id: string;
+  title: string;
+  videoUrl: string;
+  thumbnailUrl?: string;
+  duration: number; // in seconds
+  courseId: string;
+  teacherId: string;
+  views: number;
+  likes: number;
+  createdAt: Timestamp;
+}
+
+export interface LessonComment {
+    id: string;
+    lessonId: string;
+    authorId: string;
+    content: string;
+    createdAt: Timestamp;
+}
+
+export interface Playlist {
+    id: string;
+    title: string;
+    description?: string;
+    teacherId: string;
+    courseIds: string[];
+}
     
+
