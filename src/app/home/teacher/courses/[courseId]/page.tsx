@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Clock, PlayCircle, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 function formatDuration(seconds: number) {
     const h = Math.floor(seconds / 3600);
@@ -54,7 +55,7 @@ export default function CourseDetailPage() {
         const fetchLessons = async () => {
              const lessonsQuery = query(collection(firestore, 'lessons'), where('courseId', '==', courseId), orderBy('createdAt', 'asc'));
              const lessonsSnapshot = await getDocs(lessonsQuery);
-             setLessons(lessonsSnapshot.docs.map(doc => doc.data() as Lesson));
+             setLessons(lessonsSnapshot.docs.map(doc => ({id: doc.id, ...doc.data()} as Lesson)));
         }
         fetchLessons();
 
@@ -112,8 +113,8 @@ export default function CourseDetailPage() {
                     {lessons.length > 0 ? (
                         <div className="space-y-4">
                             {lessons.map((lesson, index) => (
-                                <Link href={`/lessons/${lesson.id}`} key={lesson.id} className="flex items-center gap-4 p-2 rounded-lg hover:bg-muted transition-colors">
-                                    <span className="text-lg font-bold text-muted-foreground">{index + 1}</span>
+                                <Link href={`/lessons/${lesson.id}`} key={lesson.id} className={cn("flex items-center gap-4 p-2 rounded-lg hover:bg-muted transition-colors")}>
+                                    <span className="text-lg font-bold text-muted-foreground w-6 text-center">{index + 1}</span>
                                     <Avatar className="h-16 w-28 rounded-md" variant="square">
                                         <AvatarImage src={lesson.thumbnailUrl} alt={lesson.title} className="object-cover"/>
                                         <AvatarFallback className="rounded-md bg-secondary flex items-center justify-center">

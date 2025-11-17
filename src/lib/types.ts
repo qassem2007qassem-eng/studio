@@ -95,6 +95,7 @@ export interface Teacher {
   bio?: string;
   profilePictureUrl?: string;
   courseIds?: string[];
+  createdAt?: Timestamp;
 }
 
 export interface Course {
@@ -111,13 +112,14 @@ export interface Course {
 export interface Lesson {
   id: string;
   title: string;
+  description?: string;
   videoUrl: string;
   thumbnailUrl?: string;
   duration: number; // in seconds
   courseId: string;
   teacherId: string;
   views: number;
-  likes: number;
+  likes: string[]; // Changed to array of user IDs
   createdAt: Timestamp;
 }
 
@@ -125,6 +127,10 @@ export interface LessonComment {
     id: string;
     lessonId: string;
     authorId: string;
+    author: {
+        name: string;
+        username: string;
+    };
     content: string;
     createdAt: Timestamp;
 }
@@ -137,4 +143,3 @@ export interface Playlist {
     courseIds: string[];
 }
     
-

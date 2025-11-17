@@ -26,7 +26,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
-import { type User } from '@/lib/types';
+import { type User, type Teacher } from '@/lib/types';
 import { deletePost } from './post-service';
 import { createNotification } from './notification-service';
 
@@ -176,6 +176,23 @@ const getUserById = async (userId: string): Promise<User | null> => {
     }
   } catch (error) {
     console.error("Error getting user:", error);
+    return null;
+  }
+};
+
+const getTeacherById = async (teacherId: string): Promise<Teacher | null> => {
+  try {
+    const docRef = doc(firestore, "teachers", teacherId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() } as Teacher;
+    } else {
+      console.log("Teacher not found by ID!");
+      return null;
+    }
+  } catch (error) {
+    console.error("Error getting teacher:", error);
     return null;
   }
 };
@@ -502,5 +519,6 @@ export {
   deleteUserAndContent,
   getUserByEmail,
   respondToFollowRequest,
-  approveVerificationRequest
+  approveVerificationRequest,
+  getTeacherById,
 };

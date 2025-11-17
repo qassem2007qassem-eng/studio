@@ -2,29 +2,33 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useUser, initializeFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, query, where, getDocs, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { CatLoader } from '@/components/cat-loader';
 import { type Lesson, type Course } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Suspense } from 'react';
 
-export default function CreateLessonPage() {
+function CreateLessonForm() {
     const { user } = useUser();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { toast } = useToast();
     const { firestore } = initializeFirebase();
 
     const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
     const [videoUrl, setVideoUrl] = useState('');
     const [thumbnailUrl, setThumbnailUrl] = useState('');
     const [duration, setDuration] = useState(0);
-    const [courseId, setCourseId] = useState('');
+    const [courseId, setCourseId] = useState(searchParams.get('courseId') || '');
     
     const [courses, setCourses] = useState<Course[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -59,23 +63,22 @@ export default function CreateLessonPage() {
         try {
             const lessonData: Omit<Lesson, 'id'> = {
                 title,
+                description,
                 videoUrl,
                 thumbnailUrl,
                 duration: duration * 60, // Convert minutes to seconds
                 courseId,
                 teacherId: user.uid,
                 views: 0,
-                likes: 0,
+                likes: [],
                 createdAt: serverTimestamp() as any,
             };
 
             const lessonsCollection = collection(firestore, 'lessons');
             const docRef = await addDoc(lessonsCollection, lessonData);
             
-            // Add the id to the document
-            await updateDoc(doc(firestore, 'lessons', docRef.id), { id: docRef.id });
+            await updateDoc(docRef, { id: docRef.id });
 
-            // Update total duration in the course document
             const courseRef = doc(firestore, 'courses', courseId);
             const courseSnap = await getDoc(courseRef);
             if (courseSnap.exists()) {
@@ -83,7 +86,7 @@ export default function CreateLessonPage() {
                 const newTotalDuration = (courseData.totalDuration || 0) + (duration * 60);
                 await updateDoc(courseRef, { 
                     totalDuration: newTotalDuration,
-                    lessonIds: [...(courseData.lessonIds || []), docRef.id]
+                    lessonIds: arrayUnion(docRef.id)
                 });
             }
 
@@ -122,6 +125,10 @@ export default function CreateLessonPage() {
                             </SelectContent>
                         </Select>
                     </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="description">وصف الدرس (اختياري)</Label>
+                        <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="صف ما سيتم تغطيته في هذا الدرس..." disabled={isLoading} />
+                    </div>
                     <div className="space-y-2">
                         <Label htmlFor="videoUrl">رابط الفيديو</Label>
                         <Input id="videoUrl" type="url" value={videoUrl} onChange={(e) => setVideoUrl(e.target.value)} placeholder="https://youtube.com/watch?v=..." required disabled={isLoading} />
@@ -136,7 +143,7 @@ export default function CreateLessonPage() {
                     </div>
                 </CardContent>
                 <CardFooter>
-                    <Button type="submit" className="w-full" disabled={isLoading || isCoursesLoading}>
+                    <Button type="submit" className="w-full" disabled={isLoading || isCoursesLoading || !courseId}>
                         {isLoading ? <CatLoader className="mx-auto" /> : 'إضافة الدرس'}
                     </Button>
                 </CardFooter>
@@ -145,3 +152,10 @@ export default function CreateLessonPage() {
     );
 }
 
+export default function CreateLessonPage() {
+    return (
+        <Suspense fallback={<CatLoader />}>
+            <CreateLessonForm />
+        </Suspense>
+    )
+}
