@@ -6,6 +6,7 @@ import { FirebaseClientProvider } from '@/firebase';
 import { Cairo } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import Script from 'next/script';
+import NextTopLoader from 'nextjs-toploader';
 
 export const metadata: Metadata = {
   title: 'Syrian Student Hub',
@@ -29,6 +30,17 @@ export default function RootLayout({
        <head>
       </head>
       <body className={cn('font-body antialiased', cairo.variable)}>
+        <NextTopLoader
+          color="hsl(var(--primary))"
+          initialPosition={0.08}
+          crawlSpeed={200}
+          height={3}
+          crawl={true}
+          showSpinner={false}
+          easing="ease"
+          speed={200}
+          shadow="0 0 10px hsl(var(--primary)),0 0 5px hsl(var(--primary))"
+        />
         <ThemeProvider
             attribute="class"
             defaultTheme="system"
