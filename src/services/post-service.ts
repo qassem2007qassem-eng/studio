@@ -165,15 +165,13 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     }
 };
 
-export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot | null = null, currentUserId?: string) => {
+export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot | null = null) => {
     const { firestore } = initializeFirebase();
     const postsRef = collection(firestore, 'posts');
 
-    // Base query for public, non-group posts
+    // Simplified query for performance: get latest approved posts
     let feedQueryConstraints: any[] = [
-        where('groupId', '==', null),
         where('status', '==', 'approved'),
-        where('privacy', '==', 'followers'),
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
