@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Lock, Palette, Shield, User, Users, Verified } from "lucide-react";
+import { LogOut, Lock, Palette, Shield, User, Users, Verified, Trash2 } from "lucide-react";
 import { useUser, initializeFirebase } from "@/firebase";
 import { signOut, updateProfile as updateAuthProfile } from "firebase/auth";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createReport } from "@/services/report-service";
+import { DeleteAccountDialog } from "@/components/delete-account-dialog";
 
 
 function ProfileSettingsCard() {
@@ -257,6 +258,43 @@ function AccountSettingsCard() {
     );
 }
 
+function DangerZoneCard() {
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const router = useRouter();
+    const {toast} = useToast();
+
+    const onAccountDeleted = () => {
+        setIsDeleteDialogOpen(false);
+        // Add a query param to show a message on the login page
+        router.push('/login?deleted=true');
+    };
+    
+    return (
+        <Card className="border-destructive">
+            <CardHeader>
+                <CardTitle className="text-destructive">منطقة الخطر</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="font-semibold">حذف الحساب</p>
+                        <p className="text-sm text-muted-foreground">سيتم حذف حسابك وجميع بياناتك بشكل دائم. لا يمكن التراجع عن هذا الإجراء.</p>
+                    </div>
+                    <Button variant="destructive" onClick={() => setIsDeleteDialogOpen(true)}>
+                        <Trash2 className="me-2" />
+                        حذف حسابي
+                    </Button>
+                </div>
+            </CardContent>
+             <DeleteAccountDialog 
+                isOpen={isDeleteDialogOpen} 
+                onOpenChange={setIsDeleteDialogOpen}
+                onAccountDeleted={onAccountDeleted}
+            />
+        </Card>
+    )
+}
+
 
 export default function SettingsPage() {
     const { user, isUserLoading } = useUser();
@@ -272,7 +310,7 @@ export default function SettingsPage() {
         }
     }, [user]);
 
-    const isAdmin = userProfile?.accountType === 'admin'; // Assuming admin is a type
+    const isAdmin = userProfile?.accountType === 'admin'; 
     const isTeacher = userProfile?.accountType === 'teacher';
 
     const handleLogout = async (saveInfo: boolean) => {
@@ -391,6 +429,9 @@ export default function SettingsPage() {
                     </Button>
                 </CardContent>
             </Card>
+            
+            <DangerZoneCard />
+            
              <AlertDialog open={isLogoutAlertOpen} onOpenChange={setIsLogoutAlertOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>

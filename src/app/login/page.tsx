@@ -14,9 +14,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Logo } from '@/components/logo';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useAuth, useFirebase, useUser } from '@/firebase';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import {
   signInWithEmailAndPassword,
@@ -128,8 +128,7 @@ const SpecificUserLogin = ({ user, onBack }: { user: SavedUser, onBack: () => vo
     )
 }
 
-
-export default function LoginPage() {
+function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -139,10 +138,23 @@ export default function LoginPage() {
   const { firestore } = useFirebase();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   
   const [savedUsers, setSavedUsers] = useState<SavedUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<SavedUser | null>(null);
+
+  useEffect(() => {
+    // Show a message if the user was redirected from account deletion
+    if (searchParams.get('deleted') === 'true') {
+      toast({
+        title: 'وداعًا!',
+        description: 'تم حذف حسابك بنجاح. نأمل أن نراك مجددًا.',
+      });
+      // Clean the URL
+      router.replace('/login', { scroll: false });
+    }
+  }, [searchParams, toast, router]);
 
   useEffect(() => {
     if (!isUserLoading && user) {
@@ -351,4 +363,13 @@ export default function LoginPage() {
       </Card>
     </div>
   );
+}
+
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-secondary"><Skeleton className="h-[550px] w-full max-w-sm" /></div>}>
+           <LoginContent />
+        </Suspense>
+    )
 }

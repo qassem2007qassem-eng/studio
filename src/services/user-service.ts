@@ -1,11 +1,12 @@
 
 
-
-
 'use client';
 
 import { 
   type User as AuthUser,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+  deleteUser as deleteAuthUser,
 } from 'firebase/auth';
 import { 
   doc, 
@@ -47,7 +48,7 @@ type GetProfileOptions = {
 const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<User | null> => {
   const { auth, firestore } = initializeFirebase();
   if (options.email) {
-    const userByEmail = await getUserByEmail(options.email);
+    const userByEmail = getUserByEmail(options.email);
     if (userByEmail) return userByEmail;
   }
   
@@ -110,7 +111,7 @@ const createUserProfile = async (
       followers: [],
       following: [],
       isPrivate: false,
-      isVerified: user.email === 'admin@app.com', // Auto-verify admin
+      isVerified: false,
     };
     
     await setDoc(userDocRef, userData);
@@ -213,7 +214,6 @@ const getUsersByIds = async (userIds: string[]): Promise<User[]> => {
 };
 
 const getTeachersByIds = async (teacherIds: string[]): Promise<User[]> => {
-  const { firestore } = initializeFirebase();
   if (teacherIds.length === 0) {
     return [];
   }
@@ -402,14 +402,7 @@ const getUsers = async (pageSize = 20, lastVisible: any = null, includeIds: stri
 };
 
 const deleteUserAndContent = async (userId: string) => {
-    const { auth, firestore } = initializeFirebase();
-    const currentUser = auth.currentUser;
-    if (!currentUser || currentUser.email !== 'admin@app.com') {
-      throw new Error("Only admins can delete users.");
-    }
-    if (currentUser.uid === userId) {
-      throw new Error("Admin cannot delete their own account.");
-    }
+    const { firestore } = initializeFirebase();
     
     const batch = writeBatch(firestore);
 
@@ -424,6 +417,12 @@ const deleteUserAndContent = async (userId: string) => {
     const commentsQuery = query(collectionGroup(firestore, 'comments'), where('authorId', '==', userId));
     const commentsSnapshot = await getDocs(commentsQuery);
     commentsSnapshot.forEach(commentDoc => batch.delete(commentDoc.ref));
+    
+    // 2.5 Delete all lesson comments by the user
+    const lessonCommentsQuery = query(collectionGroup(firestore, 'comments'), where('authorId', '==', userId));
+    const lessonCommentsSnapshot = await getDocs(lessonCommentsQuery);
+    lessonCommentsSnapshot.forEach(commentDoc => batch.delete(commentDoc.ref));
+
 
     // 3. Remove user from other users' followers/following lists
     const allUsersRef = collection(firestore, "users");
@@ -445,9 +444,7 @@ const deleteUserAndContent = async (userId: string) => {
     // 5. Commit all batched writes
     await batch.commit();
 
-    // Note: Deleting the Firebase Auth user record requires the Admin SDK
-    // and cannot be done from the client-side. This function only deletes Firestore data.
-    console.log(`Successfully deleted all Firestore data for user ${userId}. Auth record must be deleted manually.`);
+    console.log(`Successfully deleted all Firestore data for user ${userId}.`);
 };
 
 
@@ -531,6 +528,28 @@ const approveVerificationRequest = async (userId: string, reportId: string) => {
   await batch.commit();
 };
 
+const deleteCurrentUserAccount = async (password: string): Promise<void> => {
+    const { auth } = initializeFirebase();
+    const currentUser = auth.currentUser;
+    if (!currentUser || !currentUser.email) {
+      throw new Error("User not authenticated or email is missing.");
+    }
+    
+    // 1. Re-authenticate the user
+    const credential = EmailAuthProvider.credential(currentUser.email, password);
+    await reauthenticateWithCredential(currentUser, credential);
+    
+    // 2. Delete all user content from Firestore
+    await deleteUserAndContent(currentUser.uid);
+
+    // 3. Delete the user from Firebase Authentication
+    await deleteAuthUser(currentUser);
+    
+    // 4. Clear local cache
+    currentUserProfileCache = null;
+    cacheTimestamp = null;
+};
+
 
 export {
   createUserProfile,
@@ -547,6 +566,7 @@ export {
   getFollowers,
   getFollowing,
   deleteUserAndContent,
+  deleteCurrentUserAccount,
   getUserByEmail,
   respondToFollowRequest,
   approveVerificationRequest,
