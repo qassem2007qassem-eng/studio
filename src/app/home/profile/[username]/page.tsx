@@ -5,19 +5,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
-import { Settings, UserPlus, UserCheck, Lock, Trash2, UserPlus2, Flag, Verified } from "lucide-react";
+import { Settings, UserPlus, UserCheck, Lock, Trash2, UserPlus2, Flag, Verified, ListVideo } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser } from "@/firebase";
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { type User, type Post } from "@/lib/types";
+import { type User, type Post, type Playlist, type Course } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams, useRouter } from 'next/navigation';
 import { getUserByUsername, followUser, unfollowUser, getCurrentUserProfile, deleteUserAndContent } from "@/services/user-service";
 import { getPostsForUser } from "@/services/post-service";
+import { getPlaylistsByTeacher } from "@/services/playlist-service";
 import { useToast } from "@/hooks/use-toast";
 import { FollowListDialog } from "@/components/follow-list-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -26,6 +27,7 @@ import { useFirebase } from '@/firebase/provider';
 import { ReportDialog } from "@/components/report-dialog";
 import { cn } from "@/lib/utils";
 import { createReport } from "@/services/report-service";
+import { getCoursesByIds } from "@/services/course-service";
 
 
 // Simple admin check
@@ -33,6 +35,83 @@ const isAdminUser = (user: User | null) => {
     if (!user) return false;
     return user.email === 'admin@app.com';
 };
+
+function TeacherPlaylists({ teacherId }: { teacherId: string }) {
+    const [playlists, setPlaylists] = useState<Playlist[]>([]);
+    const [courses, setCourses] = useState<Record<string, Course>>({});
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchPlaylists = async () => {
+            setIsLoading(true);
+            const fetchedPlaylists = await getPlaylistsByTeacher(teacherId);
+            setPlaylists(fetchedPlaylists);
+
+            if (fetchedPlaylists.length > 0) {
+                const allCourseIds = fetchedPlaylists.flatMap(p => p.courseIds);
+                const uniqueCourseIds = [...new Set(allCourseIds)];
+                const fetchedCourses = await getCoursesByIds(uniqueCourseIds);
+                const coursesMap = fetchedCourses.reduce((acc, course) => {
+                    acc[course.id] = course;
+                    return acc;
+                }, {} as Record<string, Course>);
+                setCourses(coursesMap);
+            }
+            setIsLoading(false);
+        };
+        fetchPlaylists();
+    }, [teacherId]);
+
+    if (isLoading) {
+        return <div className="space-y-4"><Skeleton className="h-32 w-full" /><Skeleton className="h-32 w-full" /></div>
+    }
+
+    if (playlists.length === 0) {
+        return (
+            <Card>
+                <CardContent className="p-8 text-center text-muted-foreground">
+                    لم يقم هذا المعلم بإنشاء أي قوائم تشغيل بعد.
+                </CardContent>
+            </Card>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            {playlists.map(playlist => (
+                <Card key={playlist.id}>
+                    <CardHeader>
+                        <CardTitle>{playlist.title}</CardTitle>
+                        <CardDescription>{playlist.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        {playlist.courseIds.map(courseId => {
+                            const course = courses[courseId];
+                            if (!course) return <Skeleton key={courseId} className="h-12 w-full" />;
+                            return (
+                                <Link key={courseId} href={`/lessons/${course.lessonIds?.[0]}`} className="flex items-center gap-4 p-2 rounded-md hover:bg-muted/50">
+                                     <Avatar className="h-12 w-20 rounded-md" variant="square">
+                                        <AvatarImage src={course.thumbnailUrl} alt={course.title} className="object-cover"/>
+                                        <AvatarFallback className="rounded-md bg-secondary flex items-center justify-center">
+                                            <ListVideo className="text-muted-foreground" />
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="font-semibold">{course.title}</p>
+                                        <p className="text-sm text-muted-foreground">{course.lessonIds.length} دروس</p>
+                                    </div>
+                                </Link>
+                            )
+                        })}
+                         {playlist.courseIds.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">قائمة التشغيل هذه فارغة.</p>}
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+    )
+
+}
+
 
 export default function ProfilePage() {
   const params = useParams();
@@ -68,6 +147,7 @@ export default function ProfilePage() {
   }, [currentUser, profileUser]);
 
   const isAdmin = isAdminUser(currentUser as User | null);
+  const isTeacher = profileUser?.email?.endsWith('@teacher.app.com');
 
   const fetchProfileUser = useCallback(async () => {
     if (!usernameFromUrl) return;
@@ -134,10 +214,12 @@ export default function ProfilePage() {
       setPostsLoading(false);
     };
 
-    if (!isProfileUserLoading) {
+    if (!isProfileUserLoading && !isTeacher) { // Only fetch posts if not a teacher
       fetchPosts();
+    } else {
+      setPostsLoading(false);
     }
-  }, [profileUser, currentUser?.uid, isProfileUserLoading]);
+  }, [profileUser, currentUser?.uid, isProfileUserLoading, isTeacher]);
 
   const handleFollowToggle = async () => {
     if (!currentUser || !profileUser || isTogglingFollow || isCurrentUserProfile) return;
@@ -255,6 +337,8 @@ export default function ProfilePage() {
   
   const followerCount = profileUser.followers?.length || 0;
   const followingCount = profileUser.following?.length || 0;
+  const tabs = isTeacher ? ["playlists", "posts"] : ["posts"];
+  const defaultTab = isTeacher ? "playlists" : "posts";
 
   return (
     <div className="space-y-6">
@@ -328,15 +412,30 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
       
-      {isCurrentUserProfile && <CreatePostTrigger />}
+      {isCurrentUserProfile && !isTeacher && <CreatePostTrigger />}
 
-      <Tabs defaultValue="posts" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue={defaultTab} className="w-full">
+        <TabsList className={cn("grid w-full", tabs.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
+          {isTeacher && <TabsTrigger value="playlists">قوائم التشغيل</TabsTrigger>}
           <TabsTrigger value="posts">المنشورات</TabsTrigger>
-          <TabsTrigger value="replies" disabled>الردود</TabsTrigger>
-          <TabsTrigger value="media" disabled>الوسائط</TabsTrigger>
-          <TabsTrigger value="likes" disabled>الإعجابات</TabsTrigger>
         </TabsList>
+
+        {isTeacher && (
+             <TabsContent value="playlists" className="space-y-6 mt-6">
+                {canViewContent ? (
+                    <TeacherPlaylists teacherId={profileUser.id} />
+                ) : (
+                    <Card>
+                        <CardContent className="p-8 text-center text-muted-foreground space-y-2">
+                            <Lock className="h-8 w-8 mx-auto"/>
+                            <h3 className="font-semibold text-lg text-foreground">هذا الحساب خاص</h3>
+                            <p>تابع هذا الحساب لرؤية قوائم التشغيل الخاصة به.</p>
+                        </CardContent>
+                    </Card>
+                )}
+             </TabsContent>
+        )}
+
         <TabsContent value="posts" className="space-y-6 mt-6">
            {!canViewContent ? (
                 <Card>

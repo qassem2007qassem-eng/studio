@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -15,6 +14,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 function formatDuration(seconds: number) {
+    if (isNaN(seconds) || seconds < 0) return '0 د';
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     let result = '';
@@ -97,7 +97,7 @@ export default function CourseDetailPage() {
                                 <span>المدة الإجمالية: {formatDuration(course.totalDuration || 0)}</span>
                             </div>
                         </div>
-                         <Button onClick={() => router.push('/home/teacher/create-lesson')}>
+                         <Button onClick={() => router.push(`/home/teacher/create-lesson?courseId=${course.id}`)}>
                             <PlusCircle className="me-2"/> إضافة درس جديد
                         </Button>
                     </div>
