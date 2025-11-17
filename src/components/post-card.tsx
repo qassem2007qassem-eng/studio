@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import Image from "next/image";
@@ -220,7 +219,9 @@ const CommentsSheet = ({ post }: { post: Post }) => {
                             onChange={e => setNewComment(e.target.value)}
                             disabled={!user || isPosting}
                         />
-                        <Button type="submit" disabled={!user || !newComment.trim() || isPosting}>نشر</Button>
+                        <Button type="submit" disabled={!user || !newComment.trim() || isPosting}>
+                             {isPosting ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'نشر'}
+                        </Button>
                     </form>
                 ) : (
                     <div className="text-center text-sm text-muted-foreground">
@@ -336,6 +337,7 @@ export function PostCard({ post }: PostCardProps) {
 
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const [isLiking, setIsLiking] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
   const [isFullScreenOpen, setIsFullScreenOpen] = useState(false);
@@ -354,36 +356,43 @@ export function PostCard({ post }: PostCardProps) {
   }, [firestore, post.id]);
 
   const handleLike = async () => {
-    if (!user || !postRef) return;
+    if (!user || !postRef || isLiking) return;
+    setIsLiking(true);
     const profile = await getCurrentUserProfile();
-    if (!profile) return;
+    if (!profile) {
+        setIsLiking(false);
+        return;
+    };
 
 
     const newIsLiked = !isLiked;
     setIsLiked(newIsLiked);
     setLikeCount(prev => newIsLiked ? prev + 1 : prev - 1);
 
-    updateDoc(postRef, {
-        likeIds: newIsLiked ? arrayUnion(user.uid) : arrayRemove(user.uid)
-    }).then(() => {
-      if (newIsLiked && post.authorId !== user.uid) {
-        createNotification({
-            userId: post.authorId,
-            type: 'like',
-            relatedEntityId: post.id,
-            fromUser: {
-                id: user.uid,
-                name: profile.name,
-                username: profile.username,
-            },
-            content: `أبدى إعجابه بمنشورك.`,
+    try {
+        await updateDoc(postRef, {
+            likeIds: newIsLiked ? arrayUnion(user.uid) : arrayRemove(user.uid)
         });
-      }
-    }).catch(err => {
+        if (newIsLiked && post.authorId !== user.uid) {
+            await createNotification({
+                userId: post.authorId,
+                type: 'like',
+                relatedEntityId: post.id,
+                fromUser: {
+                    id: user.uid,
+                    name: profile.name,
+                    username: profile.username,
+                },
+                content: `أبدى إعجابه بمنشورك.`,
+            });
+        }
+    } catch (err) {
         console.error("Failed to update like status", err);
         setIsLiked(!newIsLiked);
         setLikeCount(prev => !newIsLiked ? prev + 1 : prev - 1);
-    });
+    } finally {
+        setIsLiking(false);
+    }
   };
   
   const handleDelete = async () => {
@@ -540,8 +549,8 @@ export function PostCard({ post }: PostCardProps) {
             </div>
             <Separator />
             <div className="grid w-full grid-cols-3 gap-2">
-                <Button variant="ghost" className="gap-2" onClick={handleLike} disabled={!user}>
-                    <Heart className={cn("h-5 w-5", isLiked && "fill-red-500 text-red-500")} />
+                <Button variant="ghost" className="gap-2" onClick={handleLike} disabled={!user || isLiking}>
+                    {isLiking ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <Heart className={cn("h-5 w-5", isLiked && "fill-red-500 text-red-500")} />}
                     <span>أعجبني</span>
                 </Button>
                  <Sheet>

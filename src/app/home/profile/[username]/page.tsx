@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import Image from "next/image";
@@ -295,11 +294,11 @@ export default function ProfilePage() {
   };
   
   const getFollowButton = () => {
-      if (isFollowStatusLoading) return <Button disabled><span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /></Button>
-      if (isFollowing) return <Button onClick={handleFollowToggle} variant='secondary' disabled={isTogglingFollow}><UserCheck className="h-4 w-4 me-2" /> متابَع</Button>;
+      if (isFollowStatusLoading) return <Button disabled><span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /></Button>;
+      if (isFollowing) return <Button onClick={handleFollowToggle} variant='secondary' disabled={isTogglingFollow}>{isTogglingFollow ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : <><UserCheck className="h-4 w-4 me-2" /> متابَع</>}</Button>;
       if (hasPendingRequest) return <Button disabled variant='secondary'><UserPlus2 className="h-4 w-4 me-2"/> معلق</Button>;
-      if (profileUser?.isPrivate) return <Button onClick={handleFollowToggle} disabled={isTogglingFollow}><UserPlus className="h-4 w-4 me-2"/> طلب متابعة</Button>
-      return <Button onClick={handleFollowToggle} disabled={isTogglingFollow}><UserPlus className="h-4 w-4 me-2" /> متابعة</Button>
+      if (profileUser?.isPrivate) return <Button onClick={handleFollowToggle} disabled={isTogglingFollow}>{isTogglingFollow ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : <><UserPlus className="h-4 w-4 me-2"/> طلب متابعة</>}</Button>
+      return <Button onClick={handleFollowToggle} disabled={isTogglingFollow}>{isTogglingFollow ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : <><UserPlus className="h-4 w-4 me-2" /> متابعة</>}</Button>
   }
 
   if (isProfileUserLoading || isCurrentUserLoading) {

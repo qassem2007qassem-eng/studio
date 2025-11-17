@@ -19,6 +19,7 @@ export function UserSuggestions() {
   const [suggestions, setSuggestions] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
+  const [followingMap, setFollowingMap] = useState<Record<string, { isLoading: boolean }>>({});
   
   const fetchSuggestions = useCallback(async (profile: User | null) => {
     setIsLoading(true);
@@ -72,14 +73,16 @@ export function UserSuggestions() {
   const handleFollow = async (targetUserId: string) => {
     if (!currentUser) return;
     
-    // Optimistic UI update
-    setSuggestions(prev => prev.filter(u => u.id !== targetUserId));
+    setFollowingMap(prev => ({ ...prev, [targetUserId]: { isLoading: true }}));
     
     try {
       await followUser(targetUserId);
+      // Optimistic UI update by removing the user from suggestions
+      setSuggestions(prev => prev.filter(u => u.id !== targetUserId));
     } catch (error) {
       console.error("Failed to follow user", error);
-      // Optional: Add the user back on error
+    } finally {
+        setFollowingMap(prev => ({ ...prev, [targetUserId]: { isLoading: false }}));
     }
   };
   
@@ -136,7 +139,9 @@ export function UserSuggestions() {
         <CardDescription>ابدأ بمتابعة هؤلاء المعلمين لترى محتواهم التعليمي.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {suggestions.map(user => (
+        {suggestions.map(user => {
+          const isFollowingLoading = followingMap[user.id]?.isLoading || false;
+          return (
           <div key={user.id} className="flex items-center gap-4">
             <Link href={`/home/profile/${user.username.toLowerCase()}`} className="flex items-center gap-4 flex-1">
               <Avatar className="h-10 w-10">
@@ -151,11 +156,12 @@ export function UserSuggestions() {
             <Button 
                 onClick={() => handleFollow(user.id)}
                 size="sm"
+                disabled={isFollowingLoading}
             >
-              <UserPlus className="h-4 w-4 me-2" /> متابعة
+              {isFollowingLoading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : <><UserPlus className="h-4 w-4 me-2" /> متابعة</>}
             </Button>
           </div>
-        ))}
+        )})}
       </CardContent>
     </Card>
   );

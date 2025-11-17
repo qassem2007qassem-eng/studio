@@ -75,7 +75,7 @@ function FollowRequests() {
                     {respondingId === req.id ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : <Check className="h-4 w-4"/>}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => handleFollowRequest(req, 'decline')} disabled={respondingId === req.id}>
-                    <X className="h-4 w-4"/>
+                     {respondingId === req.id ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : <X className="h-4 w-4"/>}
                 </Button>
             </div>
           </div>
@@ -89,19 +89,20 @@ export default function FriendsPage() {
   const { user: currentUser, isUserLoading: isCurrentUserLoading } = useUser();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isFollowingMap, setIsFollowingMap] = useState<Record<string, boolean>>({});
   
   const [lastVisible, setLastVisible] = useState<DocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [currentUserProfile, setCurrentUserProfile] = useState<User | null>(null);
+  
+  const [followingMap, setFollowingMap] = useState<Record<string, {isFollowing: boolean; isLoading: boolean}>>({});
 
   const buildFollowingMap = useCallback((profile: User | null, userList: User[]) => {
     if (!profile) return {};
     const followingIds = new Set(profile.following || []);
-    const map: Record<string, boolean> = {};
+    const map: Record<string, {isFollowing: boolean; isLoading: boolean}> = {};
     userList.forEach(u => {
-      map[u.id] = followingIds.has(u.id);
+      map[u.id] = {isFollowing: followingIds.has(u.id), isLoading: false};
     });
     return map;
   }, []);
@@ -113,7 +114,7 @@ export default function FriendsPage() {
     const filteredUsers = initialUsers.filter(u => u.id !== currentUser?.uid);
     setUsers(filteredUsers);
         
-    setIsFollowingMap(buildFollowingMap(profile, filteredUsers));
+    setFollowingMap(buildFollowingMap(profile, filteredUsers));
     
     setLastVisible(newLastVisible);
     setHasMore(newHasMore);
@@ -152,7 +153,7 @@ export default function FriendsPage() {
     const updatedUsers = [...users, ...filteredNewUsers];
     setUsers(updatedUsers);
 
-    setIsFollowingMap(buildFollowingMap(currentUserProfile, updatedUsers));
+    setFollowingMap(prev => ({...prev, ...buildFollowingMap(currentUserProfile, filteredNewUsers)}));
 
     setLastVisible(newLastVisible);
     setHasMore(newHasMore);
@@ -162,10 +163,9 @@ export default function FriendsPage() {
   const handleFollowToggle = async (targetUserId: string) => {
     if (!currentUser) return;
     
-    const isCurrentlyFollowing = !!isFollowingMap[targetUserId];
+    const isCurrentlyFollowing = !!followingMap[targetUserId]?.isFollowing;
     
-    // Optimistic UI update
-    setIsFollowingMap(prev => ({ ...prev, [targetUserId]: !isCurrentlyFollowing }));
+    setFollowingMap(prev => ({ ...prev, [targetUserId]: { ...prev[targetUserId], isLoading: true } }));
 
     try {
       if (isCurrentlyFollowing) {
@@ -173,19 +173,15 @@ export default function FriendsPage() {
       } else {
         await followUser(targetUserId);
       }
-      // Re-fetch current user profile with forceRefresh to get updated following list
       const freshProfile = await getCurrentUserProfile({ forceRefresh: true });
       setCurrentUserProfile(freshProfile);
-
-      // Re-build the following map with the fresh profile data
       if (freshProfile) {
-        setIsFollowingMap(buildFollowingMap(freshProfile, users));
+        setFollowingMap(prev => ({ ...prev, [targetUserId]: { isFollowing: freshProfile.following.includes(targetUserId), isLoading: false }}));
       }
 
     } catch (error) {
       console.error("Failed to toggle follow", error);
-      // Revert on error
-      setIsFollowingMap(prev => ({ ...prev, [targetUserId]: isCurrentlyFollowing }));
+      setFollowingMap(prev => ({ ...prev, [targetUserId]: { isFollowing: isCurrentlyFollowing, isLoading: false } }));
     }
   };
 
@@ -210,7 +206,9 @@ export default function FriendsPage() {
               </div>
             ))
           ) : (
-            users.map(user => (
+            users.map(user => {
+              const followState = followingMap[user.id] || { isLoading: false, isFollowing: false };
+              return (
               <div key={user.id} className="flex items-center gap-4">
                 <Link href={`/home/profile/${user.username.toLowerCase()}`} className="flex items-center gap-4 flex-1">
                   <Avatar className="h-12 w-12">
@@ -225,19 +223,22 @@ export default function FriendsPage() {
                 {currentUser && currentUser.uid !== user.id && (
                   <Button 
                       onClick={() => handleFollowToggle(user.id)}
-                      variant={isFollowingMap[user.id] ? 'secondary' : 'default'}
+                      variant={followState.isFollowing ? 'secondary' : 'default'}
                       size="sm"
                       className="w-28"
+                      disabled={followState.isLoading}
                   >
-                    {isFollowingMap[user.id] ? (
-                      <><UserCheck className="h-4 w-4 me-2" /> متابَع</>
-                    ) : (
-                      <><UserPlus className="h-4 w-4 me-2" /> متابعة</>
+                    {followState.isLoading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : (
+                        followState.isFollowing ? (
+                        <><UserCheck className="h-4 w-4 me-2" /> متابَع</>
+                        ) : (
+                        <><UserPlus className="h-4 w-4 me-2" /> متابعة</>
+                        )
                     )}
                   </Button>
                 )}
               </div>
-            ))
+            )})
           )}
           {!isLoading && users.length === 0 && <p className="text-center text-muted-foreground pt-4">لا يوجد مستخدمون لعرضهم.</p>}
         </CardContent>

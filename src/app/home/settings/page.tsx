@@ -27,6 +27,7 @@ import { createReport } from "@/services/report-service";
 function ProfileSettingsCard() {
     const { toast } = useToast();
     const { user, isUserLoading } = useUser();
+    const { auth } = initializeFirebase();
 
     const [userData, setUserData] = useState<UserType | null>(null);
     const [name, setName] = useState("");
