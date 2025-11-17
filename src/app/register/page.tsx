@@ -2,26 +2,25 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect, Suspense, useRef } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Logo } from '@/components/ui/logo';
+import { Logo } from '@/components/logo';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CalendarIcon, UserCircle2, CheckCircle } from 'lucide-react';
+import { CalendarIcon, CheckCircle, GraduationCap, User } from 'lucide-react';
 import { CatLoader } from '@/components/cat-loader';
 import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -34,17 +33,17 @@ import {
   query,
   where,
   getDocs,
+  doc,
+  setDoc,
+  serverTimestamp
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { createUserProfile } from '@/services/user-service';
 
-function RegisterForm() {
-  const searchParams = useSearchParams();
+function StudentRegisterForm() {
   const router = useRouter();
 
   const [step, setStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -55,25 +54,11 @@ function RegisterForm() {
     password: '',
   });
   const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
 
   const { auth, firestore } = initializeFirebase();
   const { toast } = useToast();
-
-  useEffect(() => {
-    const name = searchParams.get('name');
-    const email = searchParams.get('email');
-
-    if (name && email) {
-      setFormData(prev => ({
-        ...prev,
-        fullName: name,
-        email: email,
-      }));
-      setStep(3); // Start from step 3 if coming from Google
-    }
-  }, [searchParams]);
-
-  const isFromGoogle = !!searchParams.get('email');
 
   const handleNext = () => setStep((prev) => prev + 1);
   const handlePrev = () => setStep((prev) => prev - 1);
@@ -181,7 +166,6 @@ function RegisterForm() {
             required
             value={formData.email}
             onChange={handleChange}
-            disabled={isFromGoogle}
           />
         </div>
       ),
@@ -200,7 +184,6 @@ function RegisterForm() {
             required
             value={formData.fullName}
             onChange={handleChange}
-            disabled={isFromGoogle}
           />
         </div>
       ),
@@ -308,15 +291,10 @@ function RegisterForm() {
         </div>
       ),
     },
-  ].filter(s => !(isFromGoogle && ['email', 'fullName', 'password'].includes(s.field)));
+  ];
 
-
-  const currentStepData = stepsContent[step - (isFromGoogle ? 3 : 1)];
-  if (!currentStepData) {
-      // Handle case where step is out of bounds, maybe redirect or show error
-      return <div>خطأ: خطوة غير صالحة</div>
-  }
-  const isFinalStep = step === stepsContent.length + (isFromGoogle ? 2 : 0);
+  const currentStepData = stepsContent[step - 1];
+  const isFinalStep = step === stepsContent.length;
   
   return (
     <Card className="mx-auto w-full max-w-sm">
@@ -324,9 +302,7 @@ function RegisterForm() {
         <Logo className="mx-auto mb-4" />
         <CardTitle className="text-2xl font-headline">{currentStepData.title}</CardTitle>
         <CardDescription>
-          {isFinalStep
-            ? 'الخطوة الأخيرة!'
-            : `الخطوة ${step} من ${stepsContent.length + (isFromGoogle ? 2 : 0)}`}
+          {`حساب طالب - الخطوة ${step} من ${stepsContent.length}`}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -371,12 +347,175 @@ function RegisterForm() {
   );
 }
 
+function TeacherRegisterForm({ onBack }: { onBack: () => void }) {
+    const [fullName, setFullName] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    
+    const { auth, firestore } = initializeFirebase();
+    const router = useRouter();
+    const { toast } = useToast();
+
+    const TEACHER_EMAIL_SUFFIX = '@teacher.app.com';
+
+    const handleTeacherRegister = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email || !password || !fullName) {
+            toast({ title: 'خطأ', description: 'الرجاء ملء جميع الحقول.', variant: 'destructive' });
+            return;
+        }
+        
+        const teacherEmail = email.endsWith(TEACHER_EMAIL_SUFFIX) ? email : `${email}${TEACHER_EMAIL_SUFFIX}`;
+        
+        setIsLoading(true);
+
+        try {
+            const userCredential = await createUserWithEmailAndPassword(auth, teacherEmail, password);
+            const user = userCredential.user;
+
+            const teacherDocRef = doc(firestore, 'teachers', user.uid);
+            await setDoc(teacherDocRef, {
+                id: user.uid,
+                name: fullName,
+                email: teacherEmail,
+                bio: 'مدرس متخصص في...',
+                profilePictureUrl: '',
+                courseIds: [],
+                createdAt: serverTimestamp(),
+            });
+            
+            toast({ title: 'نجاح!', description: 'تم إنشاء حساب المعلم الخاص بك. يمكنك الآن تسجيل الدخول.' });
+            router.push('/teacher-login');
+
+        } catch (error: any) {
+            console.error("Teacher account creation failed:", error);
+            let description = 'حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.';
+            if (error.code === 'auth/weak-password') {
+                description = 'كلمة المرور ضعيفة جدًا. يجب أن تتكون من 6 أحرف على الأقل.';
+            } else if (error.code === 'auth/email-already-in-use') {
+                description = 'هذا البريد الإلكتروني مستخدم بالفعل.';
+            } else if (error.code === 'auth/invalid-email') {
+                description = 'البريد الإلكتروني الذي أدخلته غير صالح.';
+            }
+             toast({
+                title: 'خطأ في إنشاء حساب المعلم',
+                description: description,
+                variant: 'destructive',
+             });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <Card className="mx-auto w-full max-w-sm">
+            <CardHeader className="text-center">
+                 <Logo className="mx-auto mb-4" />
+                <CardTitle className="text-2xl font-headline">إنشاء حساب معلم</CardTitle>
+                <CardDescription>
+                    انضم إلى منصتنا كمعلم وشارك معرفتك.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={handleTeacherRegister} className="grid gap-4">
+                     <div className="grid gap-2">
+                        <Label htmlFor="teacher-fullname">الاسم الكامل</Label>
+                        <Input
+                            id="teacher-fullname"
+                            type="text"
+                            placeholder="أحمد الصالح"
+                            required
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            disabled={isLoading}
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="teacher-email">البريد الإلكتروني</Label>
+                        <Input
+                            id="teacher-email"
+                            type="email"
+                            placeholder="ahmad"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            disabled={isLoading}
+                        />
+                        <p className="text-xs text-muted-foreground">سيتم إضافة @teacher.app.com تلقائياً.</p>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="teacher-password">كلمة المرور</Label>
+                        <Input
+                            id="teacher-password"
+                            type="password"
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            disabled={isLoading}
+                        />
+                    </div>
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading ? <CatLoader className="mx-auto" /> : 'إنشاء حساب معلم'}
+                    </Button>
+                </form>
+                <Button variant="link" className="w-full mt-2" onClick={onBack}>العودة</Button>
+            </CardContent>
+        </Card>
+    );
+}
+
+
+function RegisterTypeSelection({ onSelect }: { onSelect: (type: 'student' | 'teacher') => void }) {
+    return (
+        <Card className="mx-auto w-full max-w-sm">
+            <CardHeader className="text-center">
+                <Logo className="mx-auto mb-4" />
+                <CardTitle className="text-2xl font-headline">إنشاء حساب جديد</CardTitle>
+                <CardDescription>
+                    اختر نوع الحساب الذي تريد إنشاؤه.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+                <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => onSelect('student')}>
+                    <User className="h-8 w-8" />
+                    <span className="font-semibold">إنشاء حساب طالب</span>
+                </Button>
+                <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => onSelect('teacher')}>
+                    <GraduationCap className="h-8 w-8" />
+                     <span className="font-semibold">إنشاء حساب معلم</span>
+                </Button>
+                 <div className="mt-4 text-center text-sm">
+                    لديك حساب بالفعل؟{' '}
+                    <Link href="/login" className="underline">
+                        تسجيل الدخول
+                    </Link>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function RegisterPageContent() {
+    const [accountType, setAccountType] = useState<'student' | 'teacher' | null>(null);
+
+    if (accountType === 'student') {
+        return <StudentRegisterForm />;
+    }
+
+    if (accountType === 'teacher') {
+        return <TeacherRegisterForm onBack={() => setAccountType(null)} />;
+    }
+
+    return <RegisterTypeSelection onSelect={setAccountType} />;
+}
+
 
 export default function RegisterPage() {
     return (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-secondary"><CatLoader /></div>}>
             <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-                <RegisterForm />
+                <RegisterPageContent />
             </div>
         </Suspense>
     );
