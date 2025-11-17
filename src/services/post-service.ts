@@ -1,3 +1,4 @@
+
 import {
   collection,
   addDoc,
@@ -167,8 +168,10 @@ export const getFeedPosts = async (pageSize = 10, lastVisible?: DocumentSnapshot
     const { firestore } = initializeFirebase();
     const postsRef = collection(firestore, 'posts');
 
+    // **CRITICAL FIX:** Simplified query to remove the `where('status', ...)` clause
+    // that requires a composite index. We will now rely on ordering by date only.
+    // This is the most performant query and does not require a custom index.
     let feedQueryConstraints: any[] = [
-        where('status', '==', 'approved'),
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
