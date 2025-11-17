@@ -208,31 +208,35 @@ export default function TeacherDashboardPage() {
                 <TabsTrigger value="playlists">قوائم التشغيل</TabsTrigger>
             </TabsList>
             <TabsContent value="courses" className="mt-6 space-y-4">
-                 <div className="flex justify-end gap-2">
-                     <Button asChild>
-                        <Link href="/home/teacher/create-lesson">
-                            <PlusCircle className="me-2" />
-                            إضافة درس جديد
-                        </Link>
-                    </Button>
-                     <Button asChild variant="secondary">
-                        <Link href="/home/teacher/create-course">
-                            <PlusCircle className="me-2" />
-                            إنشاء دورة جديدة
-                        </Link>
-                    </Button>
-                </div>
+                 {!isUserLoading && user && (
+                    <div className="flex justify-end gap-2">
+                        <Button asChild>
+                            <Link href="/home/teacher/create-lesson">
+                                <PlusCircle className="me-2" />
+                                إضافة درس جديد
+                            </Link>
+                        </Button>
+                        <Button asChild variant="secondary">
+                            <Link href="/home/teacher/create-course">
+                                <PlusCircle className="me-2" />
+                                إنشاء دورة جديدة
+                            </Link>
+                        </Button>
+                    </div>
+                 )}
                 <TeacherCourses teacherId={user.uid} />
             </TabsContent>
             <TabsContent value="playlists" className="mt-6 space-y-4">
-                 <div className="flex justify-end">
-                     <Button asChild>
-                        <Link href="/home/teacher/playlists/create">
-                            <PlusCircle className="me-2" />
-                            إنشاء قائمة تشغيل
-                        </Link>
-                    </Button>
-                </div>
+                 {!isUserLoading && user && (
+                    <div className="flex justify-end">
+                        <Button asChild>
+                            <Link href="/home/teacher/playlists/create">
+                                <PlusCircle className="me-2" />
+                                إنشاء قائمة تشغيل
+                            </Link>
+                        </Button>
+                    </div>
+                 )}
                 <TeacherPlaylists teacherId={user.uid} />
             </TabsContent>
         </Tabs>

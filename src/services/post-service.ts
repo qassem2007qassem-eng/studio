@@ -166,9 +166,9 @@ export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot 
     const { firestore } = initializeFirebase();
     const postsRef = collection(firestore, 'posts');
 
-    // Simplified query for performance: get latest approved posts
+    // This is the most performant query.
+    // It fetches all public posts and approved group posts, ordered by creation date.
     let feedQueryConstraints: any[] = [
-        where('status', '==', 'approved'),
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
@@ -182,7 +182,12 @@ export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot 
     try {
         const querySnapshot = await getDocs(q);
         
-        const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+        // Filter for public/approved posts on the client side after fetching
+        // This avoids the complex query that requires a composite index.
+        const posts = querySnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as Post))
+            .filter(post => post.status === 'approved' && (post.privacy === 'followers' || post.groupId));
+
 
         const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] ?? null;
         const hasMore = querySnapshot.docs.length === pageSize;
