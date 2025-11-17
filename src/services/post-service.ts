@@ -168,7 +168,6 @@ export const getFeedPosts = async (pageSize = 10, lastVisible?: DocumentSnapshot
     const postsRef = collection(firestore, 'posts');
 
     let feedQueryConstraints: any[] = [
-        where('status', '==', 'approved'),
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
@@ -182,16 +181,19 @@ export const getFeedPosts = async (pageSize = 10, lastVisible?: DocumentSnapshot
     try {
         const querySnapshot = await getDocs(q);
         
-        const posts = querySnapshot.docs.map(doc => {
-            const data = doc.data() as Post;
-            // Ensure Timestamps are converted for serialization if needed, though this function is now used on client too.
-            return { 
-                id: doc.id, 
-                ...data,
-                createdAt: (data.createdAt as Timestamp),
-                updatedAt: data.updatedAt ? (data.updatedAt as Timestamp) : undefined,
-            };
-        });
+        const posts = querySnapshot.docs
+            .map(doc => {
+                const data = doc.data() as Post;
+                return { 
+                    id: doc.id, 
+                    ...data,
+                    createdAt: data.createdAt,
+                    updatedAt: data.updatedAt ? data.updatedAt : undefined,
+                };
+            })
+            // Filter for public/approved posts on the client side to avoid complex queries
+            .filter(post => post.status === 'approved' && (post.privacy === 'followers' || !post.privacy));
+
 
         const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] ?? null;
         const hasMore = querySnapshot.docs.length === pageSize;

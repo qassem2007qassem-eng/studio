@@ -41,7 +41,7 @@ export function CreatePostTrigger({ groupId }: { groupId?: string }) {
   }
 
   if (!user || !userData) {
-    return null;
+    return null; // Don't show anything if user is not fully loaded and logged in
   }
 
   const username = userData.username;
@@ -71,4 +71,3 @@ export function CreatePostTrigger({ groupId }: { groupId?: string }) {
     </div>
   );
 }
-
