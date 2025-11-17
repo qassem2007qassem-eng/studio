@@ -48,7 +48,7 @@ type GetProfileOptions = {
 const getCurrentUserProfile = async (options: GetProfileOptions = {}): Promise<User | null> => {
   const { auth, firestore } = initializeFirebase();
   if (options.email) {
-    const userByEmail = getUserByEmail(options.email);
+    const userByEmail = await getUserByEmail(options.email);
     if (userByEmail) return userByEmail;
   }
   

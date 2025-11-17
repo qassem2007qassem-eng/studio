@@ -294,9 +294,6 @@ export default function LessonPlayerPage() {
 
         try {
             await toggleLikeLesson(lesson.id, newIsLiked);
-            // Optional: Re-fetch for consistency, but optimistic update is usually enough
-            // const updatedLesson = await getLessonById(lesson.id);
-            // setLesson(updatedLesson);
         } catch(e) {
             console.error(e);
             // Revert on error
@@ -316,8 +313,6 @@ export default function LessonPlayerPage() {
     }
     
     const onFollowStateChange = async () => {
-        // Re-fetch teacher data to update follow status if needed,
-        // although the dialog handles its own state.
         if (teacher) {
             const updatedTeacher = await getTeacherById(teacher.id);
             setTeacher(updatedTeacher);
@@ -388,7 +383,7 @@ export default function LessonPlayerPage() {
                            <TeacherInfoDialog teacher={teacher} onFollowStateChange={onFollowStateChange}>
                                <div className="flex items-center gap-3 cursor-pointer">
                                     <Avatar>
-                                        <AvatarImage src={(teacher as any).avatarUrl} alt={teacher.name} />
+                                        <AvatarImage src={(teacher as any).profilePictureUrl || undefined} alt={teacher.name} />
                                         <AvatarFallback>{teacher.name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <div>

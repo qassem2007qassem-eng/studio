@@ -12,6 +12,7 @@ export interface User {
   bio?: string;
   dob?: string;
   gender?: string;
+  profilePictureUrl?: string;
   createdAt: Timestamp;
   followers: string[];
   following: string[];
