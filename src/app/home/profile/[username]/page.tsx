@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
 import { Settings, UserPlus, UserCheck, Lock, Trash2, UserPlus2, Flag, Verified } from "lucide-react";
-import { CatLoader } from "@/components/cat-loader";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser } from "@/firebase";
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -214,7 +213,7 @@ export default function ProfilePage() {
   };
   
   const getFollowButton = () => {
-      if (isFollowStatusLoading) return <Button disabled><CatLoader className="h-10 w-10" /></Button>
+      if (isFollowStatusLoading) return <Button disabled><span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /></Button>
       if (isFollowing) return <Button onClick={handleFollowToggle} variant='secondary' disabled={isTogglingFollow}><UserCheck className="h-4 w-4 me-2" /> متابَع</Button>;
       if (hasPendingRequest) return <Button disabled variant='secondary'><UserPlus2 className="h-4 w-4 me-2"/> معلق</Button>;
       if (profileUser?.isPrivate) return <Button onClick={handleFollowToggle} disabled={isTogglingFollow}><UserPlus className="h-4 w-4 me-2"/> طلب متابعة</Button>
@@ -223,8 +222,19 @@ export default function ProfilePage() {
 
   if (isProfileUserLoading || isCurrentUserLoading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-          <CatLoader />
+      <div className="space-y-6">
+        <Card className="overflow-hidden">
+            <Skeleton className="h-48 w-full" />
+            <CardContent className="p-4 relative">
+                <Skeleton className="-mt-16 h-28 w-28 rounded-full border-4 border-card" />
+                 <div className="mt-4 space-y-2">
+                    <Skeleton className="h-8 w-1/2" />
+                    <Skeleton className="h-4 w-1/3" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-4/5" />
+                 </div>
+            </CardContent>
+        </Card>
       </div>
     )
   }
@@ -337,8 +347,9 @@ export default function ProfilePage() {
                     </CardContent>
                 </Card>
            ) : postsLoading ? (
-            <div className="flex justify-center items-center py-10">
-              <CatLoader />
+            <div className="space-y-4">
+              <Skeleton className="h-32 w-full" />
+              <Skeleton className="h-32 w-full" />
             </div>
            ) : userPosts.length > 0 ? (
             userPosts.map(post => <PostCard key={post.id} post={post} />)
@@ -363,7 +374,7 @@ export default function ProfilePage() {
                 <AlertDialogFooter>
                     <AlertDialogCancel>إلغاء</AlertDialogCancel>
                     <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive hover:bg-destructive/90" disabled={isDeletingUser}>
-                        {isDeletingUser ? <CatLoader className="h-10 w-10" /> : "نعم، قم بالحذف"}
+                        {isDeletingUser ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : "نعم، قم بالحذف"}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

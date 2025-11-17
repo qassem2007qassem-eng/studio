@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { CatLoader } from '@/components/cat-loader';
 
 interface ReportDialogProps {
   open: boolean;
@@ -65,7 +64,7 @@ export function ReportDialog({
             إلغاء
           </Button>
           <Button onClick={handleSubmit} disabled={!reason.trim() || isSubmitting}>
-            {isSubmitting ? <CatLoader className="mx-auto" /> : 'إرسال الإبلاغ'}
+            {isSubmitting ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'إرسال الإبلاغ'}
           </Button>
         </DialogFooter>
       </DialogContent>

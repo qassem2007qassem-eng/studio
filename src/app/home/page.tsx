@@ -15,9 +15,31 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getFeedPosts } from "@/services/post-service";
 import { type DocumentSnapshot } from "firebase/firestore";
-import { CatLoader } from "@/components/cat-loader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogIn } from "lucide-react";
+
+function PostSkeleton() {
+  return (
+    <Card>
+      <CardHeader className="p-4">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <div className="grid gap-1">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 pt-0 space-y-2">
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+      </CardContent>
+      <CardFooter className="p-4 pt-0">
+        <Skeleton className="h-8 w-full" />
+      </CardFooter>
+    </Card>
+  )
+}
 
 export default function HomePage() {
   const { user: currentUser, isUserLoading } = useUser();
@@ -98,7 +120,7 @@ export default function HomePage() {
     }
   }, [currentUser, isUserLoading]);
 
-  const isTeacher = currentUser?.email?.endsWith('@teacher.app.com');
+  const isTeacher = userProfile?.email?.endsWith('@teacher.app.com');
 
   return (
     <>
@@ -109,8 +131,9 @@ export default function HomePage() {
       
       <div className="space-y-4 pt-6">
         {(isLoading || isUserLoading) && (
-          <div className="flex justify-center items-center py-10">
-            <CatLoader />
+          <div className="space-y-4">
+            <PostSkeleton />
+            <PostSkeleton />
           </div>
         )}
         
@@ -154,8 +177,8 @@ export default function HomePage() {
            )
         })}
          {isLoadingMore && (
-          <div className="flex justify-center items-center py-4">
-              <CatLoader />
+          <div className="space-y-4">
+            <PostSkeleton />
           </div>
         )}
          {!isLoading && hasMore && posts.length > 0 && !isLoadingMore && (

@@ -22,7 +22,6 @@ import Link from 'next/link';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createReport } from "@/services/report-service";
-import { CatLoader } from "@/components/cat-loader";
 
 
 function ProfileSettingsCard() {
@@ -137,7 +136,7 @@ function ProfileSettingsCard() {
             </CardContent>
             <CardFooter>
                 <Button onClick={handleSaveChanges} disabled={isSaving}>
-                    {isSaving ? <CatLoader className="h-10 w-10 mx-auto" /> : "حفظ التغييرات"}
+                    {isSaving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : "حفظ التغييرات"}
                 </Button>
             </CardFooter>
         </Card>
@@ -248,7 +247,7 @@ function AccountSettingsCard() {
                         </p>
                     </div>
                      <Button onClick={handleRequestVerification} disabled={isRequestingVerification}>
-                        {isRequestingVerification ? <CatLoader className="h-10 w-10" /> : "إرسال طلب"}
+                        {isRequestingVerification ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : "إرسال طلب"}
                     </Button>
                 </div>
             </CardContent>
@@ -305,7 +304,7 @@ export default function SettingsPage() {
     if (isUserLoading) {
          return (
              <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-                <CatLoader />
+                <Skeleton className="h-full w-full" />
             </div>
         )
     }

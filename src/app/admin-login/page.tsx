@@ -17,9 +17,9 @@ import { useAuth, initializeFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Shield } from 'lucide-react';
-import { CatLoader } from '@/components/cat-loader';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 const ADMIN_EMAIL = 'admin@app.com';
@@ -130,7 +130,7 @@ export default function AdminLoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? <CatLoader className="mx-auto" /> : 'دخول المشرف'}
+              {isLoading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'دخول المشرف'}
             </Button>
           </form>
         </CardContent>

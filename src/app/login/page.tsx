@@ -18,7 +18,6 @@ import { useState, useEffect } from 'react';
 import { useAuth, useFirebase, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { CatLoader } from '@/components/cat-loader';
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
@@ -28,6 +27,7 @@ import { Separator } from '@/components/ui/separator';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Shield } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -117,7 +117,7 @@ const SpecificUserLogin = ({ user, onBack }: { user: SavedUser, onBack: () => vo
                         />
                     </div>
                     <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading ? <CatLoader className="mx-auto" /> : 'تسجيل الدخول'}
+                        {isLoading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'تسجيل الدخول'}
                     </Button>
                 </form>
                 <Button variant="link" onClick={onBack} className="w-full">
@@ -249,7 +249,7 @@ export default function LoginPage() {
   if (isUserLoading || user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
-        <CatLoader />
+        <Skeleton className="h-[550px] w-full max-w-sm rounded-lg" />
       </div>
     );
   }
@@ -294,7 +294,7 @@ export default function LoginPage() {
 
           <div className="grid gap-4">
             <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isLoading || isGoogleLoading}>
-              {isGoogleLoading ? <CatLoader className="mx-auto" /> : <><GoogleIcon className="me-2 h-4 w-4" /> متابعة باستخدام Google</>}
+              {isGoogleLoading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : <><GoogleIcon className="me-2 h-4 w-4" /> متابعة باستخدام Google</>}
             </Button>
             <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -329,7 +329,7 @@ export default function LoginPage() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={isLoading || isGoogleLoading}>
-                {isLoading ? <CatLoader className="mx-auto" /> : 'تسجيل الدخول'}
+                {isLoading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'تسجيل الدخول'}
               </Button>
             </form>
           </div>

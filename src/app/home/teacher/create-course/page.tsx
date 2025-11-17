@@ -11,7 +11,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { useUser, initializeFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { CatLoader } from '@/components/cat-loader';
 import { type Course } from '@/lib/types';
 
 export default function CreateCoursePage() {
@@ -105,11 +104,10 @@ export default function CreateCoursePage() {
                         />
                     </div>
                     <Button type="submit" className="w-full" disabled={isLoading || !title.trim()}>
-                        {isLoading ? <CatLoader className="mx-auto" /> : 'إنشاء الدورة'}
+                        {isLoading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'إنشاء الدورة'}
                     </Button>
                 </form>
             </CardContent>
         </Card>
     );
 }
-

@@ -22,7 +22,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { CalendarIcon, GraduationCap, User } from 'lucide-react';
-import { CatLoader } from '@/components/cat-loader';
 import { Calendar } from '@/components/ui/calendar';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
@@ -40,6 +39,7 @@ import {
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { createUserProfile } from '@/services/user-service';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const TEACHER_EMAIL_SUFFIX = '@teacher.app.com';
 
@@ -326,7 +326,7 @@ function RegisterForm() {
                 disabled={isLoading || !currentStepData.validation()}
                 className={cn(step > 1 ? 'col-span-1' : 'col-span-2')}
               >
-                {isLoading ? <CatLoader className="mx-auto" /> : 'إنشاء حساب'}
+                {isLoading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'إنشاء حساب'}
               </Button>
             )}
           </div>
@@ -345,7 +345,7 @@ function RegisterForm() {
 
 export default function RegisterPage() {
     return (
-        <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-secondary"><CatLoader /></div>}>
+        <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-secondary"><Skeleton className="h-[550px] w-full max-w-sm" /></div>}>
             <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
                 <RegisterForm />
             </div>

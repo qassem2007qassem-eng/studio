@@ -13,7 +13,6 @@ import { useUser, initializeFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Globe, Lock } from 'lucide-react';
-import { CatLoader } from '@/components/cat-loader';
 import { type Group } from '@/lib/types';
 
 export default function CreateGroupPage() {
@@ -129,7 +128,7 @@ export default function CreateGroupPage() {
                         </RadioGroup>
                     </div>
                     <Button type="submit" className="w-full" disabled={isLoading || !name.trim()}>
-                        {isLoading ? <CatLoader className="mx-auto" /> : 'إنشاء المجموعة'}
+                        {isLoading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'إنشاء المجموعة'}
                     </Button>
                 </form>
             </CardContent>

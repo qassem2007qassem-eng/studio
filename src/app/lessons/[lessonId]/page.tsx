@@ -18,7 +18,6 @@ import { Separator } from '@/components/ui/separator';
 import { ThumbsUp, Eye, Clock, PlayCircle, GraduationCap } from 'lucide-react';
 import Link from 'next/link';
 import { cn, formatDistanceToNow, safeToDate } from '@/lib/utils';
-import { CatLoader } from '@/components/cat-loader';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, orderBy, query } from 'firebase/firestore';
 
@@ -89,7 +88,7 @@ function LessonComments({ lessonId }: { lessonId: string }) {
                         disabled={!user || isSubmitting}
                     />
                     <Button type="submit" disabled={!user || !commentText.trim() || isSubmitting}>
-                        {isSubmitting ? <CatLoader className="h-10" /> : 'نشر'}
+                        {isSubmitting ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'نشر'}
                     </Button>
                 </form>
                 <Separator />

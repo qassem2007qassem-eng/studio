@@ -9,7 +9,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { UserPlus, UserCheck, Check, X } from 'lucide-react';
-import { CatLoader } from '@/components/cat-loader';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 import { type DocumentSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
@@ -73,7 +72,7 @@ function FollowRequests() {
             </Link>
              <div className="flex gap-2">
                 <Button size="sm" onClick={() => handleFollowRequest(req, 'accept')} disabled={respondingId === req.id}>
-                    {respondingId === req.id ? <CatLoader className="h-10 w-10" /> : <Check className="h-4 w-4"/>}
+                    {respondingId === req.id ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : <Check className="h-4 w-4"/>}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => handleFollowRequest(req, 'decline')} disabled={respondingId === req.id}>
                     <X className="h-4 w-4"/>
@@ -245,7 +244,7 @@ export default function FriendsPage() {
         {hasMore && (
           <CardFooter>
               <Button onClick={handleLoadMore} disabled={isLoadingMore} className="w-full">
-                  {isLoadingMore ? <CatLoader className="mx-auto" /> : "تحميل المزيد"}
+                  {isLoadingMore ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : "تحميل المزيد"}
               </Button>
           </CardFooter>
         )}

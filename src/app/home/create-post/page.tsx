@@ -20,7 +20,7 @@ import { type User as UserType, type PrivacySetting } from '@/lib/types';
 import { getCurrentUserProfile } from '@/services/user-service';
 import { createPost } from '@/services/post-service';
 import { cn } from '@/lib/utils';
-import { CatLoader } from '@/components/cat-loader';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -155,7 +155,19 @@ function CreatePostContent() {
   if (isUserLoading || isDataLoading) {
       return (
           <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
-              <CatLoader />
+             <div className="w-full max-w-md p-4 space-y-4">
+                <div className="flex items-center space-x-4">
+                  <Skeleton className="h-12 w-12 rounded-full" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-[250px]" />
+                    <Skeleton className="h-4 w-[200px]" />
+                  </div>
+                </div>
+                <Skeleton className="h-[250px] w-full rounded-lg" />
+                <div className="flex items-center space-x-2">
+                    {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-8 w-8 rounded-full" />)}
+                </div>
+             </div>
           </div>
       );
   }
@@ -180,7 +192,7 @@ function CreatePostContent() {
           <h1 className="text-lg font-semibold">{groupId ? 'إنشاء منشور في المجموعة' : 'إنشاء منشور'}</h1>
           <Button onClick={handleCreatePost} disabled={isSaving || !content.trim()}>
               {isSaving ? (
-                  <CatLoader className="h-10 w-10" />
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
                 ) : 'نشر'}
           </Button>
       </header>
@@ -274,7 +286,7 @@ function CreatePostContent() {
 
 export default function CreatePostPage() {
     return (
-        <Suspense fallback={<div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center"><CatLoader /></div>}>
+        <Suspense fallback={<div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center"><Skeleton className="h-full w-full" /></div>}>
             <CreatePostContent />
         </Suspense>
     )

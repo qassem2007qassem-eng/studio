@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, query, orderBy, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, limit } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { type Lesson } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -10,7 +10,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlayCircle } from 'lucide-react';
 import Link from 'next/link';
-import { CatLoader } from '@/components/cat-loader';
 
 function formatDuration(seconds: number) {
     if (isNaN(seconds) || seconds < 0) return '0 د';
@@ -20,6 +19,19 @@ function formatDuration(seconds: number) {
     if (h > 0) result += `${h} س `;
     if (m > 0) result += `${m} د`;
     return result.trim() || '0 د';
+}
+
+function LessonSkeleton() {
+    return (
+        <Card className="overflow-hidden">
+            <div className="relative aspect-video bg-muted">
+                <Skeleton className="w-full h-full" />
+            </div>
+            <CardHeader className="p-3">
+                <Skeleton className="h-5 w-4/5" />
+            </CardHeader>
+        </Card>
+    );
 }
 
 export default function ContentPage() {
@@ -52,8 +64,8 @@ export default function ContentPage() {
                 </CardHeader>
             </Card>
             {isLoading ? (
-                <div className="flex justify-center items-center py-10">
-                    <CatLoader />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {[...Array(4)].map((_, i) => <LessonSkeleton key={i} />)}
                 </div>
             ) : lessons.length === 0 ? (
                 <Card>

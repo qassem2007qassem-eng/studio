@@ -12,7 +12,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow, cn, safeToDate } from '@/lib/utils';
 import { Heart, MessageCircle, UserPlus, BellOff, Trash2, Check, X } from 'lucide-react';
-import { CatLoader } from '@/components/cat-loader';
 import { markNotificationsAsRead, deleteNotification } from '@/services/notification-service';
 import { respondToFollowRequest } from '@/services/user-service';
 import { Button } from './ui/button';
@@ -153,7 +152,7 @@ export function NotificationsSheet() {
                                 disabled={deletingId === notif.id}
                             >
                                 {deletingId === notif.id ? (
-                                    <CatLoader className="h-10 w-10" />
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-destructive border-t-transparent" />
                                 ) : (
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                 )}
@@ -163,7 +162,7 @@ export function NotificationsSheet() {
                      {notif.type === 'follow_request' && (
                         <div className="flex gap-2 justify-end">
                             <Button size="sm" onClick={() => handleFollowRequest(notif, 'accept')} disabled={respondingId === notif.id}>
-                                {respondingId === notif.id ? <CatLoader className="h-10 w-10" /> : <><Check className="h-4 w-4"/> قبول</>}
+                                {respondingId === notif.id ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : <><Check className="h-4 w-4"/> قبول</>}
                             </Button>
                             <Button size="sm" variant="secondary" onClick={() => handleFollowRequest(notif, 'decline')} disabled={respondingId === notif.id}>
                                 <X className="h-4 w-4"/> رفض

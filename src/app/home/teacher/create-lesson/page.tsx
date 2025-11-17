@@ -9,12 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useUser, initializeFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, query, where, getDocs, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, query, where, getDocs, getDoc, arrayUnion } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { CatLoader } from '@/components/cat-loader';
 import { type Lesson, type Course } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Suspense } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function CreateLessonForm() {
     const { user } = useUser();
@@ -144,7 +144,7 @@ function CreateLessonForm() {
                 </CardContent>
                 <CardFooter>
                     <Button type="submit" className="w-full" disabled={isLoading || isCoursesLoading || !courseId}>
-                        {isLoading ? <CatLoader className="mx-auto" /> : 'إضافة الدرس'}
+                        {isLoading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'إضافة الدرس'}
                     </Button>
                 </CardFooter>
             </form>
@@ -154,7 +154,7 @@ function CreateLessonForm() {
 
 export default function CreateLessonPage() {
     return (
-        <Suspense fallback={<CatLoader />}>
+        <Suspense fallback={<div className="space-y-4"><Skeleton className="h-48 w-full" /><Skeleton className="h-10 w-full" /></div>}>
             <CreateLessonForm />
         </Suspense>
     )

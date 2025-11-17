@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useUser } from '@/firebase';
-import { CatLoader } from '@/components/cat-loader';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 const onboardingStep = {
@@ -32,7 +32,7 @@ export default function OnboardingPage() {
   if (isUserLoading || user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-secondary">
-        <CatLoader />
+        <Skeleton className="h-[450px] w-full max-w-md" />
       </div>
     );
   }

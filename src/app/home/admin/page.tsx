@@ -12,9 +12,9 @@ import { deletePost } from '@/services/post-service';
 import { deleteUserAndContent, getUserById, approveVerificationRequest } from '@/services/user-service';
 import { useToast } from '@/hooks/use-toast';
 import { ShieldAlert, Trash2, Verified, UserCheck } from 'lucide-react';
-import { CatLoader } from '@/components/cat-loader';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Simple admin check
 const isAdminUser = (user: User | null) => {
@@ -110,7 +110,7 @@ export default function AdminPage() {
   };
 
   if (isLoading || isUserLoading) {
-    return <div className="flex justify-center items-center h-screen"><CatLoader /></div>;
+    return <div className="flex justify-center items-center h-screen"><Skeleton className="h-48 w-full max-w-2xl" /></div>;
   }
 
   if (!isAdmin) {
@@ -159,7 +159,7 @@ export default function AdminPage() {
                             onClick={() => handlePostDelete(report)}
                             disabled={isActionLoading[report.id]}
                         >
-                            {isActionLoading[report.id] ? <CatLoader className="h-10 w-10" /> : <><Trash2/> حذف المنشور</>}
+                            {isActionLoading[report.id] ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : <><Trash2/> حذف المنشور</>}
                         </Button>
                     )}
                      {report.reportedEntityType === 'user' && (
@@ -168,7 +168,7 @@ export default function AdminPage() {
                             onClick={() => handleUserDelete(report)}
                             disabled={isActionLoading[report.id]}
                         >
-                            {isActionLoading[report.id] ? <CatLoader className="h-10 w-10" /> : <><Trash2/> حذف المستخدم</>}
+                            {isActionLoading[report.id] ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : <><Trash2/> حذف المستخدم</>}
                         </Button>
                     )}
                     <Button 
@@ -176,7 +176,7 @@ export default function AdminPage() {
                         onClick={() => handleDismissReport(report.id)}
                         disabled={isActionLoading[report.id]}
                     >
-                        {isActionLoading[report.id] ? <CatLoader className="h-10 w-10" /> : "تجاهل الإبلاغ"}
+                        {isActionLoading[report.id] ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : "تجاهل الإبلاغ"}
                     </Button>
                     </CardFooter>
                 </Card>
@@ -214,14 +214,14 @@ export default function AdminPage() {
                                 disabled={isActionLoading[report.id]}
                                 className="bg-green-600 hover:bg-green-700 text-white"
                              >
-                                {isActionLoading[report.id] ? <CatLoader className="h-10 w-10" /> : <><UserCheck/> توثيق الحساب</>}
+                                {isActionLoading[report.id] ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : <><UserCheck/> توثيق الحساب</>}
                             </Button>
                              <Button 
                                 variant="secondary"
                                 onClick={() => handleDismissReport(report.id)}
                                 disabled={isActionLoading[report.id]}
                             >
-                                {isActionLoading[report.id] ? <CatLoader className="h-10 w-10" /> : "تجاهل الطلب"}
+                                {isActionLoading[report.id] ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : "تجاهل الطلب"}
                             </Button>
                         </CardFooter>
                     </Card>

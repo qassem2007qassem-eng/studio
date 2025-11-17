@@ -7,9 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CatLoader } from '@/components/cat-loader';
 import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const initialState: FormState = {
     summary: null,
@@ -21,7 +21,7 @@ function SubmitButton() {
 
   return (
     <Button type="submit" disabled={pending} className="w-full">
-      {pending ? <CatLoader className="mx-auto" /> : 'تلخيص'}
+      {pending ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" /> : 'تلخيص'}
     </Button>
   );
 }

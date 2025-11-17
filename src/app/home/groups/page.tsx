@@ -7,10 +7,10 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { PlusCircle, Users } from 'lucide-react';
-import { CatLoader } from '@/components/cat-loader';
 import { type Group } from '@/lib/types';
 import { useUser, initializeFirebase } from '@/firebase';
 import { collection, query, where, getDocs, or } from 'firebase/firestore';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function GroupsPage() {
     const { user } = useUser();
@@ -56,9 +56,25 @@ export default function GroupsPage() {
             </div>
 
             {isLoading ? (
-                <div className="text-center py-10">
-                    <CatLoader className="mx-auto" />
-                </div>
+                 <div className="grid grid-cols-1 gap-4">
+                    {[...Array(3)].map((_, i) => (
+                        <Card key={i}>
+                            <CardHeader>
+                                <div className="flex items-center gap-4">
+                                     <Skeleton className="h-16 w-16 rounded-full" />
+                                    <div className="flex-1 space-y-2">
+                                        <Skeleton className="h-5 w-3/4" />
+                                        <Skeleton className="h-4 w-full" />
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardFooter className="flex justify-between items-center text-sm text-muted-foreground">
+                                <Skeleton className="h-4 w-20" />
+                                <Skeleton className="h-4 w-20" />
+                            </CardFooter>
+                        </Card>
+                    ))}
+                 </div>
             ) : groups.length === 0 ? (
                 <Card className="text-center py-12">
                     <CardContent>
