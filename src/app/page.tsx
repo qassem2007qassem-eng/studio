@@ -1,15 +1,8 @@
 
-"use client";
-
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { useUser } from '@/firebase';
-import { Skeleton } from '@/components/ui/skeleton';
-
 
 const onboardingStep = {
   image: "https://l.top4top.io/p_36040oexf1.jpg",
@@ -20,23 +13,6 @@ const onboardingStep = {
 };
 
 export default function OnboardingPage() {
-  const { user, isUserLoading } = useUser();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!isUserLoading && user) {
-      router.push('/home');
-    }
-  }, [user, isUserLoading, router]);
-
-  if (isUserLoading || user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-secondary">
-        <Skeleton className="h-[450px] w-full max-w-md" />
-      </div>
-    );
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary p-4">
       <Card className="mx-auto w-full max-w-md overflow-hidden">
