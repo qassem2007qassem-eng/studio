@@ -5,7 +5,6 @@ import { ThemeProvider } from '@/components/providers/theme-provider';
 import { FirebaseClientProvider } from '@/firebase';
 import { Cairo } from 'next/font/google';
 import { cn } from '@/lib/utils';
-import Script from 'next/script';
 import NextTopLoader from 'nextjs-toploader';
 
 export const metadata: Metadata = {
