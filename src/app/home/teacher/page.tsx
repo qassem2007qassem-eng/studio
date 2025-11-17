@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useUser, initializeFirebase } from '@/firebase';
@@ -22,9 +23,19 @@ function TeacherCourses({ teacherId }: { teacherId: string }) {
         if (teacherId) {
             const fetchCourses = async () => {
                 setIsLoading(true);
-                const coursesQuery = query(collection(firestore, 'courses'), where('teacherId', '==', teacherId), orderBy('createdAt', 'desc'));
+                // Simplified query to avoid composite index
+                const coursesQuery = query(collection(firestore, 'courses'), where('teacherId', '==', teacherId));
                 const coursesSnapshot = await getDocs(coursesQuery);
-                setCourses(coursesSnapshot.docs.map(doc => doc.data() as Course));
+                const fetchedCourses = coursesSnapshot.docs.map(doc => doc.data() as Course);
+                
+                // Sort on the client side
+                fetchedCourses.sort((a, b) => {
+                    const dateA = safeToDate(a.createdAt)?.getTime() || 0;
+                    const dateB = safeToDate(b.createdAt)?.getTime() || 0;
+                    return dateB - dateA;
+                });
+
+                setCourses(fetchedCourses);
                 setIsLoading(false);
             };
             fetchCourses();
