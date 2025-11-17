@@ -1,6 +1,4 @@
 
-'use client';
-
 import {
   collection,
   addDoc,
@@ -28,7 +26,7 @@ import { initializeFirebase } from '@/firebase';
 import { type Post, type PrivacySetting, type User, type Group } from '@/lib/types';
 import { createNotification } from './notification-service';
 
-const { auth, firestore, storage } = initializeFirebase();
+// Removed 'use client' to allow server-side usage
 
 type CreatePostInput = {
   content: string;
@@ -43,6 +41,7 @@ type CreatePostInput = {
 };
 
 export const createPost = async (input: CreatePostInput): Promise<string> => {
+  const { auth, firestore } = initializeFirebase();
   const user = auth.currentUser;
   if (!user) {
     throw new Error('User not authenticated');
@@ -84,6 +83,7 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
 
 
 export const deletePost = async (postId: string, asAdmin = false): Promise<void> => {
+    const { auth, firestore } = initializeFirebase();
     const user = auth.currentUser;
     if (!user) {
       throw new Error('User not authenticated');
@@ -126,8 +126,9 @@ export const deletePost = async (postId: string, asAdmin = false): Promise<void>
 
 
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
+    const { firestore } = initializeFirebase();
     const postsCollection = collection(firestore, 'posts');
-    const isAdmin = auth.currentUser?.email === 'admin@app.com';
+    const isAdmin = initializeFirebase().auth.currentUser?.email === 'admin@app.com';
 
     const isOwner = profileUserId === currentUserId;
 
@@ -135,18 +136,12 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     const queryConstraints: any[] = [
         where('authorId', '==', profileUserId),
         where('groupId', '==', null), // Ensure we only get profile posts, not group posts
-        orderBy('createdAt', 'desc')
     ];
     
     if (!isOwner && !isAdmin) {
         // If not the owner or an admin, only fetch public posts.
         queryConstraints.push(where('privacy', '==', 'followers'));
-    } else {
-        // If owner or admin, we can fetch all and filter client-side, or do two queries.
-        // For simplicity and since Firestore doesn't support 'OR' on different fields with range operators,
-        // we fetch all for the owner/admin. 'only_me' posts are included.
     }
-
 
     const q = query(postsCollection, ...queryConstraints);
 
@@ -159,8 +154,10 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
             const onlyMeQuery = query(collection(firestore, 'posts'), where('authorId', '==', profileUserId), where('privacy', '==', 'only_me'));
             const onlyMeSnapshot = await getDocs(onlyMeQuery);
             const onlyMePosts = onlyMeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-            posts = [...posts, ...onlyMePosts].sort((a,b) => (b.createdAt.seconds - a.createdAt.seconds));
+            posts = [...posts, ...onlyMePosts];
         }
+
+        posts.sort((a,b) => (b.createdAt.seconds - a.createdAt.seconds));
 
         return posts;
     } catch (e) {
@@ -170,6 +167,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
 };
 
 export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot | null = null) => {
+    const { firestore } = initializeFirebase();
     const postsRef = collection(firestore, 'posts');
     
     let feedQueryConstraints: any[] = [
@@ -202,6 +200,7 @@ export const getFeedPosts = async (pageSize = 10, lastVisible: DocumentSnapshot 
 
 
 export const approvePost = async (postId: string) => {
+    const { firestore } = initializeFirebase();
     const postRef = doc(firestore, 'posts', postId);
     await updateDoc(postRef, { status: 'approved' });
 }
