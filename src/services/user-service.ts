@@ -348,9 +348,20 @@ const getUsers = async (pageSize = 20, lastVisible: any = null, includeIds: stri
       queryConstraints.push(where('id', 'in', includeIds));
     }
     
+    // Updated this logic to correctly query for teacher emails
     if (teachersOnly) {
-      queryConstraints.push(where('email', '>=', '@teacher.app.com'));
-      queryConstraints.push(where('email', '<=', '@teacher.app.com\uf8ff'));
+       const q = query(usersRef, where('email', '>=', ''), where('email', '<=', '~'));
+       const snapshot = await getDocs(q);
+       let teacherUsers = snapshot.docs
+         .map(d => d.data() as User)
+         .filter(u => u.email.endsWith('@teacher.app.com'));
+      
+      if (excludeIds.length > 0) {
+        const excludeSet = new Set(excludeIds);
+        teacherUsers = teacherUsers.filter(u => !excludeSet.has(u.id));
+      }
+
+       return { users: teacherUsers.slice(0, pageSize), lastVisible: null, hasMore: teacherUsers.length > pageSize };
     }
 
     if (!includeIds.length) {

@@ -23,6 +23,13 @@ export function UserSuggestions() {
   const fetchSuggestions = useCallback(async (profile: User | null) => {
     setIsLoading(true);
     
+    // Only show suggestions to users who are not teachers
+    if (currentUser?.email?.endsWith('@teacher.app.com')) {
+      setIsLoading(false);
+      setSuggestions([]);
+      return;
+    }
+    
     // Suggest teachers if the user isn't following anyone
     if (profile && profile.following.length > 0) {
       setIsLoading(false);
@@ -30,7 +37,7 @@ export function UserSuggestions() {
       return;
     }
     
-    // Fetch teachers (users with email ending in @teacher.app.com)
+    // Fetch teachers 
     const { users: teacherUsers } = await getUsers(5, null, [], [], true);
     
     // Exclude users already followed or the current user
@@ -41,7 +48,7 @@ export function UserSuggestions() {
 
     setSuggestions(filteredTeachers);
     setIsLoading(false);
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, currentUser?.email]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -76,7 +83,7 @@ export function UserSuggestions() {
     }
   };
   
-  if (!currentUser) {
+  if (!currentUser || currentUser.email?.endsWith('@teacher.app.com')) {
       return null;
   }
 
@@ -101,21 +108,25 @@ export function UserSuggestions() {
   }
 
   if (suggestions.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>مرحباً بك!</CardTitle>
-        </CardHeader>
-        <CardContent>
-            <p className="text-sm text-muted-foreground">صفحتك الرئيسية فارغة حالياً. ابدأ بمتابعة بعض الأشخاص أو استكشف المجموعات لترى منشوراتهم هنا.</p>
-             <Button asChild className="mt-4">
-                <Link href="/home/friends">
-                    اكتشف الأصدقاء
-                </Link>
-            </Button>
-        </CardContent>
-      </Card>
-    );
+    // Only show this card if the user isn't following anyone
+    if (currentUserProfile && currentUserProfile.following.length === 0) {
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>مرحباً بك!</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground">صفحتك الرئيسية فارغة حالياً. ابدأ بمتابعة بعض الأشخاص أو استكشف المجموعات لترى منشوراتهم هنا.</p>
+                 <Button asChild className="mt-4">
+                    <Link href="/home/friends">
+                        اكتشف الأصدقاء
+                    </Link>
+                </Button>
+            </CardContent>
+          </Card>
+        );
+    }
+    return null; // Don't show anything if suggestions are empty but user is following people
   }
 
   return (

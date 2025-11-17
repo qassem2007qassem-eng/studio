@@ -7,7 +7,7 @@ import { PostCard } from "@/components/post-card";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { UserSuggestions } from "@/components/user-suggestions";
 import { useUser } from "@/firebase";
-import { type Post } from "@/lib/types";
+import { type Post, type User } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { getCurrentUserProfile } from "@/services/user-service";
@@ -21,6 +21,7 @@ import { LogIn } from "lucide-react";
 
 export default function HomePage() {
   const { user: currentUser, isUserLoading } = useUser();
+  const [userProfile, setUserProfile] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -47,13 +48,15 @@ export default function HomePage() {
       if (!currentUser) {
         setIsLoading(false);
         setPosts([]);
+        setUserProfile(null);
         return;
       }
       setIsLoading(true);
 
       try {
-        const userProfile = await getCurrentUserProfile({ forceRefresh: true });
-        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(userProfile, 10);
+        const profile = await getCurrentUserProfile({ forceRefresh: true });
+        setUserProfile(profile);
+        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(profile, 10);
         setPosts(newPosts);
         setLastVisible(newLastVisible);
         setHasMore(newHasMore);
@@ -69,8 +72,8 @@ export default function HomePage() {
 
     setIsLoadingMore(true);
     try {
-        const userProfile = await getCurrentUserProfile();
-        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(userProfile, 10, lastVisible);
+        const profile = await getCurrentUserProfile();
+        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(profile, 10, lastVisible);
         
         setPosts(prevPosts => {
           const postIds = new Set(prevPosts.map(p => p.id));
@@ -94,6 +97,8 @@ export default function HomePage() {
       fetchInitialFeed();
     }
   }, [currentUser, isUserLoading]);
+
+  const isTeacher = currentUser?.email?.endsWith('@teacher.app.com');
 
   return (
     <>
@@ -131,7 +136,7 @@ export default function HomePage() {
             </Card>
         )}
 
-        {currentUser && !isLoading && posts.length === 0 && (
+        {currentUser && !isLoading && posts.length === 0 && !isTeacher && (
            <UserSuggestions />
         )}
         
@@ -142,7 +147,7 @@ export default function HomePage() {
                 <div ref={isLastElement ? lastPostElementRef : null}>
                     <PostCard post={post} />
                 </div>
-                {index === 1 && (
+                {index === 1 && !isTeacher && (
                   <UserSuggestions />
                 )}
               </React.Fragment>

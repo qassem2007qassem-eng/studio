@@ -243,7 +243,7 @@ export default function LoginPage() {
       if (!userDoc.exists()) {
         await setDoc(userDocRef, {
             id: googleUser.uid,
-            username: googleUser.email?.split('@')[0] || `user_${Date.now()}`.toLowerCase(),
+            username: googleUser.email?.split('@')[0].toLowerCase() || `user_${Date.now()}`.toLowerCase(),
             email: googleUser.email,
             name: googleUser.displayName,
             createdAt: serverTimestamp(),
@@ -261,6 +261,8 @@ export default function LoginPage() {
       let description = "حدث خطأ غير متوقع. الرجاء المحاولة مرة أخرى.";
       if(error.code === 'auth/operation-not-allowed') {
         description = "تسجيل الدخول عبر جوجل غير مفعل حالياً. الرجاء الاتصال بالدعم."
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        description = 'تم إغلاق نافذة تسجيل الدخول. يرجى المحاولة مرة أخرى.'
       }
       toast({
         title: "خطأ في تسجيل الدخول عبر Google",
