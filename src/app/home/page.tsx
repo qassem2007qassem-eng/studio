@@ -67,21 +67,26 @@ export default function HomePage() {
 
 
   const fetchInitialFeed = async () => {
+      setIsLoading(true);
       if (!currentUser) {
         setIsLoading(false);
         setPosts([]);
         setUserProfile(null);
         return;
       }
-      setIsLoading(true);
 
       try {
-        const profile = await getCurrentUserProfile({ forceRefresh: true });
+        // Fetch posts and profile in parallel
+        const [postResult, profile] = await Promise.all([
+            getFeedPosts(10),
+            getCurrentUserProfile({ forceRefresh: true })
+        ]);
+        
         setUserProfile(profile);
-        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(profile, 10);
-        setPosts(newPosts);
-        setLastVisible(newLastVisible);
-        setHasMore(newHasMore);
+        setPosts(postResult.posts);
+        setLastVisible(postResult.lastVisible);
+        setHasMore(postResult.hasMore);
+
       } catch (error) {
         console.error("Error fetching initial feed:", error);
       } finally {
@@ -90,12 +95,11 @@ export default function HomePage() {
   };
   
   const loadMorePosts = async () => {
-    if (!currentUser || !lastVisible || !hasMore) return;
+    if (!lastVisible || !hasMore) return;
 
     setIsLoadingMore(true);
     try {
-        const profile = await getCurrentUserProfile();
-        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(profile, 10, lastVisible);
+        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(10, lastVisible);
         
         setPosts(prevPosts => {
           const postIds = new Set(prevPosts.map(p => p.id));
