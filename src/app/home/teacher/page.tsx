@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useUser, initializeFirebase } from '@/firebase';
@@ -8,8 +9,9 @@ import { useRouter } from 'next/navigation';
 import { GraduationCap, Video, ListVideo, PlusCircle, BookOpenCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { type Course, type Lesson } from '@/lib/types';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import Link from 'next/link';
+import { safeToDate } from '@/lib/utils';
 
 export default function TeacherDashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -25,9 +27,16 @@ export default function TeacherDashboardPage() {
       const fetchTeacherData = async () => {
         setIsLoadingStats(true);
         // Fetch courses
-        const coursesQuery = query(collection(firestore, 'courses'), where('teacherId', '==', user.uid), orderBy('createdAt', 'desc'));
+        const coursesQuery = query(collection(firestore, 'courses'), where('teacherId', '==', user.uid));
         const coursesSnapshot = await getDocs(coursesQuery);
         const fetchedCourses = coursesSnapshot.docs.map(doc => doc.data() as Course);
+        
+        // Sort client-side to avoid composite index
+        fetchedCourses.sort((a, b) => {
+            const dateA = safeToDate(a.createdAt)?.getTime() || 0;
+            const dateB = safeToDate(b.createdAt)?.getTime() || 0;
+            return dateB - dateA;
+        });
         setCourses(fetchedCourses);
 
         // Fetch lessons
