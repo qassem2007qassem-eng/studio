@@ -71,7 +71,6 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
   }, [isLoadingMore, hasMore]);
   
   useEffect(() => {
-    // This effect now ONLY fetches the user profile, it doesn't trigger post fetching.
     if (!isUserLoading) {
       if (currentUser) {
         getCurrentUserProfile({ forceRefresh: true }).then(profile => {
@@ -80,35 +79,30 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
         });
       } else {
         setIsProfileLoading(false);
+        setUserProfile(null);
       }
     }
   }, [currentUser, isUserLoading]);
   
   const loadMorePosts = async () => {
-    // The first page of posts is passed via props. 
-    // If we are loading more, we need to determine the starting point.
-    if (posts.length > 0 && !lastVisible) {
-        // This is the first time we are loading more posts, so we don't have a snapshot yet.
-        // We will refetch the first page to get the snapshot, then fetch the second page.
-        // This is a workaround for not being able to pass the snapshot from server to client.
-        const firstPage = await getFeedPosts(10, undefined, currentUser?.uid);
-        setLastVisible(firstPage.lastVisible);
+    if (isLoadingMore || !hasMore || !currentUser) return;
+    setIsLoadingMore(true);
 
-        // Now fetch the actual next page
-        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(10, firstPage.lastVisible, currentUser?.uid);
-        setPosts(prevPosts => [...prevPosts, ...newPosts]);
-        setLastVisible(newLastVisible);
-        setHasMore(newHasMore);
-        
+    let currentLastVisible = lastVisible;
+
+    if (posts.length > 0 && !currentLastVisible) {
+        const firstPage = await getFeedPosts(10, undefined, currentUser.uid);
+        currentLastVisible = firstPage.lastVisible;
+        setPosts(firstPage.posts); // Replace initial server posts with fresh client ones to get snapshot
+    }
+
+    if (!currentLastVisible) {
+        setIsLoadingMore(false);
         return;
     }
 
-
-    if (!lastVisible || !hasMore) return;
-
-    setIsLoadingMore(true);
     try {
-        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(10, lastVisible, currentUser?.uid);
+        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(10, currentLastVisible, currentUser.uid);
         
         setPosts(prevPosts => {
           const postIds = new Set(prevPosts.map(p => p.id));
@@ -127,7 +121,7 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
   };
 
   const isTeacher = userProfile?.email?.endsWith('@teacher.app.com');
-  const isInitialLoad = (isUserLoading || isProfileLoading) && posts.length === 0;
+  const isInitialLoad = (isUserLoading || isProfileLoading);
 
   return (
     <div className="space-y-4 pt-6">
@@ -162,7 +156,7 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
           </Card>
       )}
 
-      {!isInitialLoad && currentUser && posts.length === 0 && !isTeacher && (
+      {!isInitialLoad && currentUser && posts.length === 0 && userProfile && userProfile.following.length === 0 && !isTeacher && (
          <UserSuggestions />
       )}
 
@@ -182,7 +176,7 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
               <div ref={isLastElement ? lastPostElementRef : null}>
                   <PostCard post={post} />
               </div>
-              {index === 1 && currentUser && !isTeacher && (
+              {index === 1 && currentUser && userProfile && userProfile.following.length > 0 && !isTeacher && (
                 <UserSuggestions />
               )}
             </React.Fragment>

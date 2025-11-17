@@ -18,6 +18,8 @@ export function CreatePostTrigger({ groupId }: { groupId?: string }) {
 
   useEffect(() => {
     if (user) {
+      // If user object exists, start fetching profile
+      setIsDataLoading(true);
       getCurrentUserProfile().then(profile => {
         if (profile) {
           setUserData(profile as UserType);
@@ -25,11 +27,15 @@ export function CreatePostTrigger({ groupId }: { groupId?: string }) {
         setIsDataLoading(false);
       });
     } else if (!isUserLoading) {
+      // If user loading is finished and there's no user, stop data loading.
        setIsDataLoading(false);
     }
   }, [user, isUserLoading]);
 
-  if (isUserLoading || isDataLoading) {
+  // Combined loading state
+  const isLoading = isUserLoading || isDataLoading;
+
+  if (isLoading) {
     return (
         <div className="flex items-center gap-3 p-4 bg-card rounded-lg border">
             <Skeleton className="h-10 w-10 rounded-full" />
