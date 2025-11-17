@@ -24,6 +24,7 @@ export function BottomNavBar() {
         return;
     }
     if (user) {
+      // Teachers also have a user profile, so this should work for both
       getCurrentUserProfile().then((profile) => {
         setUsername(profile?.username?.toLowerCase() || null);
       });

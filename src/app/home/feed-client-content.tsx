@@ -90,10 +90,19 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
 
     let currentLastVisible = lastVisible;
 
+    // This logic ensures that pagination works correctly even with initial server-rendered posts.
+    // It fetches the first page on the client to get a valid 'lastVisible' snapshot.
     if (posts.length > 0 && !currentLastVisible) {
-        const firstPage = await getFeedPosts(10, undefined, currentUser.uid);
-        currentLastVisible = firstPage.lastVisible;
-        setPosts(firstPage.posts); // Replace initial server posts with fresh client ones to get snapshot
+        try {
+            const firstPage = await getFeedPosts(10, undefined, currentUser.uid);
+            currentLastVisible = firstPage.lastVisible;
+            setPosts(firstPage.posts); // Replace initial server posts with fresh client ones to get snapshot
+            setHasMore(firstPage.hasMore);
+        } catch (error) {
+            console.error("Error fetching first page on client:", error);
+            setIsLoadingMore(false);
+            return;
+        }
     }
 
     if (!currentLastVisible) {
@@ -122,6 +131,7 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
 
   const isTeacher = userProfile?.email?.endsWith('@teacher.app.com');
   const isInitialLoad = (isUserLoading || isProfileLoading);
+  const noPostsAndIsTeacher = !isInitialLoad && currentUser && posts.length === 0 && isTeacher;
 
   return (
     <div className="space-y-4 pt-6">
@@ -160,7 +170,7 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
          <UserSuggestions />
       )}
 
-      {!isInitialLoad && currentUser && posts.length === 0 && isTeacher && (
+      {noPostsAndIsTeacher && (
          <Card>
               <CardContent className="p-8 text-center text-muted-foreground">
                   <Edit className="h-10 w-10 mx-auto mb-4" />
