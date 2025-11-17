@@ -147,7 +147,7 @@ export default function TeacherDashboardPage() {
     }
   }, [user, isUserLoading, firestore]);
 
-  if (isUserLoading || isLoadingStats) {
+  if (isUserLoading || (user && isLoadingStats)) {
     return <div className="space-y-4">
       <Skeleton className="h-24 w-full" />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -166,9 +166,9 @@ export default function TeacherDashboardPage() {
           <CardTitle>غير مصرح به</CardTitle>
           <CardDescription>هذه الصفحة مخصصة للمعلمين فقط. الرجاء تسجيل الدخول بحساب معلم.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardFooter>
             <Button onClick={() => router.push('/login')}>الانتقال إلى صفحة تسجيل الدخول</Button>
-        </CardContent>
+        </CardFooter>
       </Card>
     );
   }

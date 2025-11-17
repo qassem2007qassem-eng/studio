@@ -120,6 +120,11 @@ export default function AdminPage() {
           <CardTitle>غير مصرح به</CardTitle>
           <CardDescription>ليس لديك الصلاحية للوصول إلى هذه الصفحة. الرجاء تسجيل الدخول بحساب المشرف.</CardDescription>
         </CardHeader>
+         <CardFooter>
+            <Button asChild>
+                <Link href="/login">الانتقال إلى صفحة تسجيل الدخول</Link>
+            </Button>
+        </CardFooter>
       </Card>
     );
   }

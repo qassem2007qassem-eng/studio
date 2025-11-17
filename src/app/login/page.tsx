@@ -221,7 +221,8 @@ export default function LoginPage() {
             followers: [],
             following: [],
             isPrivate: false,
-            emailVerified: googleUser.emailVerified
+            emailVerified: googleUser.emailVerified,
+            accountType: 'student', // Default to student for Google Sign-In
         });
       }
       

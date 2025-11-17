@@ -41,9 +41,6 @@ import { useToast } from '@/hooks/use-toast';
 import { createUserProfile } from '@/services/user-service';
 import { Skeleton } from '@/components/ui/skeleton';
 
-const TEACHER_EMAIL_SUFFIX = '@teacher.app.com';
-
-
 function RegisterForm() {
   const router = useRouter();
 
@@ -96,10 +93,7 @@ function RegisterForm() {
 
     const usernameLower = formData.username.toLowerCase();
     
-    let finalEmail = formData.email;
-    if (formData.accountType === 'teacher' && !finalEmail.includes('@')) {
-        finalEmail = `${finalEmail}${TEACHER_EMAIL_SUFFIX}`;
-    }
+    const finalEmail = formData.email;
 
     try {
       const usersRef = collection(firestore, 'users');
@@ -130,19 +124,6 @@ function RegisterForm() {
           emailVerified: user.emailVerified,
           accountType: formData.accountType,
       });
-
-      if (formData.accountType === 'teacher') {
-          const teacherDocRef = doc(firestore, 'teachers', user.uid);
-            await setDoc(teacherDocRef, {
-                id: user.uid,
-                name: formData.fullName,
-                email: finalEmail,
-                bio: 'مدرس متخصص في...',
-                profilePictureUrl: '',
-                courseIds: [],
-                createdAt: serverTimestamp(),
-            });
-      }
       
       await updateProfile(user, {
         displayName: formData.fullName,
@@ -207,15 +188,15 @@ function RegisterForm() {
     {
       title: 'ما هو بريدك الإلكتروني؟',
       field: 'email',
-      validation: () => formData.email && (formData.accountType === 'teacher' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)),
+      validation: () => formData.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email),
       content: (
         <div className="grid gap-2">
           <Label htmlFor="email">البريد الإلكتروني</Label>
           <Input
             id="email"
             name="email"
-            type={formData.accountType === 'teacher' ? 'text' : 'email'}
-            placeholder={formData.accountType === 'teacher' ? 'ahmad (سيضاف @teacher.app.com)' : 'ahmad@example.com'}
+            type="email"
+            placeholder="ahmad@example.com"
             required
             value={formData.email}
             onChange={handleChange}
