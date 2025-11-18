@@ -40,7 +40,7 @@ function PostSkeleton() {
 }
 
 interface FeedClientContentProps {
-    initialPosts: Post[];
+    initialPosts: Post[]; // This might be empty now, which is fine
     initialHasMore: boolean;
 }
 
@@ -52,6 +52,7 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
   const [lastVisible, setLastVisible] = useState<DocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(initialHasMore);
   
+  const [isLoadingFeed, setIsLoadingFeed] = useState(true); // Main loading state for the initial feed fetch
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
 
@@ -71,6 +72,7 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
   }, [isLoadingMore, hasMore]);
   
   useEffect(() => {
+    // This effect handles fetching the user's own profile data
     if (!isUserLoading) {
       if (currentUser) {
         getCurrentUserProfile({ forceRefresh: true }).then(profile => {
@@ -83,35 +85,35 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
       }
     }
   }, [currentUser, isUserLoading]);
+
+  const fetchInitialFeed = useCallback(async () => {
+    setIsLoadingFeed(true);
+    try {
+      const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(10, undefined, currentUser?.uid);
+      setPosts(newPosts);
+      setLastVisible(newLastVisible);
+      setHasMore(newHasMore);
+    } catch (error) {
+      console.error("Error fetching initial feed:", error);
+      setHasMore(false); // Stop trying to fetch more if initial fetch fails
+    } finally {
+      setIsLoadingFeed(false);
+    }
+  }, [currentUser?.uid]);
+  
+  useEffect(() => {
+    // This effect triggers the very first data fetch when the component mounts
+    // or when the user logs in/out.
+    fetchInitialFeed();
+  }, [fetchInitialFeed]);
+
   
   const loadMorePosts = async () => {
-    if (isLoadingMore || !hasMore || !currentUser) return;
+    if (isLoadingMore || !hasMore || !lastVisible) return;
     setIsLoadingMore(true);
 
-    let currentLastVisible = lastVisible;
-
-    // This logic ensures that pagination works correctly even with initial server-rendered posts.
-    // It fetches the first page on the client to get a valid 'lastVisible' snapshot.
-    if (posts.length > 0 && !currentLastVisible) {
-        try {
-            const firstPage = await getFeedPosts(10, undefined, currentUser.uid);
-            currentLastVisible = firstPage.lastVisible;
-            setPosts(firstPage.posts); // Replace initial server posts with fresh client ones to get snapshot
-            setHasMore(firstPage.hasMore);
-        } catch (error) {
-            console.error("Error fetching first page on client:", error);
-            setIsLoadingMore(false);
-            return;
-        }
-    }
-
-    if (!currentLastVisible) {
-        setIsLoadingMore(false);
-        return;
-    }
-
     try {
-        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(10, currentLastVisible, currentUser.uid);
+        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(10, lastVisible, currentUser?.uid);
         
         setPosts(prevPosts => {
           const postIds = new Set(prevPosts.map(p => p.id));
@@ -129,8 +131,8 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
     }
   };
 
-  const isTeacher = userProfile?.email?.endsWith('@teacher.app.com');
-  const isInitialLoad = (isUserLoading || isProfileLoading);
+  const isTeacher = userProfile?.accountType === 'teacher';
+  const isInitialLoad = (isUserLoading || isProfileLoading || isLoadingFeed);
   const noPostsAndIsTeacher = !isInitialLoad && currentUser && posts.length === 0 && isTeacher;
 
   return (
