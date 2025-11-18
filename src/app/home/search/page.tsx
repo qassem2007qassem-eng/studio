@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -57,56 +56,11 @@ function UserSearchResults({ users, onFollowToggle, isFollowing, currentUser }: 
     );
 }
 
-function GroupSearchResults({ groups }: { groups: Group[] }) {
-    if (groups.length === 0) {
-        return <p className="text-center text-muted-foreground pt-10">لا توجد مجموعات مطابقة.</p>
-    }
-    return (
-        <div className="space-y-4">
-            {groups.map(group => (
-                 <Card key={group.id}>
-                    <CardHeader>
-                        <div className="flex items-center gap-4">
-                                <Avatar className="h-12 w-12 border">
-                                <AvatarFallback>{group.name.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                                <CardTitle className="text-lg hover:underline">
-                                    <Link href={`/home/groups/${group.id}`}>{group.name}</Link>
-                                </CardTitle>
-                                <CardDescription className="truncate">{group.description}</CardDescription>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardFooter className="flex justify-between items-center text-sm text-muted-foreground">
-                        <span>{group.privacy === 'public' ? 'مجموعة عامة' : 'مجموعة خاصة'}</span>
-                        <span>{group.memberIds.length} أعضاء</span>
-                    </CardFooter>
-                </Card>
-            ))}
-        </div>
-    );
-}
-
-function PostSearchResults({ posts }: { posts: Post[] }) {
-     if (posts.length === 0) {
-        return <p className="text-center text-muted-foreground pt-10">لا توجد منشورات مطابقة.</p>
-    }
-    return (
-        <div className="space-y-4">
-            {posts.map(post => <PostCard key={post.id} post={post} />)}
-        </div>
-    );
-}
-
-
 export default function SearchPage() {
   const [searchTerm, setSearchTerm] = useState('');
   
   const [userResults, setUserResults] = useState<User[]>([]);
   const [teacherResults, setTeacherResults] = useState<User[]>([]);
-  const [groupResults, setGroupResults] = useState<Group[]>([]);
-  const [postResults, setPostResults] = useState<Post[]>([]);
   
   const [isLoading, setIsLoading] = useState(false);
   const { user: currentUser } = useUser();
@@ -129,8 +83,6 @@ export default function SearchPage() {
     if (term.trim() === '') {
       setUserResults([]);
       setTeacherResults([]);
-      setGroupResults([]);
-      setPostResults([]);
       setIsLoading(false);
       return;
     }
@@ -140,7 +92,7 @@ export default function SearchPage() {
     try {
         // Search Users (students and teachers)
         const usersRef = collection(firestore, "users");
-        const usersQuery = query(usersRef, where('username', '>=', lowercasedTerm), where('username', '<=', lowercasedTerm + '\uf8ff'), limit(15));
+        const usersQuery = query(usersRef, where('username', '>=', lowercasedTerm), where('username', '<=', lowercasedTerm + '\uf8ff'), limit(20));
         const usersSnap = await getDocs(usersQuery);
         const fetchedUsers = usersSnap.docs.map(doc => doc.data() as User).filter(user => user.id !== currentUser?.uid);
         
@@ -149,23 +101,6 @@ export default function SearchPage() {
         
         setUserResults(students);
         setTeacherResults(teachers);
-
-        // Search Groups
-        const groupsRef = collection(firestore, "groups");
-        const groupsQuery = query(groupsRef, where('name', '>=', term), where('name', '<=', term + '\uf8ff'), where('privacy', '==', 'public'), limit(15));
-        const groupsSnap = await getDocs(groupsQuery);
-        setGroupResults(groupsSnap.docs.map(doc => doc.data() as Group));
-
-        // Search Posts (simple content search on public posts)
-        const postsRef = collection(firestore, "posts");
-        // Simplified query to only search content field.
-        const postsQuery = query(postsRef, where('content', '>=', lowercasedTerm), where('content', '<=', lowercasedTerm + '\uf8ff'), limit(15));
-        const postsSnap = await getDocs(postsQuery);
-        // Filter for public posts on the client-side
-        const publicPosts = postsSnap.docs
-            .map(doc => doc.data() as Post)
-            .filter(post => post.privacy === 'followers' && !post.groupId); // 'followers' is used as 'public'
-        setPostResults(publicPosts);
         
     } catch(e) {
         console.error("Search failed:", e);
@@ -216,7 +151,7 @@ export default function SearchPage() {
         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="ابحث عن طلاب، معلمين، أو منشورات..."
+          placeholder="ابحث عن طلاب أو معلمين..."
           className="w-full pl-10"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -245,10 +180,9 @@ export default function SearchPage() {
             </Card>
        ) : (
             <Tabs defaultValue="users" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="users"><Users className="me-2"/> الطلاب</TabsTrigger>
                     <TabsTrigger value="teachers"><GraduationCap className="me-2"/> المعلمون</TabsTrigger>
-                    <TabsTrigger value="posts"><Newspaper className="me-2"/> المنشورات</TabsTrigger>
                 </TabsList>
                 <TabsContent value="users" className="mt-6">
                     <Card>
@@ -261,13 +195,6 @@ export default function SearchPage() {
                     <Card>
                        <CardContent className="p-4">
                            <UserSearchResults users={teacherResults} onFollowToggle={handleFollowToggle} isFollowing={isFollowing} currentUser={currentUser} />
-                       </CardContent>
-                    </Card>
-                </TabsContent>
-                <TabsContent value="posts" className="mt-6">
-                     <Card>
-                       <CardContent className="p-4">
-                          <PostSearchResults posts={postResults} />
                        </CardContent>
                     </Card>
                 </TabsContent>

@@ -127,36 +127,24 @@ export const deletePost = async (postId: string, asAdmin = false): Promise<void>
 
 
 export const getPostsForUser = async (profileUserId: string, currentUserId?: string): Promise<Post[]> => {
-    const { auth, firestore } = initializeFirebase();
+    const { firestore } = initializeFirebase();
     const postsCollection = collection(firestore, 'posts');
-    const isAdmin = auth.currentUser?.email === 'admin@app.com';
-
     const isOwner = profileUserId === currentUserId;
 
     // Build the query constraints
     const queryConstraints: any[] = [
         where('authorId', '==', profileUserId),
+        orderBy('createdAt', 'desc'),
     ];
     
-    if (!isOwner && !isAdmin) {
-        // If not the owner or an admin, only fetch public posts.
-        queryConstraints.push(where('privacy', '==', 'followers'));
-    }
-
-    const q = query(postsCollection, ...queryConstraints, orderBy('createdAt', 'desc'));
+    const q = query(postsCollection, ...queryConstraints);
 
     try {
         const snapshot = await getDocs(q);
         let posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         
-        // This is a simplified approach. A more complex app might need to merge queries.
-        if (isOwner) {
-            const onlyMeQuery = query(collection(firestore, 'posts'), where('authorId', '==', profileUserId), where('privacy', '==', 'only_me'), orderBy('createdAt', 'desc'));
-            const onlyMeSnapshot = await getDocs(onlyMeQuery);
-            const onlyMePosts = onlyMeSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-             // Combine and re-sort
-            posts = [...posts.filter(p => p.privacy !== 'only_me'), ...onlyMePosts]
-                  .sort((a,b) => (b.createdAt.seconds - a.createdAt.seconds));
+        if (!isOwner) {
+           posts = posts.filter(post => post.privacy !== 'only_me');
         }
 
         return posts;
@@ -175,8 +163,8 @@ export const getFeedPosts = async (
     const postsRef = collection(firestore, 'posts');
 
     if (!userId) {
-        // For non-logged-in users, show some public posts
-        const q = query(postsRef, where('privacy', '==', 'followers'), where('groupId', '==', null), orderBy('createdAt', 'desc'), limit(pageSize));
+        // For non-logged-in users, show some public posts (followers privacy is used for public)
+        const q = query(postsRef, where('privacy', '==', 'followers'), where('status', '==', 'approved'), where('groupId', '==', null), orderBy('createdAt', 'desc'), limit(pageSize));
          const querySnapshot = await getDocs(q);
         const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         return { posts, lastVisible: querySnapshot.docs[querySnapshot.docs.length - 1] ?? null, hasMore: posts.length === pageSize };
@@ -191,13 +179,12 @@ export const getFeedPosts = async (
         return { posts: [], lastVisible: null, hasMore: false };
     }
 
-    // Firestore 'in' queries are limited to 30 items. Handle pagination if needed in a real app.
+    // Firestore 'in' queries are limited to 30 items.
     const queryableFollowingIds = followingIds.slice(0, 30);
 
     let feedQueryConstraints: any[] = [
         where('authorId', 'in', queryableFollowingIds),
-        where('status', '==', 'approved'), // only show approved posts
-        // where('privacy', 'in', ['followers', 'everyone']), // show public posts from followed users - This can cause index issues. Filter on client or simplify.
+        where('status', '==', 'approved'),
         orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
@@ -244,7 +231,7 @@ export const getFeedPosts = async (
               }
              const fallbackQuery = query(postsRef, ...fallbackConstraints);
              const snapshot = await getDocs(fallbackQuery);
-              const posts = snapshot.docs.map(doc => doc.data() as Post).filter(post => post.privacy !== 'only_me' || post.authorId === userId);
+              const posts = snapshot.docs.map(doc => doc.data() as Post).filter(post => (post.privacy !== 'only_me' || post.authorId === userId) && post.status === 'approved');
               return { posts, lastVisible: snapshot.docs[snapshot.docs.length - 1] ?? null, hasMore: posts.length === pageSize };
         }
         throw error;
