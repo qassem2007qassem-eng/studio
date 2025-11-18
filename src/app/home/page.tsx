@@ -4,9 +4,6 @@ import { Separator } from "@/components/ui/separator";
 import { getFeedPosts } from "@/services/post-service";
 import { FeedClientContent } from "./feed-client-content";
 import { Post } from "@/lib/types";
-import { headers } from 'next/headers';
-import { getAuth } from 'firebase-admin/auth';
-import { initializeAdminApp } from '@/firebase/admin';
 
 export const revalidate = 0;
 
@@ -26,23 +23,9 @@ const serializePosts = (posts: Post[]): Post[] => {
 
 
 export default async function HomePage() {
-  initializeAdminApp();
-  const headersList = headers();
-  const sessionCookie = headersList.get('X-Session-Cookie');
-  let userId: string | undefined = undefined;
-
-  if (sessionCookie) {
-    try {
-      const decodedToken = await getAuth().verifySessionCookie(sessionCookie, true);
-      userId = decodedToken.uid;
-    } catch (error) {
-      // Session cookie is invalid.
-      console.log("Could not verify session cookie:", error);
-      userId = undefined;
-    }
-  }
-  
-  const { posts, hasMore } = await getFeedPosts(10, null, userId);
+  // Fetch initial posts for non-logged-in users or as a general fallback.
+  // The client will take over fetching the personalized feed.
+  const { posts, hasMore } = await getFeedPosts(10, null, undefined);
   const serializedPosts = serializePosts(posts);
 
   return (
