@@ -176,13 +176,14 @@ export const getFeedPosts = async (
             where('privacy', '==', 'followers'), 
             where('status', '==', 'approved'), 
             where('groupId', '==', null),
-            orderBy('createdAt', 'desc')
+            orderBy('createdAt', 'desc'),
+            limit(pageSize)
         ];
         
         if (lastVisible) {
-            q = query(postsRef, ...publicQueryConstraints, startAfter(lastVisible), limit(pageSize));
+            q = query(postsRef, ...publicQueryConstraints, startAfter(lastVisible));
         } else {
-            q = query(postsRef, ...publicQueryConstraints, limit(pageSize));
+            q = query(postsRef, ...publicQueryConstraints);
         }
         
         const querySnapshot = await getDocs(q);
@@ -204,22 +205,13 @@ export const getFeedPosts = async (
 
     let feedQueryConstraints: any[] = [
         where('authorId', 'in', queryableFollowingIds),
+        limit(pageSize)
     ];
 
      if (lastVisible) {
-        // We need to order by the same field used in startAfter, so we'll sort client-side later
-        const lastPostSnap = await getDoc(doc(firestore, 'posts', lastVisible.id));
-        if (lastPostSnap.exists()) {
-             feedQueryConstraints.push(orderBy('createdAt', 'desc'));
-             feedQueryConstraints.push(startAfter(lastPostSnap));
-        }
-    } else {
-        feedQueryConstraints.push(orderBy('createdAt', 'desc'));
+        feedQueryConstraints.push(startAfter(lastVisible));
     }
     
-    feedQueryConstraints.push(limit(pageSize));
-    
-
     const q = query(postsRef, ...feedQueryConstraints);
 
     try {
