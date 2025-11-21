@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { getFeedPosts } from "@/services/post-service";
 import { type DocumentData, type DocumentSnapshot } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { LogIn, Edit } from "lucide-react";
+import { LogIn, Edit, Loader2 } from "lucide-react";
 
 function PostSkeleton() {
   return (
@@ -39,37 +39,19 @@ function PostSkeleton() {
   )
 }
 
-interface FeedClientContentProps {
-    initialPosts: Post[];
-    initialHasMore: boolean;
-}
+const POSTS_PER_PAGE = 3;
 
-export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientContentProps) {
+export function FeedClientContent() {
   const { user: currentUser, isUserLoading } = useUser();
   const [userProfile, setUserProfile] = useState<User | null>(null);
   
-  const [posts, setPosts] = useState<Post[]>(initialPosts);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [lastVisible, setLastVisible] = useState<DocumentSnapshot<DocumentData> | null>(null);
-  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [hasMore, setHasMore] = useState(true);
   
   const [isLoadingFeed, setIsLoadingFeed] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
-
-  const observer = useRef<IntersectionObserver>();
-  
-  const lastPostElementRef = useCallback((node: HTMLDivElement) => {
-    if (isLoadingMore) return;
-    if (observer.current) observer.current.disconnect();
-    
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
-        loadMorePosts();
-      }
-    });
-
-    if (node) observer.current.observe(node);
-  }, [isLoadingMore, hasMore]);
   
   useEffect(() => {
     if (!isUserLoading) {
@@ -88,7 +70,7 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
   const fetchInitialFeed = useCallback(async () => {
     setIsLoadingFeed(true);
     try {
-      const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(10, undefined, currentUser?.uid);
+      const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(POSTS_PER_PAGE, undefined, currentUser?.uid);
       setPosts(newPosts);
       setLastVisible(newLastVisible);
       setHasMore(newHasMore);
@@ -110,7 +92,7 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
     setIsLoadingMore(true);
 
     try {
-        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(10, lastVisible, currentUser?.uid);
+        const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(POSTS_PER_PAGE, lastVisible, currentUser?.uid);
         
         setPosts(prevPosts => {
           const postIds = new Set(prevPosts.map(p => p.id));
@@ -181,10 +163,9 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
       )}
       
       {posts?.map((post, index) => {
-         const isLastElement = index === posts.length - 1;
          return (
             <React.Fragment key={post.id}>
-              <div ref={isLastElement ? lastPostElementRef : null}>
+              <div>
                   <PostCard post={post} />
               </div>
               {/* Insert user suggestions after the second post if conditions are met */}
@@ -192,12 +173,16 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
             </React.Fragment>
          )
       })}
-       {isLoadingMore && (
-        <div className="space-y-4">
-          <PostSkeleton />
+
+      {hasMore && !isLoadingFeed && (
+        <div className="flex justify-center">
+            <Button onClick={loadMorePosts} disabled={isLoadingMore}>
+                {isLoadingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "تحميل المزيد"}
+            </Button>
         </div>
-      )}
-       {!hasMore && posts.length > 0 && (
+       )}
+
+       {!hasMore && posts.length > 0 && !isLoadingFeed && (
             <p className="text-center text-muted-foreground py-4">لقد وصلت إلى النهاية!</p>
        )}
         {!isInitialLoad && currentUser && posts.length === 0 && !noPostsAndIsStudent && !noPostsAndIsTeacher && (
