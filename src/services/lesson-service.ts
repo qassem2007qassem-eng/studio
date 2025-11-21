@@ -67,11 +67,19 @@ export async function getLessonsByTeacherId(teacherId: string): Promise<Lesson[]
   try {
     const lessonsQuery = query(
       collection(firestore, 'lessons'), 
-      where('teacherId', '==', teacherId),
-      orderBy('createdAt', 'desc')
+      where('teacherId', '==', teacherId)
     );
     const querySnapshot = await getDocs(lessonsQuery);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lesson));
+    const lessons = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lesson));
+
+    // Client-side sorting to avoid composite index
+    lessons.sort((a, b) => {
+        const dateA = safeToDate(a.createdAt)?.getTime() || 0;
+        const dateB = safeToDate(b.createdAt)?.getTime() || 0;
+        return dateB - dateA; // Descending for general lesson lists
+    });
+
+    return lessons;
   } catch (error) {
     console.error("Error getting lessons by teacher ID:", error);
     return [];
