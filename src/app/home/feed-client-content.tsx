@@ -40,7 +40,7 @@ function PostSkeleton() {
 }
 
 interface FeedClientContentProps {
-    initialPosts: Post[]; // This might be empty now, which is fine
+    initialPosts: Post[];
     initialHasMore: boolean;
 }
 
@@ -52,7 +52,7 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
   const [lastVisible, setLastVisible] = useState<DocumentSnapshot<DocumentData> | null>(null);
   const [hasMore, setHasMore] = useState(initialHasMore);
   
-  const [isLoadingFeed, setIsLoadingFeed] = useState(true); // Main loading state for the initial feed fetch
+  const [isLoadingFeed, setIsLoadingFeed] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(true);
 
@@ -72,10 +72,9 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
   }, [isLoadingMore, hasMore]);
   
   useEffect(() => {
-    // This effect handles fetching the user's own profile data
     if (!isUserLoading) {
       if (currentUser) {
-        getCurrentUserProfile({ forceRefresh: true }).then(profile => {
+        getCurrentUserProfile().then(profile => {
           setUserProfile(profile);
           setIsProfileLoading(false);
         });
@@ -95,15 +94,13 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
       setHasMore(newHasMore);
     } catch (error) {
       console.error("Error fetching initial feed:", error);
-      setHasMore(false); // Stop trying to fetch more if initial fetch fails
+      setHasMore(false);
     } finally {
       setIsLoadingFeed(false);
     }
   }, [currentUser?.uid]);
   
   useEffect(() => {
-    // This effect triggers the very first data fetch when the component mounts
-    // or when the user logs in/out.
     fetchInitialFeed();
   }, [fetchInitialFeed]);
 
@@ -134,6 +131,8 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
   const isTeacher = userProfile?.accountType === 'teacher';
   const isInitialLoad = (isUserLoading || isProfileLoading || isLoadingFeed);
   const noPostsAndIsTeacher = !isInitialLoad && currentUser && posts.length === 0 && isTeacher;
+  const noPostsAndIsStudent = !isInitialLoad && currentUser && posts.length === 0 && userProfile && userProfile.following.length === 0 && !isTeacher;
+
 
   return (
     <div className="space-y-4 pt-6">
@@ -168,7 +167,7 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
           </Card>
       )}
 
-      {!isInitialLoad && currentUser && posts.length === 0 && userProfile && userProfile.following.length === 0 && !isTeacher && (
+      {noPostsAndIsStudent && (
          <UserSuggestions />
       )}
 
@@ -188,9 +187,8 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
               <div ref={isLastElement ? lastPostElementRef : null}>
                   <PostCard post={post} />
               </div>
-              {index === 1 && currentUser && userProfile && userProfile.following.length > 0 && !isTeacher && (
-                <UserSuggestions />
-              )}
+              {/* Insert user suggestions after the second post if conditions are met */}
+              {index === 1 && !isTeacher && <UserSuggestions />}
             </React.Fragment>
          )
       })}
@@ -202,6 +200,15 @@ export function FeedClientContent({ initialPosts, initialHasMore }: FeedClientCo
        {!hasMore && posts.length > 0 && (
             <p className="text-center text-muted-foreground py-4">لقد وصلت إلى النهاية!</p>
        )}
+        {!isInitialLoad && currentUser && posts.length === 0 && !noPostsAndIsStudent && !noPostsAndIsTeacher && (
+           <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                  <Edit className="h-10 w-10 mx-auto mb-4" />
+                  <p>صفحتك الرئيسية فارغة.</p>
+                  <p className="text-sm">ابدأ بمتابعة بعض المستخدمين لترى منشوراتهم هنا.</p>
+              </CardContent>
+          </Card>
+        )}
     </div>
   );
 }

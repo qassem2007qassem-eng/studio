@@ -144,6 +144,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         const snapshot = await getDocs(q);
         let posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         
+        // Filter client-side for privacy
         if (!isOwner) {
            posts = posts.filter(post => post.privacy !== 'only_me');
         }
@@ -163,9 +164,15 @@ export const getFeedPosts = async (
     const { firestore } = initializeFirebase();
     const postsRef = collection(firestore, 'posts');
 
+    // For non-logged-in users, show public posts from non-group contexts
     if (!userId) {
-        // For non-logged-in users, show public posts
-        const q = query(postsRef, where('privacy', '==', 'followers'), where('status', '==', 'approved'), where('groupId', '==', null), orderBy('createdAt', 'desc'), limit(pageSize));
+        let q;
+        if (lastVisible) {
+            q = query(postsRef, where('privacy', '==', 'followers'), where('status', '==', 'approved'), where('groupId', '==', null), orderBy('createdAt', 'desc'), startAfter(lastVisible), limit(pageSize));
+        } else {
+            q = query(postsRef, where('privacy', '==', 'followers'), where('status', '==', 'approved'), where('groupId', '==', null), orderBy('createdAt', 'desc'), limit(pageSize));
+        }
+        
         const querySnapshot = await getDocs(q);
         const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         return { posts, lastVisible: querySnapshot.docs[querySnapshot.docs.length - 1] ?? null, hasMore: posts.length === pageSize };
@@ -173,69 +180,47 @@ export const getFeedPosts = async (
 
     const userProfile = await getCurrentUserProfile({ userId });
 
-    // User's feed should contain posts from people they follow AND their own posts.
+    // Feed should contain posts from people user is following AND their own posts.
     const followingIds = [...(userProfile?.following || []), userId];
 
     if (followingIds.length === 0) {
         return { posts: [], lastVisible: null, hasMore: false };
     }
-
-    // Firestore 'in' queries are limited to 30 items. We might need to handle pagination for users following > 29 people,
-    // but for now, we'll query the first 30.
+    
+    // Firestore 'in' queries are limited to 30 items. 
+    // This is a simplification. For >29 followings, a more complex solution is needed.
     const queryableFollowingIds = followingIds.slice(0, 30);
 
     let feedQueryConstraints: any[] = [
         where('authorId', 'in', queryableFollowingIds),
-        // The orderBy is crucial, but we'll filter for status and privacy on the client to avoid composite indexes.
         orderBy('createdAt', 'desc'),
-        limit(pageSize)
     ];
 
     if (lastVisible) {
         feedQueryConstraints.push(startAfter(lastVisible));
     }
+    
+    feedQueryConstraints.push(limit(pageSize));
 
     const q = query(postsRef, ...feedQueryConstraints);
 
     try {
         const querySnapshot = await getDocs(q);
 
-        let posts = querySnapshot.docs.map(doc => {
-            const data = doc.data() as Post;
-            return {
-                id: doc.id,
-                ...data,
-                createdAt: data.createdAt, // Ensure Timestamps are passed through
-                updatedAt: data.updatedAt ? data.updatedAt : undefined,
-            };
-        });
-
-        // **Client-side filtering** to avoid complex queries needing indexes.
-        posts = posts.filter(post =>
-            post.status === 'approved' &&
-            (post.privacy !== 'only_me' || post.authorId === userId)
-        );
-        
-        // Sorting might be slightly off if we fetch and then filter, but it's a safe tradeoff to avoid index errors.
-        // For true chronological order after filtering, we'd need a more complex solution.
-        // Let's re-sort just in case.
-        posts.sort((a, b) => {
-            const dateA = safeToDate(a.createdAt)?.getTime() || 0;
-            const dateB = safeToDate(b.createdAt)?.getTime() || 0;
-            return dateB - dateA;
-        });
-
+        // Client-side filtering for status and privacy.
+        let posts = querySnapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as Post))
+            .filter(post => 
+                post.status === 'approved' && // Must be approved
+                (post.privacy !== 'only_me' || post.authorId === userId) // Must not be 'only_me' unless it's user's own post
+            );
 
         const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] ?? null;
-        // hasMore logic might be slightly optimistic, as filtering can reduce the page size.
-        // It's a reasonable tradeoff. A page might appear to have more when it's the last, but it won't break.
         const hasMore = querySnapshot.docs.length === pageSize;
 
         return { posts, lastVisible: newLastVisible, hasMore };
     } catch (error) {
         console.error("Error fetching feed posts:", error);
-        // If an index error still occurs, it means the basic query itself is the issue.
-        // Re-throwing is appropriate here as there's no simpler fallback.
         throw error;
     }
 }
