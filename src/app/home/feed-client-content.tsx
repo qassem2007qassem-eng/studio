@@ -73,14 +73,7 @@ export function FeedClientContent() {
     try {
       const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(POSTS_PER_PAGE, undefined, currentUser?.uid);
       
-      // Sort posts on the client-side
-      const sortedPosts = newPosts.sort((a, b) => {
-        const dateA = safeToDate(a.createdAt)?.getTime() || 0;
-        const dateB = safeToDate(b.createdAt)?.getTime() || 0;
-        return dateB - dateA;
-      });
-      
-      setPosts(sortedPosts);
+      setPosts(newPosts);
       setLastVisible(newLastVisible);
       setHasMore(newHasMore);
     } catch (error) {
@@ -103,16 +96,9 @@ export function FeedClientContent() {
     try {
         const { posts: newPosts, lastVisible: newLastVisible, hasMore: newHasMore } = await getFeedPosts(POSTS_PER_PAGE, lastVisible, currentUser?.uid);
         
-        const sortedNewPosts = newPosts.sort((a, b) => {
-            const dateA = safeToDate(a.createdAt)?.getTime() || 0;
-            const dateB = safeToDate(b.createdAt)?.getTime() || 0;
-            return dateB - dateA;
-        });
-
         setPosts(prevPosts => {
           const postIds = new Set(prevPosts.map(p => p.id));
-          const uniqueNewPosts = sortedNewPosts.filter(p => !postIds.has(p.id));
-          // We don't need to re-sort the entire list, just append and the order should be generally correct
+          const uniqueNewPosts = newPosts.filter(p => !postIds.has(p.id));
           return [...prevPosts, ...uniqueNewPosts];
         });
 

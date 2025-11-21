@@ -65,6 +65,7 @@ export async function getLessonsByCourseId(courseId: string): Promise<Lesson[]> 
 export async function getLessonsByTeacherId(teacherId: string): Promise<Lesson[]> {
   const { firestore } = initializeFirebase();
   try {
+    // Simplified query
     const lessonsQuery = query(
       collection(firestore, 'lessons'), 
       where('teacherId', '==', teacherId)
@@ -72,7 +73,7 @@ export async function getLessonsByTeacherId(teacherId: string): Promise<Lesson[]
     const querySnapshot = await getDocs(lessonsQuery);
     const lessons = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lesson));
 
-    // Client-side sorting to avoid composite index
+    // Client-side sorting
     lessons.sort((a, b) => {
         const dateA = safeToDate(a.createdAt)?.getTime() || 0;
         const dateB = safeToDate(b.createdAt)?.getTime() || 0;
@@ -137,5 +138,3 @@ export async function addCommentToLesson(lessonId: string, content: string, pare
 
     return docRef.id;
 }
-
-    

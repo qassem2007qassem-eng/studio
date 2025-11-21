@@ -133,11 +133,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     const isOwner = profileUserId === currentUserId;
 
     // Build the query constraints - SIMPLIFIED: only query by authorId
-    const queryConstraints: any[] = [
-        where('authorId', '==', profileUserId),
-    ];
-    
-    const q = query(postsCollection, ...queryConstraints);
+    const q = query(postsCollection, where('authorId', '==', profileUserId));
 
     try {
         const snapshot = await getDocs(q);
@@ -171,8 +167,7 @@ export const getFeedPosts = async (
 
     // For non-logged-in users, show public posts from non-group contexts
     if (!userId) {
-        let q;
-        const publicQueryConstraints = [
+        const publicQueryConstraints: any[] = [
             where('privacy', '==', 'followers'), 
             where('status', '==', 'approved'), 
             where('groupId', '==', null),
@@ -181,11 +176,10 @@ export const getFeedPosts = async (
         ];
         
         if (lastVisible) {
-            q = query(postsRef, ...publicQueryConstraints, startAfter(lastVisible));
-        } else {
-            q = query(postsRef, ...publicQueryConstraints);
+            publicQueryConstraints.push(startAfter(lastVisible));
         }
         
+        const q = query(postsRef, ...publicQueryConstraints);
         const querySnapshot = await getDocs(q);
         const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         return { posts, lastVisible: querySnapshot.docs[querySnapshot.docs.length - 1] ?? null, hasMore: posts.length === pageSize };
@@ -200,11 +194,11 @@ export const getFeedPosts = async (
         return { posts: [], lastVisible: null, hasMore: false };
     }
     
-    // Firestore 'in' queries are limited to 30 items.
     const queryableFollowingIds = followingIds.slice(0, 30);
 
     let feedQueryConstraints: any[] = [
         where('authorId', 'in', queryableFollowingIds),
+        orderBy('createdAt', 'desc'),
         limit(pageSize)
     ];
 
@@ -216,13 +210,12 @@ export const getFeedPosts = async (
 
     try {
         const querySnapshot = await getDocs(q);
-
-        // Client-side filtering for status and privacy.
+        
         let posts = querySnapshot.docs
             .map(doc => ({ id: doc.id, ...doc.data() } as Post))
             .filter(post => 
-                post.status === 'approved' && // Must be approved
-                (post.privacy !== 'only_me' || post.authorId === userId) // Must not be 'only_me' unless it's user's own post
+                post.status === 'approved' &&
+                (post.privacy !== 'only_me' || post.authorId === userId)
             );
 
         const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] ?? null;

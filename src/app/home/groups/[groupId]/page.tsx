@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -28,7 +29,7 @@ function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' |
     const { firestore } = initializeFirebase();
 
     useEffect(() => {
-        // SIMPLIFIED QUERY: Only query by groupId. We will filter and sort on the client.
+        // SIMPLIFIED QUERY: Only query by groupId.
         const q = query(collection(firestore, 'posts'), where('groupId', '==', groupId));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
