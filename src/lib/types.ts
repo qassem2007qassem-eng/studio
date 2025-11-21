@@ -72,7 +72,7 @@ export interface Report {
     id: string;
     reporterId: string;
     reportedEntityId: string;
-    reportedEntityType: 'post' | 'user' | 'comment' | 'verification_request';
+    reportedEntityType: 'post' | 'user' | 'comment' | 'verification_request' | 'lesson';
     reason: string;
     createdAt: Timestamp;
     status: 'pending' | 'resolved' | 'dismissed' | 'deleted';

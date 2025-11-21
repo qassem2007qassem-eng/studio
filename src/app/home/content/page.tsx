@@ -5,15 +5,21 @@ import { useEffect, useState, useMemo } from 'react';
 import { collection, query, orderBy, getDocs, limit, where } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 import { type Lesson, type User } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlayCircle, Search as SearchIcon } from 'lucide-react';
+import { PlayCircle, Search as SearchIcon, MoreHorizontal, Flag } from 'lucide-react';
 import Link from 'next/link';
 import { getTeachersByIds } from '@/services/user-service';
 import { useDebounce } from '@/hooks/use-debounce';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { formatDistanceToNow, safeToDate } from '@/lib/utils';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ReportDialog } from '@/components/report-dialog';
+import { createReport } from '@/services/report-service';
+import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/firebase';
 
 function formatDuration(seconds: number) {
     if (isNaN(seconds) || seconds < 0) return '0 د';
@@ -63,11 +69,16 @@ function UserSearchResultCard({ user }: { user: User }) {
 
 
 export default function ContentPage() {
+    const { user } = useUser();
+    const { toast } = useToast();
+
     const [allLessons, setAllLessons] = useState<Lesson[]>([]);
     const [allTeachers, setAllTeachers] = useState<Record<string, User>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     
+    const [reportingLesson, setReportingLesson] = useState<Lesson | null>(null);
+
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [teacherResults, setTeacherResults] = useState<User[]>([]);
 
@@ -135,6 +146,24 @@ export default function ContentPage() {
         }
         searchTeachers();
     }, [debouncedSearchTerm, filteredLessons, firestore])
+    
+    const handleReportLesson = async (reason: string) => {
+        if (!user || !reportingLesson) return;
+        if (!reason) {
+            toast({ title: "خطأ", description: "الرجاء إدخال سبب للإبلاغ.", variant: "destructive" });
+            return;
+        }
+        try {
+            await createReport({
+                reportedEntityId: reportingLesson.id,
+                reportedEntityType: 'lesson',
+                reason: reason,
+            });
+            toast({ title: "تم إرسال الإبلاغ بنجاح" });
+        } catch (error: any) {
+            toast({ title: 'خطأ', description: error.message, variant: 'destructive' });
+        }
+    };
 
 
     return (
@@ -166,10 +195,11 @@ export default function ContentPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {filteredLessons.map(lesson => {
                         const teacher = allTeachers[lesson.teacherId];
+                        const lessonDate = safeToDate(lesson.createdAt);
                         return (
-                        <Card key={lesson.id} className="overflow-hidden">
-                            <Link href={`/lessons/${lesson.id}`} className="block">
-                                <div className="relative aspect-video bg-secondary">
+                        <Card key={lesson.id} className="overflow-hidden flex flex-col">
+                            <div className="relative aspect-video bg-secondary">
+                                <Link href={`/lessons/${lesson.id}`} className="block h-full w-full">
                                     {lesson.thumbnailUrl ? (
                                         <img src={lesson.thumbnailUrl} alt={lesson.title} className="w-full h-full object-cover" />
                                     ) : (
@@ -177,27 +207,51 @@ export default function ContentPage() {
                                             <PlayCircle className="h-12 w-12 text-muted-foreground" />
                                         </div>
                                     )}
-                                    <div className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
-                                        {formatDuration(lesson.duration)}
-                                    </div>
+                                </Link>
+                                <div className="absolute bottom-1 right-1 bg-black/60 text-white text-xs px-1.5 py-0.5 rounded">
+                                    {formatDuration(lesson.duration)}
                                 </div>
-                            </Link>
-                            <CardHeader className="p-3">
-                                <CardTitle className="text-base font-semibold leading-tight truncate hover:underline">
-                                    <Link href={`/lessons/${lesson.id}`}>{lesson.title}</Link>
-                                </CardTitle>
+                            </div>
+                            <CardHeader className="p-3 flex-grow">
+                                 <div className="flex justify-between items-start">
+                                    <CardTitle className="text-base font-semibold leading-tight flex-1">
+                                        <Link href={`/lessons/${lesson.id}`} className="hover:underline">{lesson.title}</Link>
+                                    </CardTitle>
+                                    {user && (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => setReportingLesson(lesson)}>
+                                                    <Flag className="me-2 h-4 w-4" />
+                                                    إبلاغ
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    )}
+                                </div>
+                            </CardHeader>
+                             <CardFooter className="p-3 pt-0">
                                 {teacher && (
-                                     <div className="flex items-center gap-2 pt-1">
-                                        <Avatar className="h-6 w-6">
+                                     <div className="flex items-center gap-2 w-full">
+                                        <Avatar className="h-8 w-8">
                                             <AvatarImage src={(teacher as any).profilePictureUrl || undefined} alt={teacher.name} />
                                             <AvatarFallback>{teacher.name?.charAt(0)}</AvatarFallback>
                                         </Avatar>
-                                        <span className="text-xs text-muted-foreground font-medium hover:underline">
-                                             <Link href={`/home/profile/${teacher.username.toLowerCase()}`}>{teacher.name}</Link>
-                                        </span>
+                                        <div className="text-xs text-muted-foreground font-medium">
+                                            <Link href={`/home/profile/${teacher.username.toLowerCase()}`} className="hover:underline text-foreground">
+                                                {teacher.name}
+                                            </Link>
+                                            {lessonDate && (
+                                                <p>{formatDistanceToNow(lessonDate)}</p>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
-                            </CardHeader>
+                            </CardFooter>
                         </Card>
                     )})}
                 </div>
@@ -214,6 +268,16 @@ export default function ContentPage() {
                         <p>جرّب كلمات بحث مختلفة.</p>
                     </CardContent>
                 </Card>
+            )}
+
+            {reportingLesson && (
+                 <ReportDialog
+                    open={!!reportingLesson}
+                    onOpenChange={(open) => !open && setReportingLesson(null)}
+                    onReportSubmit={handleReportLesson}
+                    title={`الإبلاغ عن درس: ${reportingLesson.title}`}
+                    description="لماذا تبلغ عن هذا الدرس؟ سيتم إرسال بلاغك إلى المشرفين للمراجعة."
+                />
             )}
         </div>
     );
