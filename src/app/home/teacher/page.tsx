@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useUser, initializeFirebase } from '@/firebase';
@@ -6,12 +7,13 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { GraduationCap, Video, ListVideo, PlusCircle, BookOpenCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { type Course, type Lesson, type Playlist } from '@/lib/types';
+import { type Course, type Lesson, type Playlist, type User as UserType } from '@/lib/types';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import Link from 'next/link';
 import { safeToDate } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getCurrentUserProfile } from '@/services/user-service';
 
 function TeacherCourses({ teacherId }: { teacherId: string }) {
     const [courses, setCourses] = useState<Course[]>([]);
@@ -123,12 +125,21 @@ export default function TeacherDashboardPage() {
   const [lessonCount, setLessonCount] = useState(0);
   const [courseCount, setCourseCount] = useState(0);
   const [totalViews, setTotalViews] = useState(0);
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [userProfile, setUserProfile] = useState<UserType | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      const fetchTeacherStats = async () => {
-        setIsLoadingStats(true);
+    if (user && !isUserLoading) {
+      const fetchTeacherData = async () => {
+        setIsLoading(true);
+        const profile = await getCurrentUserProfile();
+        setUserProfile(profile);
+
+        if (profile?.accountType !== 'teacher') {
+            setIsLoading(false);
+            return;
+        }
+
         const lessonsQuery = query(collection(firestore, 'lessons'), where('teacherId', '==', user.uid));
         const lessonsSnapshot = await getDocs(lessonsQuery);
         const lessons = lessonsSnapshot.docs.map(doc => doc.data() as Lesson);
@@ -139,15 +150,15 @@ export default function TeacherDashboardPage() {
         const coursesSnapshot = await getDocs(coursesQuery);
         setCourseCount(coursesSnapshot.docs.length);
         
-        setIsLoadingStats(false);
+        setIsLoading(false);
       };
-      fetchTeacherStats();
+      fetchTeacherData();
     } else if (!isUserLoading) {
-        setIsLoadingStats(false);
+        setIsLoading(false);
     }
   }, [user, isUserLoading, firestore]);
 
-  if (isUserLoading || (user && isLoadingStats)) {
+  if (isLoading || isUserLoading) {
     return <div className="space-y-4">
       <Skeleton className="h-24 w-full" />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -159,7 +170,7 @@ export default function TeacherDashboardPage() {
     </div>;
   }
 
-  if (!user || !user.email?.endsWith('@teacher.app.com')) {
+  if (!user || userProfile?.accountType !== 'teacher') {
     return (
       <Card>
         <CardHeader>
