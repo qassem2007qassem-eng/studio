@@ -28,10 +28,8 @@ function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' |
     const { firestore } = initializeFirebase();
 
     useEffect(() => {
-        const postsRef = collection(firestore, 'posts');
-        // A very simple query to avoid any composite indexes.
-        // We will filter and sort on the client.
-        const q = query(postsRef, where('groupId', '==', groupId));
+        // SIMPLIFIED QUERY: Only query by groupId. We will filter and sort on the client.
+        const q = query(collection(firestore, 'posts'), where('groupId', '==', groupId));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
@@ -45,6 +43,7 @@ function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' |
         return () => unsubscribe();
     }, [groupId, firestore]);
     
+    // Client-side filtering and sorting
     const posts = useMemo(() => {
         return allPosts
             .filter(post => post.status === status)

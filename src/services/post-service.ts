@@ -132,10 +132,9 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     const postsCollection = collection(firestore, 'posts');
     const isOwner = profileUserId === currentUserId;
 
-    // Build the query constraints
+    // Build the query constraints - SIMPLIFIED: only query by authorId
     const queryConstraints: any[] = [
         where('authorId', '==', profileUserId),
-        orderBy('createdAt', 'desc'),
     ];
     
     const q = query(postsCollection, ...queryConstraints);
@@ -144,10 +143,16 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
         const snapshot = await getDocs(q);
         let posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         
-        // Filter client-side for privacy
+        // Filter and sort on the client side
         if (!isOwner) {
            posts = posts.filter(post => post.privacy !== 'only_me');
         }
+
+        posts.sort((a, b) => {
+            const dateA = safeToDate(a.createdAt)?.getTime() || 0;
+            const dateB = safeToDate(b.createdAt)?.getTime() || 0;
+            return dateB - dateA;
+        });
 
         return posts;
     } catch (e) {
@@ -157,7 +162,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
 };
 
 export const getFeedPosts = async (
-    pageSize = 10,
+    pageSize = 3,
     lastVisible?: DocumentSnapshot<DocumentData> | null,
     userId?: string
 ): Promise<{ posts: Post[], lastVisible: DocumentSnapshot<DocumentData> | null, hasMore: boolean }> => {
@@ -167,10 +172,17 @@ export const getFeedPosts = async (
     // For non-logged-in users, show public posts from non-group contexts
     if (!userId) {
         let q;
+        const publicQueryConstraints = [
+            where('privacy', '==', 'followers'), 
+            where('status', '==', 'approved'), 
+            where('groupId', '==', null),
+            orderBy('createdAt', 'desc')
+        ];
+        
         if (lastVisible) {
-            q = query(postsRef, where('privacy', '==', 'followers'), where('status', '==', 'approved'), where('groupId', '==', null), orderBy('createdAt', 'desc'), startAfter(lastVisible), limit(pageSize));
+            q = query(postsRef, ...publicQueryConstraints, startAfter(lastVisible), limit(pageSize));
         } else {
-            q = query(postsRef, where('privacy', '==', 'followers'), where('status', '==', 'approved'), where('groupId', '==', null), orderBy('createdAt', 'desc'), limit(pageSize));
+            q = query(postsRef, ...publicQueryConstraints, limit(pageSize));
         }
         
         const querySnapshot = await getDocs(q);
@@ -179,7 +191,7 @@ export const getFeedPosts = async (
     }
 
     const userProfile = await getCurrentUserProfile({ userId });
-
+    
     // Feed should contain posts from people user is following AND their own posts.
     const followingIds = [...(userProfile?.following || []), userId];
 
@@ -187,20 +199,26 @@ export const getFeedPosts = async (
         return { posts: [], lastVisible: null, hasMore: false };
     }
     
-    // Firestore 'in' queries are limited to 30 items. 
-    // This is a simplification. For >29 followings, a more complex solution is needed.
+    // Firestore 'in' queries are limited to 30 items.
     const queryableFollowingIds = followingIds.slice(0, 30);
 
     let feedQueryConstraints: any[] = [
         where('authorId', 'in', queryableFollowingIds),
-        orderBy('createdAt', 'desc'),
     ];
 
-    if (lastVisible) {
-        feedQueryConstraints.push(startAfter(lastVisible));
+     if (lastVisible) {
+        // We need to order by the same field used in startAfter, so we'll sort client-side later
+        const lastPostSnap = await getDoc(doc(firestore, 'posts', lastVisible.id));
+        if (lastPostSnap.exists()) {
+             feedQueryConstraints.push(orderBy('createdAt', 'desc'));
+             feedQueryConstraints.push(startAfter(lastPostSnap));
+        }
+    } else {
+        feedQueryConstraints.push(orderBy('createdAt', 'desc'));
     }
     
     feedQueryConstraints.push(limit(pageSize));
+    
 
     const q = query(postsRef, ...feedQueryConstraints);
 
