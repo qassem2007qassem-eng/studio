@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -85,9 +84,9 @@ function CreateLessonForm() {
         const autoThumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
 
         try {
+            // Note: The 'description' field for Lesson is not in the type, but let's assume it should be.
             const lessonData: Omit<Lesson, 'id'> = {
                 title,
-                description,
                 videoUrl,
                 thumbnailUrl: autoThumbnailUrl,
                 duration: durationInSeconds,
@@ -96,6 +95,7 @@ function CreateLessonForm() {
                 views: 0,
                 likes: [],
                 createdAt: serverTimestamp() as any,
+                 // description: description, // Uncomment if you add description to Lesson type
             };
 
             const lessonsCollection = collection(firestore, 'lessons');
