@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, collection, query, where, getDocs, orderBy, writeBatch } from 'firebase/firestore';
 import { useUser, initializeFirebase } from '@/firebase';
@@ -24,28 +23,19 @@ import { ShareGroupDialog } from '@/components/share-group-dialog';
 import { safeToDate } from '@/lib/utils';
 
 function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' | 'pending' }) {
-    const [posts, setPosts] = useState<Post[]>([]);
+    const [allPosts, setAllPosts] = useState<Post[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { firestore } = initializeFirebase();
 
     useEffect(() => {
         const postsRef = collection(firestore, 'posts');
-        // Removed orderBy to prevent composite index requirement. Sorting will be done client-side.
-        const q = query(
-            postsRef,
-            where('groupId', '==', groupId),
-            where('status', '==', status)
-        );
+        // A very simple query to avoid any composite indexes.
+        // We will filter and sort on the client.
+        const q = query(postsRef, where('groupId', '==', groupId));
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
-            // Sort posts by creation date client-side
-            fetchedPosts.sort((a, b) => {
-                const dateA = safeToDate(a.createdAt)?.getTime() || 0;
-                const dateB = safeToDate(b.createdAt)?.getTime() || 0;
-                return dateB - dateA;
-            });
-            setPosts(fetchedPosts);
+            setAllPosts(fetchedPosts);
             setIsLoading(false);
         }, (error) => {
             console.error("Error fetching group posts:", error);
@@ -53,7 +43,18 @@ function GroupPosts({ groupId, status }: { groupId: string, status: 'approved' |
         });
 
         return () => unsubscribe();
-    }, [groupId, firestore, status]);
+    }, [groupId, firestore]);
+    
+    const posts = useMemo(() => {
+        return allPosts
+            .filter(post => post.status === status)
+            .sort((a, b) => {
+                const dateA = safeToDate(a.createdAt)?.getTime() || 0;
+                const dateB = safeToDate(b.createdAt)?.getTime() || 0;
+                return dateB - dateA;
+            });
+    }, [allPosts, status]);
+
 
     if (isLoading) {
         return <Skeleton className="h-40 w-full" />;
