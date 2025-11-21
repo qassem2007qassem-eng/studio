@@ -5,15 +5,28 @@ import { useUser, initializeFirebase } from '@/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { GraduationCap, Video, ListVideo, PlusCircle, BookOpenCheck } from 'lucide-react';
+import { GraduationCap, Video, ListVideo, PlusCircle, BookOpenCheck, PlayCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { type Course, type Lesson, type Playlist, type User as UserType } from '@/lib/types';
 import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import Link from 'next/link';
-import { safeToDate } from '@/lib/utils';
+import { cn, safeToDate } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getCurrentUserProfile } from '@/services/user-service';
+import { getLessonsByTeacherId } from '@/services/lesson-service';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+
+
+function formatDuration(seconds: number) {
+    if (isNaN(seconds) || seconds < 0) return '0 د';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    let result = '';
+    if (h > 0) result += `${h} س `;
+    if (m > 0) result += `${m} د`;
+    return result.trim() || '0 د';
+}
 
 function TeacherCourses({ teacherId }: { teacherId: string }) {
     const [courses, setCourses] = useState<Course[]>([]);
@@ -116,6 +129,67 @@ function TeacherPlaylists({ teacherId }: { teacherId: string }) {
         </div>
     );
 }
+
+function TeacherLessons({ teacherId }: { teacherId: string }) {
+    const [lessons, setLessons] = useState<Lesson[]>([]);
+    const [courses, setCourses] = useState<Record<string, Course>>({});
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchLessonsAndCourses = async () => {
+            setIsLoading(true);
+            const fetchedLessons = await getLessonsByTeacherId(teacherId);
+            setLessons(fetchedLessons);
+
+            if (fetchedLessons.length > 0) {
+                const courseIds = [...new Set(fetchedLessons.map(l => l.courseId))];
+                const coursesRef = collection(initializeFirebase().firestore, 'courses');
+                const q = query(coursesRef, where('id', 'in', courseIds));
+                const querySnapshot = await getDocs(q);
+                const coursesMap = querySnapshot.docs.reduce((acc, doc) => {
+                    acc[doc.id] = doc.data() as Course;
+                    return acc;
+                }, {} as Record<string, Course>);
+                setCourses(coursesMap);
+            }
+            setIsLoading(false);
+        };
+        fetchLessonsAndCourses();
+    }, [teacherId]);
+
+    if (isLoading) {
+        return <div className="space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>;
+    }
+
+    if (lessons.length === 0) {
+        return <p className="text-muted-foreground text-center py-6">لم تقم بنشر أي دروس بعد.</p>;
+    }
+
+    return (
+        <div className="space-y-4">
+            {lessons.map(lesson => (
+                 <Card key={lesson.id} className="hover:bg-muted/50">
+                    <Link href={`/lessons/${lesson.id}`} className="flex items-center gap-4 p-4">
+                        <Avatar className="h-16 w-28 rounded-md" variant="square">
+                            <AvatarImage src={lesson.thumbnailUrl} alt={lesson.title} className="object-cover"/>
+                            <AvatarFallback className="rounded-md bg-secondary flex items-center justify-center">
+                                <PlayCircle className="text-muted-foreground" />
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                            <p className="font-semibold">{lesson.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {courses[lesson.courseId]?.title || 'دورة غير معروفة'}
+                            </p>
+                             <p className="text-xs text-muted-foreground">{formatDuration(lesson.duration)}</p>
+                        </div>
+                    </Link>
+                </Card>
+            ))}
+        </div>
+    );
+}
+
 
 export default function TeacherDashboardPage() {
   const { user, isUserLoading } = useUser();
@@ -246,12 +320,16 @@ export default function TeacherDashboardPage() {
       </div>
 
        <Tabs defaultValue="courses" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="courses">دوراتي</TabsTrigger>
+                <TabsTrigger value="lessons">دروسي</TabsTrigger>
                 <TabsTrigger value="playlists">قوائم التشغيل</TabsTrigger>
             </TabsList>
             <TabsContent value="courses" className="mt-6 space-y-4">
                 <TeacherCourses teacherId={user.uid} />
+            </TabsContent>
+            <TabsContent value="lessons" className="mt-6 space-y-4">
+                <TeacherLessons teacherId={user.uid} />
             </TabsContent>
             <TabsContent value="playlists" className="mt-6 space-y-4">
                  <div className="flex justify-end">
@@ -268,3 +346,5 @@ export default function TeacherDashboardPage() {
     </div>
   );
 }
+
+    

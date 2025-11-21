@@ -9,11 +9,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { PostCard } from "@/components/post-card";
-import { Settings, UserPlus, UserCheck, Lock, Trash2, UserPlus2, Flag, Verified, ListVideo } from "lucide-react";
+import { Settings, UserPlus, UserCheck, Lock, Trash2, UserPlus2, Flag, Verified, ListVideo, PlayCircle } from "lucide-react";
 import { CreatePostTrigger } from "@/components/create-post-trigger";
 import { useUser } from "@/firebase";
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { type User, type Post, type Playlist, type Course } from "@/lib/types";
+import { type User, type Post, type Playlist, type Course, type Lesson } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useParams, useRouter } from 'next/navigation';
 import { getUserByUsername, followUser, unfollowUser, getCurrentUserProfile, deleteUserAndContent } from "@/services/user-service";
@@ -28,7 +28,17 @@ import { ReportDialog } from "@/components/report-dialog";
 import { cn } from "@/lib/utils";
 import { createReport } from "@/services/report-service";
 import { getCoursesByIds } from "@/services/course-service";
+import { getLessonsByTeacherId } from "@/services/lesson-service";
 
+function formatDuration(seconds: number) {
+    if (isNaN(seconds) || seconds < 0) return '0 د';
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    let result = '';
+    if (h > 0) result += `${h} س `;
+    if (m > 0) result += `${m} د`;
+    return result.trim() || '0 د';
+}
 
 function TeacherPlaylists({ teacherId }: { teacherId: string }) {
     const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -104,6 +114,70 @@ function TeacherPlaylists({ teacherId }: { teacherId: string }) {
         </div>
     )
 
+}
+
+function TeacherLessons({ teacherId }: { teacherId: string }) {
+    const [lessons, setLessons] = useState<Lesson[]>([]);
+    const [courses, setCourses] = useState<Record<string, Course>>({});
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchLessonsAndCourses = async () => {
+            setIsLoading(true);
+            const fetchedLessons = await getLessonsByTeacherId(teacherId);
+            setLessons(fetchedLessons);
+
+            if (fetchedLessons.length > 0) {
+                const courseIds = [...new Set(fetchedLessons.map(l => l.courseId))];
+                const fetchedCourses = await getCoursesByIds(courseIds);
+                const coursesMap = fetchedCourses.reduce((acc, course) => {
+                    acc[course.id] = course;
+                    return acc;
+                }, {} as Record<string, Course>);
+                setCourses(coursesMap);
+            }
+            setIsLoading(false);
+        };
+        fetchLessonsAndCourses();
+    }, [teacherId]);
+
+    if (isLoading) {
+        return <div className="space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div>;
+    }
+
+    if (lessons.length === 0) {
+        return (
+            <Card>
+                <CardContent className="p-8 text-center text-muted-foreground">
+                    لم يقم هذا المعلم بنشر أي دروس بعد.
+                </CardContent>
+            </Card>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {lessons.map(lesson => (
+                <Card key={lesson.id} className="hover:bg-muted/50">
+                    <Link href={`/lessons/${lesson.id}`} className="flex items-center gap-4 p-4">
+                        <Avatar className="h-16 w-28 rounded-md" variant="square">
+                            <AvatarImage src={lesson.thumbnailUrl} alt={lesson.title} className="object-cover"/>
+                            <AvatarFallback className="rounded-md bg-secondary flex items-center justify-center">
+                                <PlayCircle className="text-muted-foreground" />
+                            </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                            <p className="font-semibold">{lesson.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {courses[lesson.courseId]?.title || 'دورة غير معروفة'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{formatDuration(lesson.duration)}</p>
+                        </div>
+                    </Link>
+                </Card>
+            ))}
+        </div>
+    );
 }
 
 
@@ -329,7 +403,7 @@ export default function ProfilePage() {
   
   const followerCount = profileUser.followers?.length || 0;
   const followingCount = profileUser.following?.length || 0;
-  const tabs = isTeacher ? ["playlists", "posts"] : ["posts"];
+  const tabs = isTeacher ? ["playlists", "lessons", "posts"] : ["posts"];
   const defaultTab = isTeacher ? "playlists" : "posts";
 
   return (
@@ -407,8 +481,9 @@ export default function ProfilePage() {
       {isCurrentUserProfile && !isTeacher && <CreatePostTrigger />}
 
       <Tabs defaultValue={defaultTab} className="w-full">
-        <TabsList className={cn("grid w-full", tabs.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
+        <TabsList className={cn("grid w-full", `grid-cols-${tabs.length}`)}>
           {isTeacher && <TabsTrigger value="playlists">قوائم التشغيل</TabsTrigger>}
+          {isTeacher && <TabsTrigger value="lessons">الدروس</TabsTrigger>}
           <TabsTrigger value="posts">المنشورات</TabsTrigger>
         </TabsList>
 
@@ -422,6 +497,22 @@ export default function ProfilePage() {
                             <Lock className="h-8 w-8 mx-auto"/>
                             <h3 className="font-semibold text-lg text-foreground">هذا الحساب خاص</h3>
                             <p>تابع هذا الحساب لرؤية قوائم التشغيل الخاصة به.</p>
+                        </CardContent>
+                    </Card>
+                )}
+             </TabsContent>
+        )}
+        
+        {isTeacher && (
+             <TabsContent value="lessons" className="space-y-6 mt-6">
+                {canViewContent ? (
+                    <TeacherLessons teacherId={profileUser.id} />
+                ) : (
+                    <Card>
+                        <CardContent className="p-8 text-center text-muted-foreground space-y-2">
+                            <Lock className="h-8 w-8 mx-auto"/>
+                            <h3 className="font-semibold text-lg text-foreground">هذا الحساب خاص</h3>
+                            <p>تابع هذا الحساب لرؤية دروسه.</p>
                         </CardContent>
                     </Card>
                 )}
@@ -482,3 +573,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    

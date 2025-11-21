@@ -62,6 +62,23 @@ export async function getLessonsByCourseId(courseId: string): Promise<Lesson[]> 
   }
 }
 
+export async function getLessonsByTeacherId(teacherId: string): Promise<Lesson[]> {
+  const { firestore } = initializeFirebase();
+  try {
+    const lessonsQuery = query(
+      collection(firestore, 'lessons'), 
+      where('teacherId', '==', teacherId),
+      orderBy('createdAt', 'desc')
+    );
+    const querySnapshot = await getDocs(lessonsQuery);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Lesson));
+  } catch (error) {
+    console.error("Error getting lessons by teacher ID:", error);
+    return [];
+  }
+}
+
+
 export async function toggleLikeLesson(lessonId: string, isLiked: boolean): Promise<void> {
     const { auth, firestore } = initializeFirebase();
     const user = auth.currentUser;
@@ -112,3 +129,5 @@ export async function addCommentToLesson(lessonId: string, content: string, pare
 
     return docRef.id;
 }
+
+    
