@@ -71,8 +71,8 @@ export const createPost = async (input: CreatePostInput): Promise<string> => {
     privacy: input.privacy,
     commenting: input.commenting,
     background: input.background || 'default',
-    groupId: input.groupId,
     status: status,
+    ...(input.groupId && { groupId: input.groupId }),
   };
 
   const postCollectionRef = collection(firestore, 'posts');
@@ -132,7 +132,7 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     const postsCollection = collection(firestore, 'posts');
     const isOwner = profileUserId === currentUserId;
 
-    // Build the query constraints - SIMPLIFIED: only query by authorId
+    // Build the query constraints
     const q = query(postsCollection, where('authorId', '==', profileUserId));
 
     try {
@@ -168,9 +168,9 @@ export const getFeedPosts = async (
     // For non-logged-in users, show public posts from non-group contexts
     if (!userId) {
         const publicQueryConstraints: any[] = [
-            where('privacy', '==', 'followers'), 
+            where('privacy', '==', 'followers'), // Consider 'followers' as public for logged-out users
             where('status', '==', 'approved'), 
-            where('groupId', '==', null),
+            where('groupId', '==', undefined), // Explicitly check for non-group posts
             orderBy('createdAt', 'desc'),
             limit(pageSize)
         ];
@@ -194,6 +194,7 @@ export const getFeedPosts = async (
         return { posts: [], lastVisible: null, hasMore: false };
     }
     
+    // Firestore 'in' query limit is 30
     const queryableFollowingIds = followingIds.slice(0, 30);
 
     let feedQueryConstraints: any[] = [

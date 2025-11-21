@@ -116,7 +116,7 @@ function CreatePostContent() {
     setIsSaving(true);
 
     try {
-      const postId = await createPost({
+      await createPost({
         content: content.trim(),
         author: {
           name: profile.name,
@@ -199,7 +199,7 @@ function CreatePostContent() {
       <main className="flex-1 p-4 space-y-4 overflow-y-auto">
            <div className="flex items-start gap-3">
               <Avatar>
-                  <AvatarImage alt={userData.name || ''} />
+                  <AvatarImage src={userData.profilePictureUrl} alt={userData.name || ''} />
                   <AvatarFallback>{userData.name?.charAt(0)}</AvatarFallback>
               </Avatar>
               <div>
