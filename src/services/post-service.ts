@@ -201,6 +201,7 @@ export const getFeedPosts = async (
     // Pagination will now be based on document ID, but each page will be sorted by date client-side.
     let feedQueryConstraints: any[] = [
         where('authorId', 'in', queryableFollowingIds),
+        where('groupId', '==', undefined), // **CRITICAL FIX**: Only fetch posts that are NOT in a group
         // orderBy('createdAt', 'desc'), // REMOVED TO PREVENT INDEX ERROR
         limit(pageSize)
     ];
