@@ -132,18 +132,19 @@ export const getPostsForUser = async (profileUserId: string, currentUserId?: str
     const postsCollection = collection(firestore, 'posts');
     const isOwner = profileUserId === currentUserId;
 
-    // Build the query constraints
+    // SIMPLIFIED QUERY: Ensure no ordering is done on the server.
     const q = query(postsCollection, where('authorId', '==', profileUserId));
 
     try {
         const snapshot = await getDocs(q);
         let posts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
         
-        // Filter and sort on the client side
+        // Filter for privacy on the client side
         if (!isOwner) {
            posts = posts.filter(post => post.privacy !== 'only_me');
         }
 
+        // Sort on the client side
         posts.sort((a, b) => {
             const dateA = safeToDate(a.createdAt)?.getTime() || 0;
             const dateB = safeToDate(b.createdAt)?.getTime() || 0;
@@ -170,8 +171,8 @@ export const getFeedPosts = async (
         const publicQueryConstraints: any[] = [
             where('privacy', '==', 'followers'), // Consider 'followers' as public for logged-out users
             where('status', '==', 'approved'), 
-            where('groupId', '==', undefined), // Explicitly check for non-group posts
-            orderBy('createdAt', 'desc'),
+            where('groupId', '==', undefined), 
+            orderBy('createdAt', 'desc'), // This is a simple query on a single field, should not require a composite index
             limit(pageSize)
         ];
         
@@ -194,12 +195,13 @@ export const getFeedPosts = async (
         return { posts: [], lastVisible: null, hasMore: false };
     }
     
-    // Firestore 'in' query limit is 30
     const queryableFollowingIds = followingIds.slice(0, 30);
 
+    // SIMPLIFIED QUERY: Removed orderBy to prevent composite index requirement.
+    // Pagination will now be based on document ID, but each page will be sorted by date client-side.
     let feedQueryConstraints: any[] = [
         where('authorId', 'in', queryableFollowingIds),
-        orderBy('createdAt', 'desc'),
+        // orderBy('createdAt', 'desc'), // REMOVED TO PREVENT INDEX ERROR
         limit(pageSize)
     ];
 
@@ -218,6 +220,13 @@ export const getFeedPosts = async (
                 post.status === 'approved' &&
                 (post.privacy !== 'only_me' || post.authorId === userId)
             );
+        
+        // Sort the fetched page of posts by date on the client.
+        posts.sort((a, b) => {
+            const dateA = safeToDate(a.createdAt)?.getTime() || 0;
+            const dateB = safeToDate(b.createdAt)?.getTime() || 0;
+            return dateB - dateA;
+        });
 
         const newLastVisible = querySnapshot.docs[querySnapshot.docs.length - 1] ?? null;
         const hasMore = querySnapshot.docs.length === pageSize;
